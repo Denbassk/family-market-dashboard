@@ -1,0 +1,7 @@
+sa-key.json
+*.key.json
+__pycache__/
+# ключи сервис-аккаунта BigQuery — НИКОГДА не коммитить
+credentials/
+*service-account*.json
+family-market-analytics-*.json

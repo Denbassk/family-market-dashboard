@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Family Market · Аналитика ассортимента</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--c2:#273449;--txt:#e2e8f0;--muted:#94a3b8;--line:#334155;--acc:#38bdf8;--a:#22c55e;--b:#eab308;--c:#ef4444}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt);padding:20px;max-width:1440px;margin:0 auto}
+h1{font-size:23px}.sub{color:var(--muted);font-size:13px;margin-top:3px}
+.nav{display:flex;gap:8px;margin:16px 0;border-bottom:1px solid var(--line)}
+.nav button{background:none;border:none;color:var(--muted);padding:10px 18px;font-size:15px;cursor:pointer;border-bottom:2px solid transparent}
+.nav button.on{color:#fff;border-bottom-color:var(--acc);font-weight:600}
+.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:16px}
+.ctrl{display:flex;flex-direction:column;gap:4px}.ctrl label{font-size:11px;color:var(--muted);text-transform:uppercase}
+select{background:var(--c2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:13px;min-width:180px}
+#refreshBtn{background:var(--acc);color:#03202e;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+#refreshBtn:hover{filter:brightness(1.08)}#refreshBtn:disabled{opacity:.6;cursor:default}
+.upd{margin-left:auto;font-size:12px;color:var(--muted);text-align:right}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:linear-gradient(135deg,var(--card),var(--c2));border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi .v{font-size:22px;font-weight:700;color:#fff}.kpi .t{font-size:11px;color:var(--muted);margin-top:3px;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card.full{grid-column:1/-1}
+.card h3{font-size:14px;margin-bottom:8px}.card h3 span{color:var(--muted);font-weight:400;font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-size:10.5px;text-transform:uppercase;position:sticky;top:0;background:var(--card)}
+td.l,th.l{text-align:left}.muted{color:var(--muted)}
+tbody tr:hover{background:var(--c2)}.scroll{max-height:440px;overflow:auto}
+.badge{padding:1px 7px;border-radius:6px;font-weight:600;font-size:11px}
+.bA{background:rgba(34,197,94,.2);color:#4ade80}.bB{background:rgba(234,179,8,.2);color:#facc15}.bC{background:rgba(239,68,68,.2);color:#f87171}
+.page{display:none}.page.on{display:block}
+.heat{font-variant-numeric:tabular-nums;text-align:center}
+footer{color:var(--muted);font-size:11.5px;margin-top:20px;text-align:center;border-top:1px solid var(--line);padding-top:12px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+</style></head>
+<body>
+<h1>📊 Family Market — аналитика ассортимента</h1>
+<div class="sub">Источник: <code>turnover_transactions</code> + <code>assortment_matrix_full</code> (категории/поставщики) + <code>turnover_monthly</code> (оборачиваемость) · 38 магазинов · товары вне матрицы → «Прочее»</div>
+
+<div class="nav">
+  <button data-p="overview" class="on">1 · Обзор</button>
+  <button data-p="analytics">2 · Аналитика</button>
+  <button data-p="moves">3 · Перемещения</button>
+</div>
+
+<div class="bar">
+  <div class="ctrl"><label>Магазин</label><select id="storeSel"></select></div>
+  <div class="ctrl"><label>Категория</label><select id="catSel"></select></div>
+  <div class="ctrl"><label>&nbsp;</label><button id="refreshBtn" title="Запустить пересборку данных через GitHub Actions">🔄 Обновить сейчас</button></div>
+  <div class="upd" id="upd">загрузка…</div>
+</div>
+
+<!-- ===== СТРАНИЦА 1: ОБЗОР ===== -->
+<div class="page on" id="p_overview">
+  <div class="kpis" id="kpis"></div>
+  <div class="grid">
+    <div class="card full"><h3>Динамика выручки и прибыли по месяцам <span>(₴)</span></h3><div id="o_dyn" style="height:320px"></div></div>
+    <div class="card"><h3>Топ-15 категорий по выручке <span>(цвет — маржа %)</span></h3><div id="o_cat" style="height:440px"></div></div>
+    <div class="card"><h3>Выручка по магазинам <span>(топ-20)</span></h3><div id="o_store" style="height:440px"></div></div>
+    <div class="card full"><h3>Категории — сводка <span>(отсортировано по выручке)</span></h3>
+      <div class="scroll"><table id="o_cattab"><thead><tr><th class="l">Категория</th><th>Выручка ₴</th><th>Прибыль ₴</th><th>Маржа %</th><th>SKU</th><th>Точек</th></tr></thead><tbody></tbody></table></div></div>
+  </div>
+</div>
+
+<!-- ===== СТРАНИЦА 2: АНАЛИТИКА ===== -->
+<div class="page" id="p_analytics">
+  <div class="grid">
+    <div class="card"><h3>ABC-анализ товаров <span>(A=80% / B=15% / C=5% выручки)</span></h3><div id="a_abc" style="height:300px"></div>
+      <div id="a_abctxt" class="sub" style="margin-top:8px"></div></div>
+    <div class="card"><h3>Оборачиваемость по категориям <span>(продажи / ср.остаток, топ-15)</span></h3><div id="a_turn" style="height:340px"></div></div>
+
+    <div class="card"><h3>Маржа по категориям <span>(размер точки — выручка)</span></h3><div id="a_margin" style="height:340px"></div></div>
+    <div class="card"><h3>Оборачиваемость по магазинам <span>(выше = быстрее)</span></h3><div id="a_turnstore" style="height:340px"></div></div>
+
+    <div class="card full"><h3>Рейтинг магазинов <span>(выручка, маржа, ассортимент, оборачиваемость)</span></h3>
+      <div class="scroll"><table id="a_stores"><thead><tr><th>#</th><th class="l">Магазин</th><th>Выручка ₴</th><th>Прибыль ₴</th><th>Маржа %</th><th>Категорий</th><th>SKU</th><th>Оборач.</th></tr></thead><tbody></tbody></table></div></div>
+
+    <div class="card full"><h3>Поставщики: вклад и зависимость <span>(топ-20; доля в обороте)</span></h3>
+      <div class="scroll"><table id="a_sup"><thead><tr><th>#</th><th class="l">Поставщик</th><th>Выручка ₴</th><th>Доля %</th><th>Маржа %</th><th>Категорий</th><th>SKU</th></tr></thead><tbody></tbody></table></div></div>
+
+    <div class="card full"><h3>Покрытие: категории × магазины <span>(доля магазина в выручке категории; пусто = ассортиментная дыра)</span></h3>
+      <div class="scroll" id="a_cov"></div></div>
+
+    <div class="card"><h3>Неликвиды: замороженный капитал по магазинам <span>(остаток есть, продаж 90 дней нет)</span></h3><div id="a_dead" style="height:360px"></div></div>
+    <div class="card"><h3>Кросс-продажи: топ пары категорий <span>(в одном чеке)</span></h3><div id="a_cross" style="height:360px"></div></div>
+
+    <div class="card"><h3>Списания по магазинам <span>(2026, ₴ по себестоимости)</span></h3><div id="a_wo" style="height:320px"></div></div>
+    <div class="card"><h3>Топ списываемых товаров <span>(₴)</span></h3><div class="scroll" style="max-height:320px"><table id="a_wotop"><thead><tr><th class="l">Товар</th><th>Сумма ₴</th><th>Кол-во</th></tr></thead><tbody></tbody></table></div></div>
+  </div>
+</div>
+
+<!-- ===== СТРАНИЦА 3: ПЕРЕМЕЩЕНИЯ ===== -->
+<div class="page" id="p_moves">
+  <div class="kpis" id="m_kpis"></div>
+  <div class="grid">
+    <div class="card full"><h3>Рекомендации по перемещению <span>(товар лежит без продаж в доноре, но активно продаётся у получателя; отсортировано по спросу получателя)</span></h3>
+      <div class="scroll" style="max-height:600px"><table id="m_tab"><thead><tr><th>#</th><th class="l">Товар</th><th class="l">Донор (откуда)</th><th>Остаток</th><th class="l">Получатель (куда)</th><th>Продажи 90д</th><th>Остаток</th><th>Ценность ₴</th></tr></thead><tbody></tbody></table></div></div>
+  </div>
+</div>
+
+<footer id="foot">Расчёты в BigQuery. Выручка = Σ(кол-во×розн.цена). Оборачиваемость = продажи/ср.остаток (turnover_monthly).</footer>
+
+<script>
+const GH_OWNER="__GH_OWNER__", GH_REPO="__GH_REPO__", GH_WORKFLOW="update.yml";
+let D=null, state={store:'all',cat:'all',page:'overview'};
+const L={paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',font:{color:'#e2e8f0'},margin:{t:10,r:12,b:44,l:64},legend:{orientation:'h',y:1.14}};
+const CFG={displayModeBar:false,responsive:true};const GRID={gridcolor:'#334155',zerolinecolor:'#334155'};
+const MONTHS=['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+const fmt=n=>{n=+n||0;const s=n<0?'-':'';n=Math.abs(n);return s+(n>=1e6?(n/1e6).toFixed(2)+' млн':n>=1e3?(n/1e3).toFixed(0)+' тыс':n.toFixed(0));};
+
+async function load(){
+  const r=await fetch('full_data.json?t='+Date.now());D=await r.json();
+  document.getElementById('upd').innerHTML='обновлено: <b>'+(D.updated_at||'—')+'</b> · '+(D.year||'')+' год';
+  document.getElementById('foot').textContent='Данные за '+D.year+' · обновлено '+D.updated_at+' · GitHub Actions';
+  const ss=document.getElementById('storeSel');
+  ss.innerHTML='<option value="all">Все магазины ('+D.stores.length+')</option>'+D.stores.map(s=>`<option>${s}</option>`).join('');
+  const cats=D.by_category.map(c=>c.category);
+  document.getElementById('catSel').innerHTML='<option value="all">Все категории ('+cats.length+')</option>'+cats.map(c=>`<option>${c}</option>`).join('');
+  render();
+}
+
+// фильтрация категорий/магазинов затрагивает часть графиков; там где данных в разрезе нет — показываем агрегат
+function render(){ if(!D)return;
+  if(state.page==='overview')renderOverview();
+  else if(state.page==='analytics')renderAnalytics();
+  else renderMoves();
+}
+
+function renderOverview(){
+  const k=D.kpi;
+  // KPI (глобальные; при выборе магазина пересчёт из by_store)
+  let kpi=k;
+  if(state.store!=='all'){const s=D.by_store.find(x=>x.store===state.store);if(s)kpi={revenue:s.revenue,gp:s.gp,margin:s.margin,receipts:s.receipts,skus:s.skus,cats:s.cats,suppliers:'—',stores:1};}
+  document.getElementById('kpis').innerHTML=[
+    ['Выручка ₴',fmt(kpi.revenue)],['Прибыль ₴',fmt(kpi.gp)],['Маржа',kpi.margin+'%'],
+    ['Чеков',fmt(kpi.receipts)],['Ср.чек ₴',kpi.receipts?fmt(kpi.revenue/kpi.receipts):'—'],
+    ['SKU',fmt(kpi.skus)],['Категорий',kpi.cats]
+  ].map(([t,v])=>`<div class="kpi"><div class="v">${v}</div><div class="t">${t}</div></div>`).join('');
+
+  const m=D.monthly;
+  Plotly.react('o_dyn',[
+    {type:'bar',name:'Выручка',x:m.map(r=>MONTHS[r.mo]),y:m.map(r=>r.revenue),marker:{color:'#2563eb'}},
+    {type:'bar',name:'Прибыль',x:m.map(r=>MONTHS[r.mo]),y:m.map(r=>r.gp),marker:{color:'#22c55e'}}
+  ],Object.assign({},L,{barmode:'group',xaxis:GRID,yaxis:Object.assign({title:'₴'},GRID)}),CFG);
+
+  const cat=D.by_category.slice(0,15).slice().reverse();
+  Plotly.react('o_cat',[{type:'bar',orientation:'h',x:cat.map(c=>c.revenue),y:cat.map(c=>c.category),
+    marker:{color:cat.map(c=>c.margin),colorscale:'Viridis',colorbar:{title:'марж%',thickness:10}},
+    hovertemplate:'%{y}<br>%{x:,.0f} ₴<extra></extra>'}],
+    Object.assign({},L,{margin:{t:10,r:12,b:40,l:160},xaxis:GRID,yaxis:{automargin:true}}),CFG);
+
+  const st=D.by_store.slice(0,20).slice().reverse();
+  Plotly.react('o_store',[{type:'bar',orientation:'h',x:st.map(s=>s.revenue),y:st.map(s=>s.store),
+    marker:{color:'#14b8a6'},hovertemplate:'%{y}<br>%{x:,.0f} ₴<extra></extra>'}],
+    Object.assign({},L,{margin:{t:10,r:12,b:40,l:150},xaxis:GRID,yaxis:{automargin:true}}),CFG);
+
+  document.querySelector('#o_cattab tbody').innerHTML=D.by_category.map(c=>
+    `<tr><td class="l">${c.category}</td><td>${fmt(c.revenue)}</td><td>${fmt(c.gp)}</td><td>${c.margin}</td><td>${c.skus}</td><td>${c.stores}</td></tr>`).join('');
+}
+
+function renderAnalytics(){
+  // ABC (посчитан по ВСЕМ товарам на стороне BigQuery)
+  const abc=D.abc, cl={};abc.classes.forEach(c=>cl[c.abc]=c);
+  Plotly.react('a_abc',[{type:'scatter',mode:'lines',x:abc.curve.map(p=>p[0]),y:abc.curve.map(p=>p[1]),
+    line:{color:'#38bdf8',width:3},fill:'tozeroy',fillcolor:'rgba(56,189,248,.1)',
+    hovertemplate:'товар №%{x}<br>кумул. %{y}% выручки<extra></extra>'}],
+    Object.assign({},L,{shapes:[
+      {type:'line',x0:0,x1:abc.total_sku,y0:80,y1:80,line:{color:'#22c55e',dash:'dot',width:1}},
+      {type:'line',x0:0,x1:abc.total_sku,y0:95,y1:95,line:{color:'#eab308',dash:'dot',width:1}}],
+      xaxis:Object.assign({title:'товары (по убыв. выручки), всего '+abc.total_sku},GRID),
+      yaxis:Object.assign({title:'кумул. % выручки',range:[0,100]},GRID)}),CFG);
+  document.getElementById('a_abctxt').innerHTML=
+    `<span class="badge bA">A: ${cl.A.skus} тов.</span> ${fmt(cl.A.revenue)} ₴ (80%) &nbsp; `+
+    `<span class="badge bB">B: ${cl.B.skus}</span> ${fmt(cl.B.revenue)} ₴ (15%) &nbsp; `+
+    `<span class="badge bC">C: ${cl.C.skus}</span> ${fmt(cl.C.revenue)} ₴ (5%). `+
+    `Правило Парето: ${(cl.A.skus/abc.total_sku*100).toFixed(0)}% товаров дают 80% оборота.`;
+
+  // оборачиваемость категорий
+  const t=D.turnover.slice().sort((a,b)=>b.turnover_rate-a.turnover_rate).slice(0,15).reverse();
+  Plotly.react('a_turn',[{type:'bar',orientation:'h',x:t.map(r=>r.turnover_rate),y:t.map(r=>r.category),
+    marker:{color:t.map(r=>r.turnover_rate),colorscale:'RdYlGn'},hovertemplate:'%{y}<br>оборач. %{x}<extra></extra>'}],
+    Object.assign({},L,{margin:{t:10,r:12,b:40,l:160},xaxis:GRID,yaxis:{automargin:true}}),CFG);
+
+  // маржа vs выручка (scatter)
+  const bc=D.by_category.filter(c=>c.revenue>0);
+  Plotly.react('a_margin',[{type:'scatter',mode:'markers',x:bc.map(c=>c.revenue),y:bc.map(c=>c.margin),
+    text:bc.map(c=>c.category),marker:{size:bc.map(c=>Math.max(6,Math.sqrt(c.revenue)/70)),color:bc.map(c=>c.margin),colorscale:'RdYlGn',line:{color:'#0f172a',width:1}},
+    hovertemplate:'%{text}<br>выручка %{x:,.0f} ₴<br>маржа %{y}%<extra></extra>'}],
+    Object.assign({},L,{margin:{t:10,r:12,b:44,l:50},xaxis:Object.assign({title:'выручка ₴',type:'log'},GRID),yaxis:Object.assign({title:'маржа %'},GRID)}),CFG);
+
+  // оборачиваемость магазинов
+  const ts=D.turnover_store.slice().sort((a,b)=>a.turnover_rate-b.turnover_rate);
+  Plotly.react('a_turnstore',[{type:'bar',orientation:'h',x:ts.map(r=>r.turnover_rate),y:ts.map(r=>r.store),
+    marker:{color:ts.map(r=>r.turnover_rate),colorscale:'RdYlGn'},hovertemplate:'%{y}<br>оборач. %{x}<extra></extra>'}],
+    Object.assign({},L,{height:340,margin:{t:10,r:12,b:40,l:150},xaxis:GRID,yaxis:{automargin:true,tickfont:{size:9}}}),CFG);
+
+  // рейтинг магазинов
+  const tmap={};D.turnover_store.forEach(r=>tmap[r.store]=r.turnover_rate);
+  document.querySelector('#a_stores tbody').innerHTML=D.by_store.map((s,i)=>
+    `<tr><td>${i+1}</td><td class="l">${s.store}</td><td>${fmt(s.revenue)}</td><td>${fmt(s.gp)}</td><td>${s.margin}</td><td>${s.cats}</td><td>${s.skus}</td><td>${tmap[s.store]??'—'}</td></tr>`).join('');
+
+  // поставщики
+  const tot=D.kpi.revenue;
+  document.querySelector('#a_sup tbody').innerHTML=D.by_supplier.slice(0,20).map((s,i)=>
+    `<tr><td>${i+1}</td><td class="l">${s.supplier}</td><td>${fmt(s.revenue)}</td><td>${(s.revenue/tot*100).toFixed(1)}</td><td>${s.margin}</td><td>${s.cats}</td><td>${s.skus}</td></tr>`).join('');
+
+  // неликвиды по магазинам
+  const dead=D.dead_by_store.slice().sort((a,b)=>a.dead_value-b.dead_value);
+  Plotly.react('a_dead',[{type:'bar',orientation:'h',x:dead.map(r=>r.dead_value),y:dead.map(r=>r.store),
+    marker:{color:'#ef4444'},customdata:dead.map(r=>r.dead_skus),
+    hovertemplate:'%{y}<br>заморожено %{x:,.0f} ₴<br>%{customdata} SKU<extra></extra>'}],
+    Object.assign({},L,{margin:{t:10,r:12,b:40,l:150},xaxis:GRID,yaxis:{automargin:true,tickfont:{size:9}}}),CFG);
+
+  // кросс-продажи
+  const cr=D.cross.slice(0,15).reverse();
+  Plotly.react('a_cross',[{type:'bar',orientation:'h',x:cr.map(c=>c.cnt),y:cr.map(c=>c.c1+' + '+c.c2),
+    marker:{color:'#a855f7'},hovertemplate:'%{y}<br>%{x:,.0f} чеков<extra></extra>'}],
+    Object.assign({},L,{margin:{t:10,r:12,b:40,l:220},xaxis:GRID,yaxis:{automargin:true,tickfont:{size:9}}}),CFG);
+
+  // списания по магазинам
+  const wo=D.writeoffs_by_store.slice().sort((a,b)=>a.amount-b.amount);
+  Plotly.react('a_wo',[{type:'bar',orientation:'h',x:wo.map(r=>r.amount),y:wo.map(r=>r.store),
+    marker:{color:'#f59e0b'},hovertemplate:'%{y}<br>%{x:,.0f} ₴<extra></extra>'}],
+    Object.assign({},L,{margin:{t:10,r:12,b:40,l:150},xaxis:GRID,yaxis:{automargin:true,tickfont:{size:9}}}),CFG);
+  document.querySelector('#a_wotop tbody').innerHTML=D.writeoffs_top.map(w=>
+    `<tr><td class="l">${w.product_name}</td><td>${fmt(w.amount)}</td><td>${fmt(w.qty)}</td></tr>`).join('');
+
+  renderCoverage();
+}
+
+function renderMoves(){
+  const s=D.moves_summary;
+  const totalDead=D.dead_by_store.reduce((a,r)=>a+r.dead_value,0);
+  document.getElementById('m_kpis').innerHTML=[
+    ['Рекомендаций (топ)',fmt(s.pairs)],['Товаров к переносу',fmt(s.skus)],
+    ['Ценность выборки ₴',fmt(s.value)],['Всего заморожено ₴',fmt(totalDead)]
+  ].map(([t,v])=>`<div class="kpi"><div class="v">${v}</div><div class="t">${t}</div></div>`).join('');
+  document.querySelector('#m_tab tbody').innerHTML=D.moves.map((m,i)=>
+    `<tr><td>${i+1}</td><td class="l">${m.product}</td><td class="l">${m.donor}</td><td>${m.donor_stock}</td>`+
+    `<td class="l" style="color:#4ade80">${m.receiver}</td><td>${m.recv_sells}</td><td>${m.recv_stock}</td><td>${fmt(m.value)}</td></tr>`).join('');
+}
+
+function renderCoverage(){
+  // категории (топ-20 по выручке) × магазины: доля магазина в выручке категории
+  const cats=D.by_category.slice(0,20).map(c=>c.category);
+  const stores=D.stores;
+  const cellMap={};D.cat_store.forEach(r=>{cellMap[r.category+'|'+r.store]=r.revenue;});
+  const catTot={};D.by_category.forEach(c=>catTot[c.category]=c.revenue);
+  const cell=(cat,st)=>{const v=cellMap[cat+'|'+st];if(!v)return '<td class="muted">·</td>';
+    const share=v/catTot[cat];const t=Math.min(1,share/0.08);
+    return `<td class="heat" style="background:rgba(56,189,248,${(0.1+t*0.8).toFixed(2)});color:#fff">${(share*100).toFixed(1)}</td>`;};
+  let h='<table><thead><tr><th class="l">Категория ↓ / Магазин →</th>'+stores.map(s=>`<th style="writing-mode:vertical-rl;font-size:9px">${s}</th>`).join('')+'</tr></thead><tbody>';
+  cats.forEach(cat=>{h+=`<tr><td class="l">${cat}</td>`+stores.map(st=>cell(cat,st)).join('')+'</tr>';});
+  h+='</tbody></table>';
+  document.getElementById('a_cov').innerHTML=h;
+}
+
+document.querySelector('.nav').addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('on'));e.target.classList.add('on');
+  state.page=e.target.dataset.p;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.getElementById('p_'+state.page).classList.add('on');render();});
+document.getElementById('storeSel').addEventListener('change',e=>{state.store=e.target.value;render();});
+document.getElementById('catSel').addEventListener('change',e=>{state.cat=e.target.value;render();});
+// Кнопка ручной пересборки: вызывает workflow_dispatch. Токен запрашивается каждый раз и нигде не сохраняется.
+document.getElementById('refreshBtn').addEventListener('click',async()=>{
+  if(GH_OWNER.startsWith('__')||GH_REPO.startsWith('__')){
+    alert('Кнопка не настроена: впишите GH_OWNER и GH_REPO вверху <script> в docs/index.html.');return;}
+  const tok=prompt('Personal Access Token (scope: Actions read/write этого репозитория). Токен нигде не сохраняется:');
+  if(!tok)return;
+  const btn=document.getElementById('refreshBtn');btn.disabled=true;const old=btn.textContent;btn.textContent='Запуск…';
+  try{
+    const r=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/dispatches`,{
+      method:'POST',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+tok,'X-GitHub-Api-Version':'2022-11-28'},
+      body:JSON.stringify({ref:'main'})});
+    if(r.status===204){btn.textContent='✓ Запущено';alert('Пересборка запущена. Данные обновятся через 1–3 мин — обновите страницу.');}
+    else{const t=await r.text();btn.textContent=old;alert('Ошибка '+r.status+': '+t);}
+  }catch(e){btn.textContent=old;alert('Ошибка сети: '+e.message);}
+  finally{setTimeout(()=>{btn.disabled=false;if(btn.textContent==='Запуск…')btn.textContent=old;},2500);}
+});
+load().catch(e=>document.getElementById('upd').textContent='Ошибка загрузки: '+e.message);
+</script>
+</body></html>
