@@ -641,12 +641,10 @@ function exportTable(id){const e=EXP[id];if(!e){alert('Нет данных дл�
 document.addEventListener('click',e=>{const t=e.target;if(t.classList&&t.classList.contains('csvbtn'))exportTable(t.dataset.t);});
 // кнопка ручной пересборки данных (workflow_dispatch; токен запрашивается и нигде не сохраняется)
 $('refresh').onclick=async()=>{
-  const tok=prompt('Personal Access Token GitHub (scope: repo или actions). Токен нигде не сохраняется:');
-  if(!tok)return;const b=$('refresh');b.disabled=true;const o=b.textContent;b.textContent='Запуск…';
-  try{const r=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/update.yml/dispatches`,
-      {method:'POST',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+tok,'X-GitHub-Api-Version':'2022-11-28'},body:JSON.stringify({ref:'main'})});
-    if(r.status===204){b.textContent='✓ Запущено';alert('Пересборка запущена. Данные обновятся через 2–4 минуты, затем Cloudflare переразвернёт сайт — обновите страницу позже.');}
-    else{b.textContent=o;alert('Ошибка '+r.status+': '+(await r.text()));}}
+  const b=$('refresh');b.disabled=true;const o=b.textContent;b.textContent='Запуск…';
+  try{const r=await fetch('/api/refresh',{method:'POST'});const j=await r.json().catch(()=>({}));
+    if(r.ok&&j.ok){b.textContent='✓ Запущено';alert('Пересборка запущена. Данные обновятся через 2–4 минуты, затем сайт переразвернётся — обновите страницу чуть позже.');}
+    else{b.textContent=o;alert('Не удалось запустить обновление: '+(j.error||('HTTP '+r.status))+'\n\nЕсли ошибка про GH_REFRESH_TOKEN — нужно один раз добавить токен в настройках Cloudflare.');}}
   catch(e){b.textContent=o;alert('Ошибка сети: '+e.message);}
   finally{setTimeout(()=>{b.disabled=false;if(b.textContent==='Запуск…')b.textContent=o;},3000);}};
 load().catch(e=>$('upd').textContent='Ошибка загрузки: '+e.message);
