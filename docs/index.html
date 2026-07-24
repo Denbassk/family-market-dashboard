@@ -34,6 +34,8 @@ select:focus,input:focus{outline:1px solid var(--acc)}
 .al-r{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.35)}
 .al-o{background:rgba(251,146,60,.10);border-color:rgba(251,146,60,.35)}
 .al-y{background:rgba(234,179,8,.10);border-color:rgba(234,179,8,.30)}
+tr.mxtotal td{background:#1b2942;font-weight:700;color:#cdd9ec;border-top:2px solid #43597d;border-bottom:2px solid #43597d}
+tr.mxtotal:hover td{background:#22304a}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;min-height:0}
 .chip{background:var(--c2);border:1px solid var(--line);border-radius:20px;padding:3px 10px 3px 11px;font-size:11.5px;display:flex;gap:7px;align-items:center}
 .chip b{color:var(--acc)}.chip span{cursor:pointer;color:var(--muted);font-weight:700}.chip span:hover{color:var(--c)}
@@ -286,32 +288,36 @@ function renderMatrix(){
   const M=D.matrix;
   if(!M||!M.rows||!M.rows.length){$('mx_tab').innerHTML='<tbody><tr><td class="l">Матрица ещё не загружена. Нажмите «Обновить данные».</td></tr></tbody>';$('mx_kpis').innerHTML='';return;}
   const H=M.cols, iSup=H.indexOf('Поставщик'),iProd=H.indexOf('Товар'),iCat=H.indexOf('Категория'),iStatus=H.indexOf('Статус');
+  const isTot=r=>(''+(r[iProd]||'')).trim().startsWith('ИТОГО');
   let rows=M.rows.filter(r=>{
     if(S.cat!=='all'&&r[iCat]!==S.cat)return false;
     if(S.sup!=='all'&&r[iSup]!==S.sup)return false;
     if(S.mxStatus&&S.mxStatus!=='all'&&statusGroup(r[iStatus])!==S.mxStatus)return false;
     if(S.q&&!(''+r[iProd]).toLowerCase().includes(S.q.toLowerCase()))return false;
     return true;});
-  const g={};M.rows.forEach(r=>{const k=statusGroup(r[iStatus]);g[k]=(g[k]||0)+1;});
+  const real=M.rows.filter(r=>!isTot(r)), g={};
+  real.forEach(r=>{const k=statusGroup(r[iStatus]);g[k]=(g[k]||0)+1;});
   kpiCards('mx_kpis',[
-    ['Всего в матрице',fmt(M.rows.length),''],
+    ['Всего в матрице',fmt(real.length),''],
     ['🟢 Прибыльные',fmt(g['Прибыльный']||0)],
     ['🔴 Кандидаты на вывод',fmt(g['Кандидат на вывод']||0)],
     ['🔵 Расширить покрытие',fmt(g['Расширить покрытие']||0)],
     ['🟡 Новинки',fmt(g['Новинка']||0)],
-    ['В выборке',fmt(rows.length)]
+    ['В выборке',fmt(rows.filter(r=>!isTot(r)).length)]
   ]);
-  $('mx_s').innerHTML=rows.length+' из '+M.rows.length+' · <span class="muted">синхр. '+(M.updated_at||'')+'</span>';
+  $('mx_s').innerHTML=rows.filter(r=>!isTot(r)).length+' из '+real.length+' · <span class="muted">синхр. '+(M.updated_at||'')+'</span>';
   const leftCols={[iSup]:1,[iProd]:1,[iCat]:1,[iStatus]:1,[H.indexOf('Решение')]:1};
   const cols=H.map((h,i)=>[h,i,leftCols[i]?'l':'']);
-  const defKey=H.indexOf('Прибыль')>=0?H.indexOf('Прибыль'):0;
-  tableSort('mx_tab',cols,rows,defKey,
-    r=>{S.q=r[iProd];$('fQ').value=r[iProd];S.abc='all';S.tab='products';syncTabs();render();setTimeout(resizeAll,30);},
+  // по умолчанию — группировка по поставщику: итоговые строки остаются разделителями в конце групп
+  if(iSup>=0)sortState['mx_tab']=sortState['mx_tab']||{key:iSup,desc:false};
+  tableSort('mx_tab',cols,rows,iSup>=0?iSup:0,
+    r=>{if(isTot(r))return;S.q=r[iProd];$('fQ').value=r[iProd];S.abc='all';S.tab='products';syncTabs();render();setTimeout(resizeAll,30);},
     r=>H.map((h,i)=>{
       if(i===iStatus)return `<td class="l" style="white-space:nowrap;color:${statusColor(r[i])};font-weight:600">${r[i]||''}</td>`;
       const l=leftCols[i]?'l':'';
       return `<td class="${l}"${l?' title="'+(''+(r[i]||'')).replace(/"/g,'&quot;')+'"':''}>${r[i]||''}</td>`;
-    }).join(''));
+    }).join(''),
+    r=>isTot(r)?'mxtotal':'');
 }
 
 function kpiCards(el,arr){$(el).innerHTML=arr.map(([t,v,d])=>`<div class="kpi"><div class="v">${v}</div><div class="t">${t}</div>${d?`<div class="d">${d}</div>`:''}</div>`).join('');}
@@ -581,7 +587,7 @@ function renderMoves(){
 
 // ---------- generic sortable table (клик по любому заголовку — сортировка, повторный клик — реверс) ----------
 const sortState={},EXP={};
-function tableSort(id,cols,rows,defKey,onRow,rowHtml){
+function tableSort(id,cols,rows,defKey,onRow,rowHtml,rowClass){
   if(!sortState[id])sortState[id]={key:defKey,desc:true};
   function build(){
     const st=sortState[id];
@@ -592,7 +598,7 @@ function tableSort(id,cols,rows,defKey,onRow,rowHtml){
       return st.desc?-r:r;});
     EXP[id]={cols,rows:sorted};
     const head='<thead><tr>'+cols.map(c=>`<th class="${c[2]==='l'?'l':''}" data-k="${c[1]}">${c[0]}${c[1]===st.key?(st.desc?' ▼':' ▲'):' ⇅'}</th>`).join('')+'</tr></thead>';
-    const body='<tbody>'+sorted.map(r=>`<tr>${rowHtml(r)}</tr>`).join('')+'</tbody>';
+    const body='<tbody>'+sorted.map(r=>`<tr class="${rowClass?rowClass(r):''}">${rowHtml(r)}</tr>`).join('')+'</tbody>';
     $(id).innerHTML=head+body;
     const tb=$(id).querySelectorAll('tbody tr');
     sorted.forEach((r,i)=>{if(onRow&&tb[i])tb[i].onclick=()=>onRow(r);});
