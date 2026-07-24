@@ -85,6 +85,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
   <button data-p="products">Позиции</button>
   <button data-p="frozen">Дефицит · неликвиды · списания</button>
   <button data-p="moves">Перемещения</button>
+  <button data-p="matrix">Матрица</button>
 </div>
 
 <div class="bar">
@@ -163,13 +164,32 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
     <div class="note" id="mv_note"></div></div>
 </div>
 
+<!-- МАТРИЦА (зеркало Google-таблицы) -->
+<div class="page" id="p_matrix">
+  <div class="kpis" id="mx_kpis"></div>
+  <div class="bar" style="margin-bottom:12px">
+    <div class="ctrl"><label>Статус</label><select id="mxStatus"></select></div>
+    <div class="legend" style="align-self:flex-end">
+      <span><i style="background:#22c55e"></i>Прибыльный</span>
+      <span><i style="background:#ef4444"></i>Кандидат на вывод</span>
+      <span><i style="background:#38bdf8"></i>Расширить покрытие</span>
+      <span><i style="background:#eab308"></i>Новинка</span>
+      <span><i style="background:#94a3b8"></i>Нет данных</span>
+    </div>
+    <button class="csvbtn" data-t="mx_tab" style="margin-left:auto;align-self:flex-end">⬇ CSV</button>
+  </div>
+  <div class="card full"><h3>Ассортиментная матрица <span id="mx_s"></span></h3>
+    <div class="note" style="margin:0 0 8px">Зеркало Google-таблицы (лист «Ассортиментная матрица (полная)»), синхронизируется при каждом обновлении данных. Статусы и логика — из таблицы. Клик по строке — карточка позиции. Сортировка — клик по заголовку.</div>
+    <div class="scroll" style="max-height:72vh"><table id="mx_tab"></table></div></div>
+</div>
+
 <footer id="foot"></footer>
 </div>
 
 <script>
 const GH_OWNER="Denbassk", GH_REPO="family-market-dashboard";
 let D=null, charts={};
-const S={store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,tab:'overview',prSel:null};
+const S={store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',tab:'overview',prSel:null};
 const MONTHS=['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
 const AX='#26324b', TXT='#93a4bd';
 
@@ -230,6 +250,7 @@ async function load(){
   $('fCat').innerHTML='<option value="all">Все категории ('+cats.length+')</option>'+cats.map(c=>`<option>${c}</option>`).join('');
   const sups=D.by_supplier.map(s=>s.supplier);
   $('fSup').innerHTML='<option value="all">Все поставщики ('+sups.length+')</option>'+sups.map(s=>`<option>${s}</option>`).join('');
+  $('mxStatus').innerHTML=['all','Прибыльный','Кандидат на вывод','Расширить покрытие','Новинка','Нет данных'].map(g=>`<option value="${g}">${g==='all'?'Все статусы':g}</option>`).join('');
   render();
 }
 
@@ -256,6 +277,41 @@ function render(){ if(!D)return; chips();
   else if(S.tab==='products')renderProducts();
   else if(S.tab==='frozen')renderFrozen();
   else if(S.tab==='moves')renderMoves();
+  else if(S.tab==='matrix')renderMatrix();
+}
+// ============ МАТРИЦА (зеркало Google-таблицы) ============
+function statusColor(s){s=s||'';if(s.includes('🟢'))return '#22c55e';if(s.includes('🔴'))return '#ef4444';if(s.includes('🔵'))return '#38bdf8';if(s.includes('🟡'))return '#eab308';return '#94a3b8';}
+function statusGroup(s){s=s||'';if(s.includes('Прибыльный'))return 'Прибыльный';if(s.includes('Кандидат на вывод'))return 'Кандидат на вывод';if(s.includes('Расширить'))return 'Расширить покрытие';if(s.includes('Новинка'))return 'Новинка';return 'Нет данных';}
+function renderMatrix(){
+  const M=D.matrix;
+  if(!M||!M.rows||!M.rows.length){$('mx_tab').innerHTML='<tbody><tr><td class="l">Матрица ещё не загружена. Нажмите «Обновить данные».</td></tr></tbody>';$('mx_kpis').innerHTML='';return;}
+  const H=M.cols, iSup=H.indexOf('Поставщик'),iProd=H.indexOf('Товар'),iCat=H.indexOf('Категория'),iStatus=H.indexOf('Статус');
+  let rows=M.rows.filter(r=>{
+    if(S.cat!=='all'&&r[iCat]!==S.cat)return false;
+    if(S.sup!=='all'&&r[iSup]!==S.sup)return false;
+    if(S.mxStatus&&S.mxStatus!=='all'&&statusGroup(r[iStatus])!==S.mxStatus)return false;
+    if(S.q&&!(''+r[iProd]).toLowerCase().includes(S.q.toLowerCase()))return false;
+    return true;});
+  const g={};M.rows.forEach(r=>{const k=statusGroup(r[iStatus]);g[k]=(g[k]||0)+1;});
+  kpiCards('mx_kpis',[
+    ['Всего в матрице',fmt(M.rows.length),''],
+    ['🟢 Прибыльные',fmt(g['Прибыльный']||0)],
+    ['🔴 Кандидаты на вывод',fmt(g['Кандидат на вывод']||0)],
+    ['🔵 Расширить покрытие',fmt(g['Расширить покрытие']||0)],
+    ['🟡 Новинки',fmt(g['Новинка']||0)],
+    ['В выборке',fmt(rows.length)]
+  ]);
+  $('mx_s').innerHTML=rows.length+' из '+M.rows.length+' · <span class="muted">синхр. '+(M.updated_at||'')+'</span>';
+  const leftCols={[iSup]:1,[iProd]:1,[iCat]:1,[iStatus]:1,[H.indexOf('Решение')]:1};
+  const cols=H.map((h,i)=>[h,i,leftCols[i]?'l':'']);
+  const defKey=H.indexOf('Прибыль')>=0?H.indexOf('Прибыль'):0;
+  tableSort('mx_tab',cols,rows,defKey,
+    r=>{S.q=r[iProd];$('fQ').value=r[iProd];S.abc='all';S.tab='products';syncTabs();render();setTimeout(resizeAll,30);},
+    r=>H.map((h,i)=>{
+      if(i===iStatus)return `<td class="l" style="white-space:nowrap;color:${statusColor(r[i])};font-weight:600">${r[i]||''}</td>`;
+      const l=leftCols[i]?'l':'';
+      return `<td class="${l}"${l?' title="'+(''+(r[i]||'')).replace(/"/g,'&quot;')+'"':''}>${r[i]||''}</td>`;
+    }).join(''));
 }
 
 function kpiCards(el,arr){$(el).innerHTML=arr.map(([t,v,d])=>`<div class="kpi"><div class="v">${v}</div><div class="t">${t}</div>${d?`<div class="d">${d}</div>`:''}</div>`).join('');}
@@ -529,10 +585,10 @@ function tableSort(id,cols,rows,defKey,onRow,rowHtml){
   if(!sortState[id])sortState[id]={key:defKey,desc:true};
   function build(){
     const st=sortState[id];
+    const toNum=v=>{if(typeof v==='number')return v;if(typeof v==='string'){const s=v.replace(/\s/g,'').replace(',','.');if(s!==''&&!isNaN(s))return +s;}return null;};
     const sorted=rows.slice().sort((a,b)=>{
-      let x=a[st.key],y=b[st.key],r;
-      const xn=(typeof x==='number'), yn=(typeof y==='number');
-      if(xn||yn)r=(+x||0)-(+y||0); else r=(''+(x??'')).localeCompare(''+(y??''),'ru');
+      let x=a[st.key],y=b[st.key],r;const nx=toNum(x),ny=toNum(y);
+      if(nx!==null&&ny!==null)r=nx-ny; else r=(''+(x??'')).localeCompare(''+(y??''),'ru');
       return st.desc?-r:r;});
     EXP[id]={cols,rows:sorted};
     const head='<thead><tr>'+cols.map(c=>`<th class="${c[2]==='l'?'l':''}" data-k="${c[1]}">${c[0]}${c[1]===st.key?(st.desc?' ▼':' ▲'):' ⇅'}</th>`).join('')+'</tr></thead>';
@@ -554,7 +610,8 @@ $('fCat').onchange=e=>{S.cat=e.target.value;S.prSel=null;render();};
 $('fSup').onchange=e=>{S.sup=e.target.value;S.prSel=null;render();};
 let qt;$('fQ').oninput=e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.value.trim();render();},250);};
 $('fOff').onchange=e=>{S.noOff=e.target.checked;S.prSel=null;render();};
-$('reset').onclick=()=>{S.store='all';S.cat='all';S.sup='all';S.q='';S.abc='all';S.noOff=false;S.prSel=null;$('fStore').value='all';$('fCat').value='all';$('fSup').value='all';$('fQ').value='';$('fOff').checked=false;render();};
+$('mxStatus').onchange=e=>{S.mxStatus=e.target.value;render();};
+$('reset').onclick=()=>{S.store='all';S.cat='all';S.sup='all';S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.prSel=null;$('fStore').value='all';$('fCat').value='all';$('fSup').value='all';$('fQ').value='';$('fOff').checked=false;if($('mxStatus'))$('mxStatus').value='all';render();};
 function resizeAll(){Object.values(charts).forEach(c=>c.resize());}
 window.addEventListener('resize',resizeAll);
 // выгрузка CSV (разделитель ; и BOM — корректно открывается в Excel с кириллицей)
