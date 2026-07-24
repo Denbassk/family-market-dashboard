@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Полный сбор данных для многостраничного дашборда по всему ассортименту."""
+"""Сбор данных для дашборда Family Market.
+ВАЖНО: категория и поставщик берутся ТОЛЬКО из assortment_matrix_full (актуальная матрица) по штрих-коду.
+Товары вне матрицы -> категория «Прочее (нет в матрице)», поставщик «(нет в матрице)».
+Для скорости/цены создаётся промежуточная таблица _dash_tx26 (один скан), по ней считаются агрегаты."""
 import os, json, datetime
 from google.cloud import bigquery
 from google.oauth2 import service_account
 
 YEAR = int(os.environ.get("REPORT_YEAR", 2026))
-OUT  = os.environ.get("OUT_PATH", os.path.join(os.path.dirname(__file__),"..","docs","full_data.json"))
+OUT  = os.environ.get("OUT_PATH", os.path.join(os.path.dirname(__file__), "..", "docs", "full_data.json"))
 
 NORM = {
  "Іскрінський 19":"Іскринський 19В","Амосова 5А":"Амосова 5А","Астрономічна 44Г":"Астрономічна 44Г",
@@ -26,116 +29,137 @@ NORM = {
  "Танкопія 16":"Танкопія 16","Шевченко 341":"Шевченко 341",
 }
 
+TT = "`family-market-analytics.family_market.turnover_transactions`"
+MX = "`family-market-analytics.family_market.assortment_matrix_full`"
+TM = "`family-market-analytics.family_market.turnover_monthly`"
+ST = "`family-market-analytics.family_market._dash_tx26`"
+
+
 def main():
     creds = service_account.Credentials.from_service_account_file(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
     client = bigquery.Client(credentials=creds, project=creds.project_id)
-    TT="`family-market-analytics.family_market.turnover_transactions`"
-    MX="`family-market-analytics.family_market.assortment_matrix_full`"
-    TM="`family-market-analytics.family_market.turnover_monthly`"
-    cases=" ".join(f"WHEN store='{k}' THEN '{v}'" for k,v in NORM.items())
-    keep="("+",".join(f"'{k}'" for k in NORM)+")"
+    cases = " ".join(f"WHEN store='{k}' THEN '{v}'" for k, v in NORM.items())
+    keep = "(" + ",".join(f"'{k}'" for k in NORM) + ")"
 
-    # база: продажи 2026 в 38 точках + категория/поставщик из матрицы (непокрытое -> Прочее)
-    base=f"""
-    WITH m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
-    tx AS (
-      SELECT CASE {cases} END store, t.barcode, t.product_name,
-        t.quantity qty, t.price_retail pr, t.price_purchase pp,
-        EXTRACT(MONTH FROM t.transaction_datetime) mo, t.transaction_id tid,
-        COALESCE(m.cat,'Прочее (нет в матрице)') category,
-        COALESCE(m.sup,'(нет в матрице)') supplier,
-        (m.barcode IS NOT NULL) in_matrix
-      FROM {TT} t LEFT JOIN m USING(barcode)
-      WHERE EXTRACT(YEAR FROM t.transaction_datetime)={YEAR} AND store IN {keep}
-    )"""
-    def run(sql): return [dict(r) for r in client.query(base+sql).result()]
+    # 1) промежуточная таблица: продажи YEAR в 38 точках + категория/поставщик из матрицы
+    client.query(f"""
+    CREATE OR REPLACE TABLE {ST} AS
+    WITH m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode)
+    SELECT CASE {cases} END AS store, t.barcode, t.product_name,
+      t.quantity qty, t.price_retail pr, t.price_purchase pp,
+      EXTRACT(MONTH FROM t.transaction_datetime) mo, t.transaction_id tid,
+      COALESCE(m.cat,'Прочее (нет в матрице)') category,
+      COALESCE(m.sup,'(нет в матрице)') supplier,
+      (m.barcode IS NOT NULL) in_matrix
+    FROM {TT} t LEFT JOIN m USING(barcode)
+    WHERE EXTRACT(YEAR FROM t.transaction_datetime)={YEAR} AND store IN {keep}
+    """).result()
 
-    out={"year":YEAR,"updated_at":datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M UTC")}
+    def run(sql): return [dict(r) for r in client.query(sql).result()]
+    out = {"year": YEAR, "updated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
 
-    out["kpi"]=run("""SELECT ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
+    out["kpi"] = run(f"""SELECT ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
       ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, COUNT(DISTINCT tid) receipts,
       COUNT(DISTINCT barcode) skus, COUNT(DISTINCT category) cats, COUNT(DISTINCT supplier) suppliers,
-      COUNT(DISTINCT store) stores FROM tx""")[0]
+      COUNT(DISTINCT store) stores, ROUND(SUM(qty),0) units,
+      ROUND(SUM(IF(NOT in_matrix, qty*pr, 0)),0) offmatrix_rev FROM {ST}""")[0]
 
-    out["monthly"]=run("""SELECT mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
-      COUNT(DISTINCT tid) receipts FROM tx GROUP BY mo ORDER BY mo""")
+    out["monthly"] = run(f"""SELECT mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
+      COUNT(DISTINCT tid) receipts FROM {ST} GROUP BY mo ORDER BY mo""")
 
-    out["by_category"]=run("""SELECT category, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
+    out["by_category"] = run(f"""SELECT category, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
       ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, ROUND(SUM(qty),0) qty,
       COUNT(DISTINCT barcode) skus, COUNT(DISTINCT store) stores
-      FROM tx GROUP BY category ORDER BY revenue DESC""")
+      FROM {ST} GROUP BY category ORDER BY revenue DESC""")
 
-    out["by_store"]=run("""SELECT store, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
+    out["by_store"] = run(f"""SELECT store, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
       ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, COUNT(DISTINCT tid) receipts,
-      COUNT(DISTINCT category) cats, COUNT(DISTINCT barcode) skus
-      FROM tx GROUP BY store ORDER BY revenue DESC""")
+      COUNT(DISTINCT category) cats, COUNT(DISTINCT barcode) skus, ROUND(SUM(qty),0) qty
+      FROM {ST} GROUP BY store ORDER BY revenue DESC""")
 
-    out["by_supplier"]=run("""SELECT supplier, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
+    out["by_supplier"] = run(f"""SELECT supplier, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
       ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin,
-      COUNT(DISTINCT barcode) skus, COUNT(DISTINCT category) cats
-      FROM tx GROUP BY supplier ORDER BY revenue DESC LIMIT 40""")
+      COUNT(DISTINCT barcode) skus, COUNT(DISTINCT category) cats, COUNT(DISTINCT store) stores
+      FROM {ST} GROUP BY supplier ORDER BY revenue DESC""")
 
-    # category x store (покрытие) — выручка
-    out["cat_store"]=run("""SELECT category, store, ROUND(SUM(qty*pr),0) revenue
-      FROM tx GROUP BY category, store""")
+    # покрытие: категория x магазин (выручка)
+    out["cat_store"] = run(f"""SELECT category, store, ROUND(SUM(qty*pr),0) revenue
+      FROM {ST} GROUP BY category, store""")
 
-    # ABC: товары по выручке (для кумуляты). Топ-300 + агрегат хвоста.
-    out["sku_abc"]=run("""SELECT product_name, category, ROUND(SUM(qty*pr),0) revenue,
-      ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty
-      FROM tx GROUP BY product_name, category ORDER BY revenue DESC LIMIT 300""")
-    out["sku_total"]=run("""SELECT COUNT(*) n, ROUND(SUM(revenue),0) rev FROM (
-      SELECT product_name, SUM(qty*pr) revenue FROM tx GROUP BY product_name)""")[0]
+    # динамика по категориям и магазинам (для фильтра по времени)
+    out["cat_month"] = run(f"""SELECT category, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp
+      FROM {ST} GROUP BY category, mo""")
+    out["store_month"] = run(f"""SELECT store, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp
+      FROM {ST} GROUP BY store, mo""")
 
-    out["stores"]=[r["store"] for r in run("SELECT store FROM tx GROUP BY store ORDER BY store")]
+    out["stores"] = [r["store"] for r in run(f"SELECT store FROM {ST} GROUP BY store ORDER BY store")]
 
-    # оборачиваемость (turnover_monthly + матрица), только 38 реальных точек
-    tmcases=" ".join(f"WHEN store='{k}' THEN '{v}'" for k,v in NORM.items())
-    # по КАТЕГОРИЯМ
-    turn_cat=f"""
-    WITH m AS (SELECT barcode, ANY_VALUE(category) cat FROM {MX} GROUP BY barcode),
-    tm AS (SELECT barcode, SUM(sales_cost) sales, SUM((start_cost+end_cost)/2) avg_stock
-           FROM {TM} WHERE year={YEAR} AND store IN {keep} GROUP BY barcode)
-    SELECT COALESCE(m.cat,'Прочее (нет в матрице)') category,
-      ROUND(SUM(tm.sales),0) sales_cost, ROUND(SUM(tm.avg_stock),0) avg_stock,
-      ROUND(SAFE_DIVIDE(SUM(tm.sales),SUM(tm.avg_stock)),2) turnover_rate
-    FROM tm LEFT JOIN m USING(barcode)
-    GROUP BY category HAVING avg_stock>0 ORDER BY sales_cost DESC"""
-    out["turnover"]=[dict(r) for r in client.query(turn_cat).result()]
+    # ПОЗИЦИИ (главный факт для drill-down) + ABC-класс, посчитанный по ВСЕМ товарам
+    out["products"] = run(f"""
+      WITH p AS (SELECT product_name, ANY_VALUE(category) c, ANY_VALUE(supplier) s,
+          SUM(qty*pr) rev, SUM((pr-pp)*qty) gp, SUM(qty) qty, COUNT(DISTINCT store) st
+        FROM {ST} GROUP BY product_name),
+      r AS (SELECT *, SUM(rev) OVER (ORDER BY rev DESC) / NULLIF(SUM(rev) OVER (),0) cum FROM p)
+      SELECT product_name p, c, s, ROUND(rev,0) rev, ROUND(gp,0) gp, ROUND(qty,0) qty, st,
+        ROUND(SAFE_DIVIDE(gp,rev)*100,1) mrg,
+        CASE WHEN cum<=0.8 THEN 'A' WHEN cum<=0.95 THEN 'B' ELSE 'C' END abc
+      FROM r ORDER BY rev DESC LIMIT 3000""")
 
-    # по МАГАЗИНАМ (агрегация по адресам с нормализацией)
-    turn_store=f"""
-    WITH tm AS (
-      SELECT CASE {tmcases} END store, SUM(sales_cost) sales, SUM((start_cost+end_cost)/2) avg_stock
-      FROM {TM} WHERE year={YEAR} AND store IN {keep} GROUP BY store)
-    SELECT store, ROUND(SUM(sales),0) sales_cost, ROUND(SUM(avg_stock),0) avg_stock,
-      ROUND(SAFE_DIVIDE(SUM(sales),SUM(avg_stock)),2) turnover_rate
-    FROM tm GROUP BY store HAVING avg_stock>0 ORDER BY turnover_rate DESC"""
-    out["turnover_store"]=[dict(r) for r in client.query(turn_store).result()]
+    # топ товаров по каждому магазину (drill магазин -> позиции)
+    out["store_top_products"] = run(f"""
+      WITH s AS (SELECT store, product_name, ANY_VALUE(category) c, ANY_VALUE(supplier) sup,
+          SUM(qty*pr) rev, SUM((pr-pp)*qty) gp, SUM(qty) qty,
+          ROW_NUMBER() OVER (PARTITION BY store ORDER BY SUM(qty*pr) DESC) rn
+        FROM {ST} GROUP BY store, product_name)
+      SELECT store, product_name p, c, sup s, ROUND(rev,0) rev, ROUND(gp,0) gp, ROUND(qty,0) qty
+      FROM s WHERE rn<=30 ORDER BY store, rev DESC""")
 
-    # ABC по всем товарам
-    out["abc"]={
-      "classes": run("""
-        , abc_sku AS (SELECT product_name, SUM(qty*pr) rev, SUM((pr-pp)*qty) gp FROM tx GROUP BY product_name),
-        abc_ranked AS (SELECT rev, gp, SUM(rev) OVER (ORDER BY rev DESC)/SUM(rev) OVER () cum FROM abc_sku)
+    # ABC — сводка по всем товарам
+    out["abc"] = {
+      "classes": run(f"""
+        WITH p AS (SELECT product_name, SUM(qty*pr) rev, SUM((pr-pp)*qty) gp FROM {ST} GROUP BY product_name),
+        r AS (SELECT rev, gp, SUM(rev) OVER (ORDER BY rev DESC)/NULLIF(SUM(rev) OVER (),0) cum FROM p)
         SELECT CASE WHEN cum<=0.8 THEN 'A' WHEN cum<=0.95 THEN 'B' ELSE 'C' END abc,
           COUNT(*) skus, ROUND(SUM(rev),0) revenue, ROUND(SUM(gp),0) gp
-        FROM abc_ranked GROUP BY abc ORDER BY abc"""),
-      "curve": [[c["rn"],c["cum_pct"]] for c in run("""
-        , abc_sku AS (SELECT product_name, SUM(qty*pr) rev FROM tx GROUP BY product_name),
-        abc_ranked AS (SELECT ROW_NUMBER() OVER (ORDER BY rev DESC) rn,
-          SUM(rev) OVER (ORDER BY rev DESC)/SUM(rev) OVER () cum, COUNT(*) OVER () n FROM abc_sku)
-        SELECT rn, ROUND(cum*100,2) cum_pct FROM abc_ranked
-        WHERE MOD(rn,GREATEST(1,CAST(CEIL(n/150) AS INT64)))=0 OR rn=1 ORDER BY rn""")],
-      "total_sku": run("SELECT COUNT(DISTINCT product_name) n FROM tx")[0]["n"],
+        FROM r GROUP BY abc ORDER BY abc"""),
+      "curve": [[c["rn"], c["cum_pct"]] for c in run(f"""
+        WITH p AS (SELECT product_name, SUM(qty*pr) rev FROM {ST} GROUP BY product_name),
+        r AS (SELECT ROW_NUMBER() OVER (ORDER BY rev DESC) rn,
+          SUM(rev) OVER (ORDER BY rev DESC)/NULLIF(SUM(rev) OVER (),0) cum, COUNT(*) OVER () n FROM p)
+        SELECT rn, ROUND(cum*100,2) cum_pct FROM r
+        WHERE MOD(rn, GREATEST(1, CAST(CEIL(n/200) AS INT64)))=0 OR rn=1 ORDER BY rn""")],
+      "total_sku": run(f"SELECT COUNT(DISTINCT product_name) n FROM {ST}")[0]["n"],
     }
 
-    json.dump(out, open(OUT,"w"), ensure_ascii=False, separators=(",",":"))
-    import os as _os
-    print("OK size:", round(_os.path.getsize(OUT)/1024,1),"KB")
-    print("KPI:", out["kpi"])
-    print("категорий:",len(out["by_category"]),"| магазинов:",len(out["stores"]),
-          "| поставщиков:",len(out["by_supplier"]),"| SKU ABC:",len(out["sku_abc"]),
-          "| оборач.категорий:",len(out["turnover"]),"| оборач.магазинов:",len(out["turnover_store"]))
+    # ОБОРАЧИВАЕМОСТЬ (turnover_monthly + категория/поставщик из матрицы)
+    tmcases = " ".join(f"WHEN store='{k}' THEN '{v}'" for k, v in NORM.items())
+    turn_base = f"""
+    WITH m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
+    tm AS (SELECT barcode, CASE {tmcases} END store, SUM(sales_cost) sales, SUM((start_cost+end_cost)/2) avg_stock
+           FROM {TM} WHERE year={YEAR} AND store IN {keep} GROUP BY barcode, store)"""
+    out["turnover"] = run(turn_base + f"""
+      SELECT COALESCE(m.cat,'Прочее (нет в матрице)') category,
+        ROUND(SUM(tm.sales),0) sales_cost, ROUND(SUM(tm.avg_stock),0) avg_stock,
+        ROUND(SAFE_DIVIDE(SUM(tm.sales),SUM(tm.avg_stock)),2) turnover_rate
+      FROM tm LEFT JOIN m USING(barcode) GROUP BY category HAVING avg_stock>0 ORDER BY sales_cost DESC""")
+    out["turnover_store"] = run(turn_base + """
+      SELECT store, ROUND(SUM(sales),0) sales_cost, ROUND(SUM(avg_stock),0) avg_stock,
+        ROUND(SAFE_DIVIDE(SUM(sales),SUM(avg_stock)),2) turnover_rate
+      FROM tm GROUP BY store HAVING avg_stock>0 ORDER BY turnover_rate DESC""")
+    out["turnover_supplier"] = run(turn_base + f"""
+      SELECT COALESCE(m.sup,'(нет в матрице)') supplier,
+        ROUND(SUM(tm.sales),0) sales_cost, ROUND(SUM(tm.avg_stock),0) avg_stock,
+        ROUND(SAFE_DIVIDE(SUM(tm.sales),SUM(tm.avg_stock)),2) turnover_rate
+      FROM tm LEFT JOIN m USING(barcode) GROUP BY supplier HAVING avg_stock>0 ORDER BY sales_cost DESC""")
 
-if __name__=="__main__":
+    json.dump(out, open(OUT, "w"), ensure_ascii=False, separators=(",", ":"))
+    import os as _os
+    print("OK size:", round(_os.path.getsize(OUT) / 1024, 1), "KB")
+    print("KPI:", out["kpi"])
+    print("категорий:", len(out["by_category"]), "| магазинов:", len(out["stores"]),
+          "| поставщиков:", len(out["by_supplier"]), "| товаров:", len(out["products"]),
+          "| оборач.кат:", len(out["turnover"]), "| оборач.пост:", len(out["turnover_supplier"]))
+
+
+if __name__ == "__main__":
     main()

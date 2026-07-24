@@ -5,3 +5,7 @@ __pycache__/
 credentials/
 *service-account*.json
 family-market-analytics-*.json
+node_modules/
+*.log
+package-lock.json
+package.json

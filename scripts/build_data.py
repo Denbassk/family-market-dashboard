@@ -13,7 +13,8 @@ p3="/tmp/page3.json"; env["OUT_PATH"]=p3
 subprocess.run([sys.executable, os.path.join(HERE,"fetch_page3.py")], check=True, env=env)
 # 3) merge
 full=json.load(open(DOCS)); p=json.load(open(p3))
-for k in ["moves","moves_summary","dead_by_store","dead_by_cat","cross","writeoffs_by_store","writeoffs_top","culinary_writeoffs"]:
+for k in ["moves","moves_summary","dead_items","dead_by_store","dead_by_cat","dead_by_supplier","dead_total",
+          "cross","cross_items","writeoffs_by_store","writeoffs_top","writeoffs_by_supplier","culinary_writeoffs"]:
     if k in p: full[k]=p[k]
 json.dump(full, open(DOCS,"w"), ensure_ascii=False, separators=(",",":"))
 print("merged -> docs/full_data.json  (moves:", len(full.get("moves",[])), ")")
