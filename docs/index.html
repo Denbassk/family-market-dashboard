@@ -34,8 +34,13 @@ select:focus,input:focus{outline:1px solid var(--acc)}
 .al-r{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.35)}
 .al-o{background:rgba(251,146,60,.10);border-color:rgba(251,146,60,.35)}
 .al-y{background:rgba(234,179,8,.10);border-color:rgba(234,179,8,.30)}
-tr.mxtotal td{background:#1b2942;font-weight:700;color:#cdd9ec;border-top:2px solid #43597d;border-bottom:2px solid #43597d}
-tr.mxtotal:hover td{background:#22304a}
+tr.mxtotal td{background:rgba(56,189,248,.16)!important;font-weight:700;color:#eaf6ff;border-top:2px solid var(--acc);border-bottom:2px solid var(--acc)}
+tr.mxtotal:hover td{background:rgba(56,189,248,.24)!important}
+/* компактная матрица — чтобы все колонки влезали без прокрутки */
+#mx_tab{font-size:11px}
+#mx_tab th,#mx_tab td{padding:3px 7px}
+#mx_tab td.l,#mx_tab th.l{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mx_tab td:nth-child(2),#mx_tab th:nth-child(2){max-width:300px}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;min-height:0}
 .chip{background:var(--c2);border:1px solid var(--line);border-radius:20px;padding:3px 10px 3px 11px;font-size:11.5px;display:flex;gap:7px;align-items:center}
 .chip b{color:var(--acc)}.chip span{cursor:pointer;color:var(--muted);font-weight:700}.chip span:hover{color:var(--c)}
@@ -198,6 +203,8 @@ const AX='#26324b', TXT='#93a4bd';
 const fmt=n=>{n=+n||0;const s=n<0?'−':'';n=Math.abs(n);return s+(n>=1e6?(n/1e6).toFixed(2)+' млн':n>=1e3?(n/1e3).toFixed(0)+' тыс':Math.round(n));};
 const fmtF=n=>{n=Math.round(+n||0);return n.toLocaleString('ru-RU').replace(/,/g,' ');};
 const fmtD=s=>{if(!s)return '';const p=(''+s).split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:s;};
+const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
 const $=id=>document.getElementById(id);
 const uniq=a=>[...new Set(a)];
 
@@ -352,9 +359,12 @@ function renderAlerts(){
   if(lowcat.length)A.push({c:'y',ic:'📊',t:`Категории с низкой маржой (&lt;8%): ${lowcat.slice(0,5).map(c=>c.category+' '+c.margin+'%').join(', ')}.`,act:()=>{}});
   if(!A.length){box.style.display='none';return;}
   box.style.display='block';
-  box.innerHTML='<h3>⚠ Требует внимания <span>авто-алерты по текущим данным · клик — открыть</span></h3>'+
-    A.map((a,i)=>`<div class="alert al-${a.c}" data-i="${i}"><span class="ic">${a.ic}</span><span>${a.t}</span><span class="x">→</span></div>`).join('');
+  const collapsed=lsGet('fm_alerts_collapsed')==='1';
+  box.innerHTML='<h3 id="al_head" style="cursor:pointer;user-select:none"><span>⚠ Требует внимания ('+A.length+')</span><span id="al_caret" class="muted" style="font-weight:400;font-size:12px">'+(collapsed?'развернуть ▸':'свернуть ▾')+'</span></h3>'+
+    '<div id="al_body" style="display:'+(collapsed?'none':'block')+'">'+
+    A.map((a,i)=>`<div class="alert al-${a.c}" data-i="${i}"><span class="ic">${a.ic}</span><span>${a.t}</span><span class="x">→</span></div>`).join('')+'</div>';
   box.querySelectorAll('.alert').forEach((el,i)=>el.onclick=A[i].act);
+  $('al_head').onclick=()=>{const b=$('al_body'),show=b.style.display==='none';b.style.display=show?'block':'none';$('al_caret').textContent=show?'свернуть ▾':'развернуть ▸';lsSet('fm_alerts_collapsed',show?'0':'1');};
 }
 
 // ============ ОБЗОР ============
