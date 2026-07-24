@@ -23,7 +23,8 @@ NORM = {
  "Небесної Сотні 14/1":"Героїв Небесної Сотні 14/1","Нескорених 33":"Нескорених 33","Нескорених 4Д":"Нескорених 4Д",
  "Ньютона 102":"Ньютона 102","Ньютона 111":"Ньютона 111","Олімпійська 9А":"Олімпійська 9А",
  "Переяславська 23":"Переяславська 23","Петра Григоренка 37":"Петра Григоренка 37",
- "Полевая 83":"Полевая 83","Полевая-Магазин":"Полевая 83","Пр-т Героїв Харкова 160":"Героїв Харкова 160",
+ "Полевая 83":"Полевая 83 (опт)","Полевая-Магазин":"Полевая 83 (опт)",  # склад/опт — помечен меткой (опт)
+ "Пр-т Героїв Харкова 160":"Героїв Харкова 160",
  "Пр-т Тракторобудiвникiв 95":"Тракторобудівників 95","Пр-т Ювілейний 67":"Ювілейний 67",
  "Роганська 130/4":"Роганська 130/4","Роганська 148":"Роганська 148","Салтівське шосе 264В":"Салтівське шосе 264В",
  "Танкопія 16":"Танкопія 16","Шевченко 341":"Шевченко 341",
@@ -48,6 +49,7 @@ def main():
     SELECT CASE {cases} END AS store, t.barcode, t.product_name,
       t.quantity qty, t.price_retail pr, t.price_purchase pp,
       EXTRACT(MONTH FROM t.transaction_datetime) mo, t.transaction_id tid,
+      DATE(t.transaction_datetime) d,
       COALESCE(m.cat,'Прочее (нет в матрице)') category,
       COALESCE(m.sup,'(нет в матрице)') supplier,
       (m.barcode IS NOT NULL) in_matrix
@@ -57,6 +59,8 @@ def main():
 
     def run(sql): return [dict(r) for r in client.query(sql).result()]
     out = {"year": YEAR, "updated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
+    per = run(f"SELECT CAST(MIN(d) AS STRING) a, CAST(MAX(d) AS STRING) b, COUNT(DISTINCT d) nd FROM {ST}")[0]
+    out["period"] = {"start": per["a"], "end": per["b"], "days": per["nd"]}
 
     out["kpi"] = run(f"""SELECT ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
       ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, COUNT(DISTINCT tid) receipts,
@@ -104,6 +108,21 @@ def main():
         ROUND(SAFE_DIVIDE(gp,rev)*100,1) mrg,
         CASE WHEN cum<=0.8 THEN 'A' WHEN cum<=0.95 THEN 'B' ELSE 'C' END abc
       FROM r ORDER BY rev DESC LIMIT 3000""")
+
+    # XYZ: стабильность спроса по месяцам (коэффициент вариации выручки). X — ровный спрос, Z — рваный/сезонный.
+    # Текущий (неполный) месяц исключаем, чтобы не занижать стабильность.
+    mx = run(f"SELECT MAX(mo) m FROM {ST}")[0]["m"] or 1
+    ncomplete = max(1, mx - 1)
+    xyz = run(f"""
+      WITH pm AS (SELECT product_name, mo, SUM(qty*pr) rev FROM {ST} WHERE mo < {mx} GROUP BY product_name, mo),
+      a AS (SELECT product_name, AVG(rev) mean, STDDEV_POP(rev) sd, COUNT(*) nmon FROM pm GROUP BY product_name)
+      SELECT product_name p, CASE
+        WHEN nmon < 0.6*{ncomplete} THEN 'Z'
+        WHEN SAFE_DIVIDE(sd,mean)<=0.4 THEN 'X'
+        WHEN SAFE_DIVIDE(sd,mean)<=0.8 THEN 'Y' ELSE 'Z' END xyz FROM a""")
+    xm = {r["p"]: r["xyz"] for r in xyz}
+    for p in out["products"]:
+        p["xyz"] = xm.get(p["p"], "—")
 
     # топ товаров по каждому магазину (drill магазин -> позиции)
     out["store_top_products"] = run(f"""
