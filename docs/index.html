@@ -4,6 +4,7 @@
 <title>Family Market · Аналитика ассортимента</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script>window.echarts||document.write('<scr'+'ipt src="https://unpkg.com/echarts@5.5.1/dist/echarts.min.js"><\/scr'+'ipt>');</script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
 :root{--bg:#0b1220;--card:#151e30;--c2:#1d2942;--txt:#e6edf7;--muted:#93a4bd;--line:#26324b;--acc:#38bdf8;
 --a:#22c55e;--b:#eab308;--c:#ef4444;--vio:#a78bfa;--orange:#fb923c}
@@ -92,6 +93,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
   <button data-p="products">Позиции</button>
   <button data-p="frozen">Дефицит · неликвиды · списания</button>
   <button data-p="moves">Перемещения</button>
+  <button data-p="culinary">Кулинария и выпечка</button>
   <button data-p="matrix">Матрица</button>
 </div>
 
@@ -114,7 +116,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
     <div class="card full"><h3>Динамика выручки и прибыли по месяцам <span id="ov_dyn_s"></span></h3><div id="ov_dyn" class="chart"></div></div>
     <div class="card"><h3>Категории по выручке <span>цвет — маржа % · клик = фильтр</span></h3><div id="ov_cat" class="chart tall"></div></div>
     <div class="card"><h3>Магазины по выручке <span>клик = фильтр</span></h3><div id="ov_store" class="chart tall"></div></div>
-    <div class="card full"><h3>Сводка по категориям <span id="ov_tab_s"></span><button class="csvbtn" data-t="ov_tab">⬇ CSV</button></h3><div class="scroll"><table id="ov_tab"></table></div></div>
+    <div class="card full"><h3>Сводка по категориям <span id="ov_tab_s"></span><button class="csvbtn" data-t="ov_tab">⬇ Excel</button></h3><div class="scroll"><table id="ov_tab"></table></div></div>
   </div>
 </div>
 
@@ -132,10 +134,10 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
     <div class="card"><h3>Маржа vs выручка по категориям <span>размер — SKU</span></h3><div id="an_margin" class="chart"></div></div>
     <div class="card"><h3>Оборачиваемость по магазинам <span>выше = быстрее</span></h3><div id="an_turnstore" class="chart"></div></div>
     <div class="card full"><h3>💰 Прибыль по категориям <span>чистая = валовая прибыль − списания · клик = фильтр</span></h3><div id="an_profit" class="chart tall"></div></div>
-    <div class="card full"><h3>🔴 Убыточные и низкомаржинальные позиции <span>маржа ≤5% или продажа ниже закупки · клик = карточка</span><button class="csvbtn" data-t="an_loss">⬇ CSV</button></h3>
+    <div class="card full"><h3>🔴 Убыточные и низкомаржинальные позиции <span>маржа ≤5% или продажа ниже закупки · клик = карточка</span><button class="csvbtn" data-t="an_loss">⬇ Excel</button></h3>
       <div class="kpis" id="an_loss_k" style="margin:4px 0"></div>
       <div class="scroll"><table id="an_loss"></table></div></div>
-    <div class="card full"><h3>Поставщики <span id="an_sup_s">клик = фильтр</span><button class="csvbtn" data-t="an_sup">⬇ CSV</button></h3><div class="scroll"><table id="an_sup"></table></div></div>
+    <div class="card full"><h3>Поставщики <span id="an_sup_s">клик = фильтр</span><button class="csvbtn" data-t="an_sup">⬇ Excel</button></h3><div class="scroll"><table id="an_sup"></table></div></div>
     <div class="card full"><h3>Покрытие: категории × магазины <span>доля магазина в выручке категории, %</span></h3><div class="scroll"><div id="an_cov"></div></div></div>
   </div>
 </div>
@@ -143,7 +145,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 <!-- ПОЗИЦИИ -->
 <div class="page" id="p_products">
   <div id="pr_drill"></div>
-  <div class="card full"><h3>Позиции <span id="pr_s"></span><button class="csvbtn" data-t="pr_tab">⬇ CSV</button></h3>
+  <div class="card full"><h3>Позиции <span id="pr_s"></span><button class="csvbtn" data-t="pr_tab">⬇ Excel</button></h3>
     <div class="scroll tall"><table id="pr_tab"></table></div>
     <div class="note"><b>ABC</b> — вклад в выручку (A=80% / B=15% / C=5%). <b>XYZ</b> — стабильность спроса: <span class="pos">X</span> ровный, <span style="color:#facc15">Y</span> колеблется, <span class="neg">Z</span> рваный/сезонный. Ориентир: <b>AX</b> — держать всегда, <b>CZ</b> — под заказ/вывод. Клик по строке — карточка позиции. Сортировка — клик по заголовку.</div>
   </div>
@@ -152,12 +154,12 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 <!-- НЕЛИКВИДЫ И СПИСАНИЯ -->
 <div class="page" id="p_frozen">
   <div class="kpis" id="fr_kpis"></div>
-  <div class="card full" style="margin-bottom:12px"><h3>⚠ Дефицит: упущенные продажи <span>продаётся, но остаток 0 · «есть в др. точках» = кандидат на перемещение, иначе — дозаказ</span><button class="csvbtn" data-t="fr_oos">⬇ CSV</button></h3>
+  <div class="card full" style="margin-bottom:12px"><h3>⚠ Дефицит: упущенные продажи <span>продаётся, но остаток 0 · «есть в др. точках» = кандидат на перемещение, иначе — дозаказ</span><button class="csvbtn" data-t="fr_oos">⬇ Excel</button></h3>
     <div class="scroll"><table id="fr_oos"></table></div></div>
   <div class="grid">
     <div class="card"><h3>Замороженный капитал по магазинам <span>остаток есть, продаж 90д нет</span></h3><div id="fr_store" class="chart tall"></div></div>
     <div class="card"><h3>Замороженный капитал по поставщикам</h3><div id="fr_sup" class="chart tall"></div></div>
-    <div class="card full"><h3>Неликвиды по позициям <span id="fr_items_s">топ по стоимости · клик = поиск позиции</span><button class="csvbtn" data-t="fr_items">⬇ CSV</button></h3>
+    <div class="card full"><h3>Неликвиды по позициям <span id="fr_items_s">топ по стоимости · клик = поиск позиции</span><button class="csvbtn" data-t="fr_items">⬇ Excel</button></h3>
       <div class="scroll"><table id="fr_items"></table></div></div>
     <div class="card"><h3>Кросс-продажи: пары товаров <span>вместе в одном чеке</span></h3><div class="scroll"><table id="fr_cross"></table></div></div>
     <div class="card"><h3>Списания: топ позиций <span>по себестоимости</span></h3><div class="scroll"><table id="fr_wo"></table></div></div>
@@ -167,9 +169,27 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 <!-- ПЕРЕМЕЩЕНИЯ -->
 <div class="page" id="p_moves">
   <div class="kpis" id="mv_kpis"></div>
-  <div class="card full"><h3>Рекомендации по перемещению <span>только между розничными точками · клик = карточка позиции</span><button class="csvbtn" data-t="mv_tab">⬇ CSV</button></h3>
+  <div class="card full"><h3>Рекомендации по перемещению <span>только между розничными точками · клик = карточка позиции</span><button class="csvbtn" data-t="mv_tab">⬇ Excel</button></h3>
     <div class="scroll tall"><table id="mv_tab"></table></div>
     <div class="note" id="mv_note"></div></div>
+</div>
+
+<!-- КУЛИНАРИЯ И ВЫПЕЧКА (собственное производство, вне матрицы) -->
+<div class="page" id="p_culinary">
+  <div class="bar" style="margin-bottom:12px">
+    <div class="ctrl"><label>Тип</label><select id="cuSub"><option value="all">Все (Кулінарія + Випічка)</option><option>Кулінарія</option><option>Випічка</option></select></div>
+    <div class="note" style="align-self:flex-end;margin:0">Собственное производство · находится по префиксам «Кулінарія»/«Випічка» · вне ассортиментной матрицы. Работают фильтры «Магазин» и «Поиск» сверху.</div>
+  </div>
+  <div class="kpis" id="cu_kpis"></div>
+  <div class="grid">
+    <div class="card"><h3>Кулінарія vs Випічка <span>по сети</span></h3><div id="cu_sub" class="chart sm"></div></div>
+    <div class="card"><h3>Динамика по месяцам <span id="cu_dyn_s"></span></h3><div id="cu_dyn" class="chart sm"></div></div>
+    <div class="card"><h3>По магазинам <span>клик = фильтр</span></h3><div id="cu_store" class="chart tall"></div></div>
+    <div class="card"><h3>Топ позиций <span>цвет — маржа · клик = детали</span></h3><div id="cu_top" class="chart tall"></div></div>
+    <div class="card full"><h3>Позиции <span id="cu_s"></span><button class="csvbtn" data-t="cu_tab">⬇ Excel</button></h3>
+      <div id="cu_drill"></div>
+      <div class="scroll tall"><table id="cu_tab"></table></div></div>
+  </div>
 </div>
 
 <!-- МАТРИЦА (зеркало Google-таблицы) -->
@@ -184,7 +204,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
       <span><i style="background:#eab308"></i>Новинка</span>
       <span><i style="background:#94a3b8"></i>Нет данных</span>
     </div>
-    <button class="csvbtn" data-t="mx_tab" style="margin-left:auto;align-self:flex-end">⬇ CSV</button>
+    <button class="csvbtn" data-t="mx_tab" style="margin-left:auto;align-self:flex-end">⬇ Excel</button>
   </div>
   <div class="card full"><h3>Ассортиментная матрица <span id="mx_s"></span></h3>
     <div class="note" style="margin:0 0 8px">Зеркало Google-таблицы (лист «Ассортиментная матрица (полная)»), синхронизируется при каждом обновлении данных. Статусы и логика — из таблицы. Клик по строке — карточка позиции. Сортировка — клик по заголовку.</div>
@@ -197,7 +217,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 <script>
 const GH_OWNER="Denbassk", GH_REPO="family-market-dashboard";
 let D=null, charts={};
-const S={store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',tab:'overview',prSel:null};
+const S={store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,tab:'overview',prSel:null};
 const MONTHS=['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
 const AX='#26324b', TXT='#93a4bd';
 
@@ -289,7 +309,66 @@ function render(){ if(!D)return; chips();
   else if(S.tab==='products')renderProducts();
   else if(S.tab==='frozen')renderFrozen();
   else if(S.tab==='moves')renderMoves();
+  else if(S.tab==='culinary')renderCulinary();
   else if(S.tab==='matrix')renderMatrix();
+}
+// ============ КУЛИНАРИЯ И ВЫПЕЧКА ============
+function renderCulinary(){
+  const C=D.culinary;
+  if(!C||!C.products){$('cu_tab').innerHTML='<tbody><tr><td class="l">Нет данных по кулинарии. Нажмите «Обновить данные».</td></tr></tbody>';$('cu_kpis').innerHTML='';return;}
+  const pmap={};C.products.forEach(p=>pmap[p.p]=p);
+  const storeSel=S.store!=='all';
+  let prods;
+  if(storeSel)prods=(C.prod_store||[]).filter(r=>r.store===S.store).map(r=>{const m=pmap[r.p]||{};return {p:r.p,sub:m.sub||'',rev:r.rev,qty:r.qty,mrg:m.mrg||0,gp:Math.round(r.rev*(m.mrg||0)/100),abc:m.abc||'—',st:1};});
+  else prods=C.products.map(p=>({...p}));
+  if(S.culSub!=='all')prods=prods.filter(p=>p.sub===S.culSub);
+  if(S.q)prods=prods.filter(p=>(''+p.p).toLowerCase().includes(S.q.toLowerCase()));
+  let kpi;
+  if(!storeSel&&S.culSub==='all'&&!S.q)kpi=C.kpi;
+  else if(storeSel&&S.culSub==='all'&&!S.q){const s=(C.by_store||[]).find(x=>x.store===S.store);kpi=s?{revenue:s.revenue,gp:s.gp,margin:s.margin,units:s.qty,receipts:s.receipts,skus:prods.length}:{};}
+  else {const rev=sum(prods,x=>x.rev),gp=sum(prods,x=>x.gp||0);kpi={revenue:rev,gp:gp,margin:rev?+(gp/rev*100).toFixed(1):0,units:sum(prods,x=>x.qty),skus:prods.length};}
+  kpiCards('cu_kpis',[
+    ['Выручка ₴',fmt(kpi.revenue)],['Прибыль ₴',fmt(kpi.gp)],['Маржа',(kpi.margin||0)+'%'],
+    ['Продано, ед.',fmt(kpi.units||0)],['Чеков',kpi.receipts!=null?fmt(kpi.receipts):'—'],
+    ['Позиций',fmt(kpi.skus||prods.length)],['Доля в обороте',((kpi.revenue||0)/(D.kpi.revenue||1)*100).toFixed(1)+'%']
+  ]);
+  const bs=C.by_sub||[];
+  chart('cu_sub').setOption({tooltip:tt({trigger:'item',formatter:p=>`<b>${p.name}</b><br>${fmtF(p.value)} ₴ (${p.percent}%)`}),
+    series:[{type:'pie',radius:['45%','72%'],center:['50%','52%'],data:bs.map(s=>({name:s.sub,value:s.revenue,itemStyle:{color:s.sub==='Випічка'?'#fb923c':'#38bdf8'}})),label:{color:TXT,formatter:'{b}: {d}%'}}]},true);
+  chart('cu_sub').resize();
+  const mSrc=storeSel?(C.store_month||[]).filter(r=>r.store===S.store):(C.by_month||[]);
+  const series=agg12(mSrc.map(r=>({mo:r.mo,revenue:r.revenue,gp:r.gp}))),mos=series.map(x=>MONTHS[x[0]]);
+  $('cu_dyn_s').textContent=storeSel?S.store:'вся сеть';
+  chart('cu_dyn').setOption({grid:{...baseGrid,bottom:30},tooltip:tt({trigger:'axis',valueFormatter:v=>fmt(v)+' ₴'}),legend:{data:['Выручка','Прибыль'],textStyle:{color:TXT},top:0,right:0},xAxis:axCat(mos),yAxis:axV(),
+    series:[{name:'Выручка',type:'bar',data:series.map(x=>x[1]),itemStyle:{color:'#38bdf8',borderRadius:[4,4,0,0]},barMaxWidth:34},{name:'Прибыль',type:'line',data:series.map(x=>x[2]),smooth:true,itemStyle:{color:'#22c55e'},lineStyle:{width:3}}]},true);
+  chart('cu_dyn').resize();
+  const bst=(C.by_store||[]).slice().sort((a,b)=>b.revenue-a.revenue).slice(0,20).reverse();
+  chart('cu_store').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>`<b>${p.name}</b><br>${fmtF(p.value)} ₴`}),xAxis:axV(),yAxis:axCat(bst.map(s=>s.store)),
+    series:[{type:'bar',data:bst.map(s=>s.revenue),itemStyle:{color:'#a78bfa',borderRadius:[0,4,4,0]},barMaxWidth:16}]},true);
+  chart('cu_store').resize();chart('cu_store').off('click');chart('cu_store').on('click',p=>setFilter('store',p.name));
+  const top=prods.slice().sort((a,b)=>b.rev-a.rev).slice(0,15).reverse();
+  chart('cu_top').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>`<b>${top[p.dataIndex].p}</b><br>Выручка: ${fmtF(p.value)} ₴<br>Маржа: ${top[p.dataIndex].mrg}%`}),xAxis:axV(),yAxis:{...axCat(top.map(p=>p.p.length>26?p.p.slice(0,26)+'…':p.p)),axisLabel:{color:TXT,fontSize:10}},
+    series:[{type:'bar',data:top.map(p=>({value:p.rev,itemStyle:{color:mColor(p.mrg)}})),barMaxWidth:16}]},true);
+  chart('cu_top').resize();chart('cu_top').off('click');chart('cu_top').on('click',p=>{S.cuSel=top[p.dataIndex].p;render();});
+  $('cu_drill').innerHTML=S.cuSel?cuCard(S.cuSel):'';
+  const tot=kpi.revenue||1, ws=prods.map(p=>({...p,share:+(p.rev/tot*100).toFixed(2)}));
+  $('cu_s').textContent=prods.length+' позиций';
+  const cols=[['Товар','p','l'],['Тип','sub','l'],['Выручка ₴','rev'],['Доля %','share'],['Прибыль ₴','gp'],['Маржа %','mrg'],['Продано','qty'],['Точек','st'],['ABC','abc']];
+  tableSort('cu_tab',cols,ws,'rev',r=>{S.cuSel=r.p;render();},
+    r=>`<td class="l" title="${r.p}">${r.p}</td><td class="l muted">${r.sub}</td><td>${fmtF(r.rev)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.gp)}</td><td>${r.mrg}</td><td>${fmtF(r.qty)}</td><td>${r.st||'—'}</td><td><span class="badge b${r.abc}">${r.abc}</span></td>`);
+}
+function cuCard(name){
+  const C=D.culinary,p=(C.products||[]).find(x=>x.p===name),ps=(C.prod_store||[]).filter(r=>r.p===name).sort((a,b)=>b.rev-a.rev);
+  if(!p)return '';
+  return `<div class="drill"><h4>${name} <span class="btn" style="float:right;padding:3px 9px" onclick="S.cuSel=null;render()">✕ закрыть</span></h4>
+    <div class="dgrid">
+      <div class="dstat"><div class="v">${fmt(p.rev)}</div><div class="t">Выручка ₴</div></div>
+      <div class="dstat"><div class="v">${fmt(p.gp)}</div><div class="t">Прибыль ₴</div></div>
+      <div class="dstat"><div class="v">${p.mrg}%</div><div class="t">Маржа</div></div>
+      <div class="dstat"><div class="v">${fmt(p.qty)}</div><div class="t">Продано, ед.</div></div>
+      <div class="dstat"><div class="v">${p.st}</div><div class="t">В точках</div></div>
+      <div class="dstat"><div class="v">${p.sub}</div><div class="t">Тип</div></div></div>
+    <div class="note">Топ-точки по продажам: ${ps.slice(0,8).map(s=>s.store+' ('+fmt(s.rev)+')').join(', ')}.</div></div>`;
 }
 // ============ МАТРИЦА (зеркало Google-таблицы) ============
 function statusColor(s){s=s||'';if(s.includes('🟢'))return '#22c55e';if(s.includes('🔴'))return '#ef4444';if(s.includes('🔵'))return '#38bdf8';if(s.includes('🟡'))return '#eab308';return '#94a3b8';}
@@ -463,7 +542,7 @@ function renderDeep(dim,val){
       ${hasDyn?`<div class="card full"><h3>Динамика выручки и прибыли <span>${val}</span></h3><div id="and_dyn" class="chart"></div></div>`:''}
       <div class="card"><h3>Топ-15 позиций <span>цвет — маржа · клик = карточка</span></h3><div id="and_top" class="chart tall"></div></div>
       <div class="card"><h3>${secTitle} <span>клик = фильтр</span></h3><div id="and_break" class="chart tall"></div></div>
-      <div class="card full"><h3>Позиции разреза <span>${w.length}</span><button class="csvbtn" data-t="and_tab">⬇ CSV</button></h3>
+      <div class="card full"><h3>Позиции разреза <span>${w.length}</span><button class="csvbtn" data-t="and_tab">⬇ Excel</button></h3>
         <div class="scroll tall"><table id="and_tab"></table></div></div>
     </div>`;
   if(hasDyn){
@@ -704,17 +783,33 @@ let st;$('fSup').oninput=e=>{clearTimeout(st);st=setTimeout(()=>{const v=e.targe
 let qt;$('fQ').oninput=e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.value.trim();render();},250);};
 $('fOff').onchange=e=>{S.noOff=e.target.checked;S.prSel=null;render();};
 $('mxStatus').onchange=e=>{S.mxStatus=e.target.value;render();};
-$('reset').onclick=()=>{S.store='all';S.cat='all';S.sup='all';S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.prSel=null;$('fStore').value='all';$('fCat').value='';$('fSup').value='';$('fQ').value='';$('fOff').checked=false;if($('mxStatus'))$('mxStatus').value='all';render();};
+$('cuSub').onchange=e=>{S.culSub=e.target.value;S.cuSel=null;render();};
+$('reset').onclick=()=>{S.store='all';S.cat='all';S.sup='all';S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.culSub='all';S.cuSel=null;S.prSel=null;$('fStore').value='all';$('fCat').value='';$('fSup').value='';$('fQ').value='';$('fOff').checked=false;if($('mxStatus'))$('mxStatus').value='all';if($('cuSub'))$('cuSub').value='all';render();};
 function resizeAll(){Object.values(charts).forEach(c=>c.resize());}
 window.addEventListener('resize',resizeAll);
 // выгрузка CSV (разделитель ; и BOM — корректно открывается в Excel с кириллицей)
-function csvEsc(v){v=(v==null?'':''+v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
-function exportTable(id){const e=EXP[id];if(!e){alert('Нет данных для выгрузки');return;}
-  const head=e.cols.map(c=>csvEsc(c[0])).join(';');
-  const body=e.rows.map(r=>e.cols.map(c=>csvEsc(r[c[1]])).join(';')).join('\n');
-  const blob=new Blob(['﻿'+head+'\n'+body],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='family_'+id+'_'+(D&&D.period?D.period.end:'')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+function toNumX(v){if(typeof v==='number')return v;if(typeof v==='string'){const s=v.replace(/\s/g,'').replace(',','.');if(s!==''&&!isNaN(s))return +s;}return null;}
+async function exportTable(id){
+  const e=EXP[id];if(!e){alert('Нет данных для выгрузки');return;}
+  if(typeof ExcelJS==='undefined'){alert('Библиотека Excel не загрузилась — проверьте интернет и обновите страницу.');return;}
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Отчёт',{views:[{state:'frozen',ySplit:1}]});
+  ws.columns=e.cols.map(c=>({header:c[0],key:String(c[1]),width:c[2]==='l'?42:15}));
+  const hr=ws.getRow(1);hr.height=24;
+  hr.eachCell(cell=>{cell.font={bold:true,color:{argb:'FFFFFFFF'}};cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1E293B'}};cell.border={bottom:{style:'thin',color:{argb:'FF94A3B8'}}};});
+  e.rows.forEach(r=>{
+    const o={};
+    e.cols.forEach(c=>{const raw=r[c[1]];const isText=c[2]==='l';const n=isText?null:toNumX(raw);o[String(c[1])]=(n!==null?n:(raw==null?'':raw));});
+    const row=ws.addRow(o);
+    e.cols.forEach((c,i)=>{const cell=row.getCell(i+1);const isText=c[2]==='l';
+      cell.alignment={horizontal:isText?'left':'center',vertical:'middle'};
+      if(!isText&&typeof cell.value==='number')cell.numFmt='#,##0.##';});
+  });
+  ws.autoFilter={from:{row:1,column:1},to:{row:1,column:e.cols.length}};
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='family_'+id+'_'+(D&&D.period?D.period.end:'')+'.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
 document.addEventListener('click',e=>{const t=e.target;if(t.classList&&t.classList.contains('csvbtn'))exportTable(t.dataset.t);});
 // кнопка ручной пересборки данных (workflow_dispatch; токен запрашивается и нигде не сохраняется)
 $('refresh').onclick=async()=>{

@@ -171,6 +171,36 @@ def main():
         ROUND(SAFE_DIVIDE(SUM(tm.sales),SUM(tm.avg_stock)),2) turnover_rate
       FROM tm LEFT JOIN m USING(barcode) GROUP BY supplier HAVING avg_stock>0 ORDER BY sales_cost DESC""")
 
+    # КУЛИНАРИЯ И ВЫПЕЧКА (собственное производство, вне матрицы — по префиксам названий)
+    CUL = "(STARTS_WITH(TRIM(product_name),'Випічка') OR STARTS_WITH(TRIM(product_name),'Кулінарія')) AND store!='Полевая 83 (опт)'"
+    SUB = "CASE WHEN STARTS_WITH(TRIM(product_name),'Випічка') THEN 'Випічка' ELSE 'Кулінарія' END"
+    cul = {}
+    cul["kpi"] = run(f"""SELECT ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
+      ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, ROUND(SUM(qty),0) units,
+      COUNT(DISTINCT barcode) skus, COUNT(DISTINCT store) stores, COUNT(DISTINCT tid) receipts
+      FROM {ST} WHERE {CUL}""")[0]
+    cul["by_sub"] = run(f"""SELECT {SUB} sub, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
+      ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, ROUND(SUM(qty),0) qty, COUNT(DISTINCT barcode) skus
+      FROM {ST} WHERE {CUL} GROUP BY sub ORDER BY revenue DESC""")
+    cul["by_month"] = run(f"""SELECT mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp
+      FROM {ST} WHERE {CUL} GROUP BY mo ORDER BY mo""")
+    cul["store_month"] = run(f"""SELECT store, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp
+      FROM {ST} WHERE {CUL} GROUP BY store, mo""")
+    cul["by_store"] = run(f"""SELECT store, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
+      ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, ROUND(SUM(qty),0) qty, COUNT(DISTINCT tid) receipts
+      FROM {ST} WHERE {CUL} GROUP BY store ORDER BY revenue DESC""")
+    cul["products"] = run(f"""
+      WITH p AS (SELECT product_name, {SUB} sub, SUM(qty*pr) rev, SUM((pr-pp)*qty) gp, SUM(qty) qty, COUNT(DISTINCT store) st
+                 FROM {ST} WHERE {CUL} GROUP BY product_name, sub),
+      r AS (SELECT *, SUM(rev) OVER (ORDER BY rev DESC)/NULLIF(SUM(rev) OVER (),0) cum FROM p)
+      SELECT product_name p, sub, ROUND(rev,0) rev, ROUND(gp,0) gp, ROUND(qty,0) qty, st,
+        ROUND(SAFE_DIVIDE(gp,rev)*100,1) mrg,
+        CASE WHEN cum<=0.8 THEN 'A' WHEN cum<=0.95 THEN 'B' ELSE 'C' END abc
+      FROM r ORDER BY rev DESC""")
+    cul["prod_store"] = run(f"""SELECT product_name p, store, ROUND(SUM(qty*pr),0) rev, ROUND(SUM(qty),0) qty
+      FROM {ST} WHERE {CUL} GROUP BY p, store""")
+    out["culinary"] = cul
+
     json.dump(out, open(OUT, "w"), ensure_ascii=False, separators=(",", ":"))
     import os as _os
     print("OK size:", round(_os.path.getsize(OUT) / 1024, 1), "KB")
