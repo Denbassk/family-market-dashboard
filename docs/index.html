@@ -120,7 +120,8 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 
 <!-- АНАЛИТИКА -->
 <div class="page" id="p_analytics">
-  <div class="grid">
+  <div id="an_deep"></div>
+  <div class="grid" id="an_overview">
     <div class="card full"><h3>ABC-анализ <span>A=80% / B=15% / C=5% выручки · кривая Парето</span></h3>
       <div class="kpis" id="an_abc_k" style="margin:6px 0"></div>
       <div id="an_abc" class="chart"></div>
@@ -424,8 +425,77 @@ function storeAgg(){
   return D.by_store.map(s=>({store:s.store,revenue:s.revenue})).sort((a,b)=>b.revenue-a.revenue);
 }
 
+// ============ ГЛУБОКИЙ РАЗРЕЗ (по выбранному срезу) ============
+function renderDeep(dim,val){
+  ['and_dyn','and_top','and_break'].forEach(id=>{if(charts[id]){charts[id].dispose();delete charts[id];}});
+  const w=workProducts(), k=kpiNow(), totalRev=D.kpi.revenue||1;
+  const label=dim==='cat'?'Категория':dim==='sup'?'Поставщик':'Магазин';
+  const fsel=dim==='cat'?'fCat':dim==='sup'?'fSup':'fStore';
+  const abcMix={A:0,B:0,C:0}, xyzMix={X:0,Y:0,Z:0};
+  w.forEach(p=>{if(abcMix[p.abc]!=null)abcMix[p.abc]++;if(xyzMix[p.xyz]!=null)xyzMix[p.xyz]++;});
+  const froz=(D.dead_items||[]).filter(r=>dim==='cat'?r.c===val:dim==='sup'?r.s===val:r.store===val);
+  const frozV=froz.reduce((a,r)=>a+r.value,0);
+  const oosN=(D.oos||[]).filter(r=>dim==='cat'?r.category===val:dim==='sup'?r.supplier===val:r.store===val).length;
+  let turn=dim==='cat'?(D.turnover||[]).find(t=>t.category===val):dim==='sup'?(D.turnover_supplier||[]).find(t=>t.supplier===val):(D.turnover_store||[]).find(t=>t.store===val);
+  const pdays=(D.period&&D.period.days)||0;
+  const turnTxt=turn?turn.turnover_rate.toFixed(2)+' об.':'—';
+  const hasDyn=dim==='cat'||dim==='store';
+  const secTitle=dim==='cat'?'Поставщики в категории':dim==='sup'?'Категории поставщика':'Категории в магазине';
+  $('an_deep').innerHTML=`
+    <div class="drill"><h4>🔎 Разрез: ${label} — ${val}
+      <span class="btn" style="float:right;padding:3px 10px" onclick="S.${dim}='all';var e=document.getElementById('${fsel}');if(e)e.value='all';S.prSel=null;render();">✕ сбросить разрез</span></h4>
+      <div class="dgrid">
+        <div class="dstat"><div class="v">${fmt(k.revenue)}</div><div class="t">Выручка ₴</div></div>
+        <div class="dstat"><div class="v">${fmt(k.gp)}</div><div class="t">Прибыль ₴</div></div>
+        <div class="dstat"><div class="v">${k.margin||0}%</div><div class="t">Маржа</div></div>
+        <div class="dstat"><div class="v">${(k.revenue/totalRev*100).toFixed(1)}%</div><div class="t">Доля в обороте</div></div>
+        <div class="dstat"><div class="v">${fmt(w.length)}</div><div class="t">Позиций</div></div>
+        <div class="dstat"><div class="v">${turnTxt}${turn&&turn.turnover_rate>0?' · '+Math.round(pdays/turn.turnover_rate)+'дн':''}</div><div class="t">Оборачиваемость</div></div>
+        <div class="dstat"><div class="v"><span class="pos">${abcMix.A}</span>/<span style="color:#facc15">${abcMix.B}</span>/<span class="neg">${abcMix.C}</span></div><div class="t">ABC (A/B/C)</div></div>
+        <div class="dstat"><div class="v"><span class="pos">${xyzMix.X}</span>/<span style="color:#facc15">${xyzMix.Y}</span>/<span class="neg">${xyzMix.Z}</span></div><div class="t">XYZ (X/Y/Z)</div></div>
+        <div class="dstat"><div class="v ${frozV>0?'neg':''}">${fmt(frozV)}</div><div class="t">Заморожено ₴</div></div>
+        <div class="dstat"><div class="v ${oosN>0?'neg':''}">${fmt(oosN)}</div><div class="t">Дефицит, поз.</div></div>
+      </div></div>
+    <div class="grid">
+      ${hasDyn?`<div class="card full"><h3>Динамика выручки и прибыли <span>${val}</span></h3><div id="and_dyn" class="chart"></div></div>`:''}
+      <div class="card"><h3>Топ-15 позиций <span>цвет — маржа · клик = карточка</span></h3><div id="and_top" class="chart tall"></div></div>
+      <div class="card"><h3>${secTitle} <span>клик = фильтр</span></h3><div id="and_break" class="chart tall"></div></div>
+      <div class="card full"><h3>Позиции разреза <span>${w.length}</span><button class="csvbtn" data-t="and_tab">⬇ CSV</button></h3>
+        <div class="scroll tall"><table id="and_tab"></table></div></div>
+    </div>`;
+  if(hasDyn){
+    const src=dim==='cat'?(D.cat_month||[]).filter(r=>r.category===val):(D.store_month||[]).filter(r=>r.store===val);
+    const series=agg12(src), mos=series.map(x=>MONTHS[x[0]]);
+    chart('and_dyn').setOption({grid:{...baseGrid,bottom:30},tooltip:tt({trigger:'axis',valueFormatter:v=>fmt(v)+' ₴'}),
+      legend:{data:['Выручка','Прибыль'],textStyle:{color:TXT},top:0,right:0},xAxis:axCat(mos),yAxis:axV(),
+      series:[{name:'Выручка',type:'bar',data:series.map(x=>x[1]),itemStyle:{color:'#38bdf8',borderRadius:[4,4,0,0]},barMaxWidth:38},
+        {name:'Прибыль',type:'line',data:series.map(x=>x[2]),smooth:true,itemStyle:{color:'#22c55e'},lineStyle:{width:3}}]},true);
+    chart('and_dyn').resize();
+  }
+  const top=w.slice().sort((a,b)=>b.rev-a.rev).slice(0,15).reverse();
+  chart('and_top').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>`<b>${top[p.dataIndex].p}</b><br>Выручка: ${fmtF(p.value)} ₴<br>Маржа: ${top[p.dataIndex].mrg}%`}),
+    xAxis:axV(),yAxis:{...axCat(top.map(p=>p.p.length>26?p.p.slice(0,26)+'…':p.p)),axisLabel:{color:TXT,fontSize:10}},
+    series:[{type:'bar',data:top.map(p=>({value:p.rev,itemStyle:{color:mColor(p.mrg)}})),barMaxWidth:16}]},true);
+  chart('and_top').resize();chart('and_top').off('click');chart('and_top').on('click',p=>{S.prSel=top[p.dataIndex].p;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);});
+  let brk=[];
+  if(dim==='cat'){const g=groupSum(w,'s',['rev']);brk=Object.entries(g).map(([n,v])=>({name:n,rev:v.rev}));}
+  else if(dim==='sup'){const g=groupSum(w,'c',['rev']);brk=Object.entries(g).map(([n,v])=>({name:n,rev:v.rev}));}
+  else {const m={};(D.cat_store||[]).filter(r=>r.store===val).forEach(r=>m[r.category]=(m[r.category]||0)+r.revenue);brk=Object.entries(m).map(([n,rev])=>({name:n,rev}));}
+  brk=brk.sort((a,b)=>b.rev-a.rev).slice(0,15).reverse();
+  chart('and_break').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>`<b>${p.name}</b><br>${fmtF(p.value)} ₴`}),
+    xAxis:axV(),yAxis:axCat(brk.map(b=>b.name)),
+    series:[{type:'bar',data:brk.map(b=>b.rev),itemStyle:{color:'#a78bfa',borderRadius:[0,4,4,0]},barMaxWidth:16}]},true);
+  chart('and_break').resize();chart('and_break').off('click');
+  chart('and_break').on('click',p=>{if(dim==='cat')setFilter('sup',p.name);else setFilter('cat',p.name);});
+  const cols=[['Товар','p','l'],['Категория','c','l'],['Поставщик','s','l'],['Выручка ₴','rev'],['Прибыль ₴','gp'],['Маржа %','mrg'],['Кол-во','qty'],['ABC','abc'],['XYZ','xyz']];
+  tableSort('and_tab',cols,w,'rev',r=>{S.prSel=r.p;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);},
+    r=>`<td class="l" title="${r.p}">${r.p}</td><td class="l muted">${r.c}</td><td class="l muted">${r.s}</td><td>${fmtF(r.rev)}</td><td>${fmtF(r.gp)}</td><td>${r.mrg}</td><td>${fmtF(r.qty)}</td><td><span class="badge b${r.abc}">${r.abc}</span></td><td>${r.xyz||'—'}</td>`);
+}
 // ============ АНАЛИТИКА ============
 function renderAnalytics(){
+  const focus=S.cat!=='all'?['cat',S.cat]:(S.sup!=='all'?['sup',S.sup]:(S.store!=='all'?['store',S.store]:null));
+  if(focus){$('an_overview').style.display='none';$('an_deep').style.display='block';renderDeep(focus[0],focus[1]);return;}
+  $('an_deep').style.display='none';$('an_overview').style.display='grid';
   const cl={};(D.abc.classes||[]).forEach(c=>cl[c.abc]=c);const tot=D.abc.total_sku||0;
   kpiCards('an_abc_k',[
     ['Класс A (80%)',(cl.A?.skus||0)+' SKU',fmt(cl.A?.revenue)+' ₴'],
