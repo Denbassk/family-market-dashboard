@@ -98,6 +98,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 </div>
 
 <div class="bar">
+  <div class="ctrl"><label>Месяц</label><select id="fMonth"></select></div>
   <div class="ctrl"><label>Магазин</label><select id="fStore"></select></div>
   <div class="ctrl"><label>Категория</label><input id="fCat" list="catList" placeholder="все — поиск/выбор" autocomplete="off"><datalist id="catList"></datalist></div>
   <div class="ctrl"><label>Поставщик</label><input id="fSup" list="supList" placeholder="все — поиск/выбор" autocomplete="off"><datalist id="supList"></datalist></div>
@@ -161,8 +162,8 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
     <div class="card"><h3>Замороженный капитал по поставщикам</h3><div id="fr_sup" class="chart tall"></div></div>
     <div class="card full"><h3>Неликвиды по позициям <span id="fr_items_s">топ по стоимости · клик = поиск позиции</span><button class="csvbtn" data-t="fr_items">⬇ Excel</button></h3>
       <div class="scroll"><table id="fr_items"></table></div></div>
-    <div class="card"><h3>Кросс-продажи: пары товаров <span>вместе в одном чеке</span></h3><div class="scroll"><table id="fr_cross"></table></div></div>
-    <div class="card"><h3>Списания: топ позиций <span>по себестоимости</span></h3><div class="scroll"><table id="fr_wo"></table></div></div>
+    <div class="card"><h3>Кросс-продажи: пары товаров <span>вместе в одном чеке</span><button class="csvbtn" data-t="fr_cross">⬇ Excel</button></h3><div class="scroll"><table id="fr_cross"></table></div></div>
+    <div class="card"><h3>Списания: топ позиций <span>по себестоимости</span><button class="csvbtn" data-t="fr_wo">⬇ Excel</button></h3><div class="scroll"><table id="fr_wo"></table></div></div>
   </div>
 </div>
 
@@ -217,7 +218,9 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 <script>
 const GH_OWNER="Denbassk", GH_REPO="family-market-dashboard";
 let D=null, charts={};
-const S={store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,tab:'overview',prSel:null};
+const S={month:'all',store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,tab:'overview',prSel:null};
+function monthSel(){return S.month&&S.month!=='all';}
+function monthN(){return +S.month;}
 const MONTHS=['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
 const AX='#26324b', TXT='#93a4bd';
 
@@ -231,7 +234,13 @@ const uniq=a=>[...new Set(a)];
 
 // ---------- рабочий набор позиций под текущий фильтр ----------
 function workProducts(){
-  let base = S.store==='all' ? D.products : (D.store_top_products||[]).filter(r=>r.store===S.store);
+  let base;
+  if(monthSel()){
+    const m=monthN(), meta={};(D.products||[]).forEach(p=>meta[p.p]=p);
+    base=(D.prod_month||[]).filter(r=>r.mo===m).map(r=>{const d=meta[r.p]||{};return {p:r.p,c:d.c||'Прочее (нет в матрице)',s:d.s||'(нет в матрице)',rev:r.rev,gp:r.gp,qty:r.qty,st:d.st,mrg:r.rev?+(r.gp/r.rev*100).toFixed(1):0,abc:d.abc,xyz:d.xyz};});
+  } else {
+    base = S.store==='all' ? D.products : (D.store_top_products||[]).filter(r=>r.store===S.store);
+  }
   if(S.cat!=='all') base=base.filter(r=>r.c===S.cat);
   if(S.sup!=='all') base=base.filter(r=>r.s===S.sup);
   if(S.abc&&S.abc!=='all') base=base.filter(r=>(r.abc||'')===S.abc);
@@ -244,13 +253,16 @@ function groupSum(a,key,fields){const m={};for(const x of a){const k=x[key];if(!
 
 // точные KPI для одиночного фильтра, иначе — из позиций (приближённо)
 function kpiNow(){
-  const one=(a,b,c)=>[S.store,S.cat,S.sup].filter(x=>x!=='all').length;
-  const nf=one();
-  if(nf===0 && !S.q) return {...D.kpi, exact:true};
-  if(nf===1 && !S.q){
-    if(S.store!=='all'){const r=D.by_store.find(x=>x.store===S.store);if(r)return {...r,exact:true};}
-    if(S.cat!=='all'){const r=D.by_category.find(x=>x.category===S.cat);if(r)return {...r,exact:true};}
-    if(S.sup!=='all'){const r=D.by_supplier.find(x=>x.supplier===S.sup);if(r)return {...r,exact:true};}
+  const m=monthSel()?monthN():null;
+  const nf=[S.store,S.cat,S.sup].filter(x=>x!=='all').length;
+  const mk=r=>({revenue:(r&&r.revenue)||0,gp:(r&&r.gp)||0,margin:(r&&r.revenue)?+((r.gp/r.revenue)*100).toFixed(1):0,receipts:r?r.receipts:undefined,exact:true});
+  if(!S.q){
+    if(nf===0){ if(m)return mk((D.monthly||[]).find(x=>x.mo===m)); return {...D.kpi,exact:true}; }
+    if(nf===1){
+      if(S.store!=='all'){ if(m)return mk((D.store_month||[]).find(x=>x.store===S.store&&x.mo===m)); const r=D.by_store.find(x=>x.store===S.store);if(r)return {...r,exact:true}; }
+      if(S.cat!=='all'){ if(m)return mk((D.cat_month||[]).find(x=>x.category===S.cat&&x.mo===m)); const r=D.by_category.find(x=>x.category===S.cat);if(r)return {...r,exact:true}; }
+      if(S.sup!=='all'){ if(m)return mk((D.supplier_month||[]).find(x=>x.supplier===S.sup&&x.mo===m)); const r=D.by_supplier.find(x=>x.supplier===S.sup);if(r)return {...r,exact:true}; }
+    }
   }
   const w=workProducts();
   const rev=sum(w,x=>x.rev),gp=sum(w,x=>x.gp),qty=sum(w,x=>x.qty);
@@ -276,6 +288,7 @@ async function load(){
   $('prodList').innerHTML=(D.products||[]).slice(0,2000).map(p=>`<option value="${(p.p||'').replace(/"/g,'&quot;')}"></option>`).join('');
   // фильтры
   $('fStore').innerHTML='<option value="all">Все магазины ('+D.stores.length+')</option>'+D.stores.map(s=>`<option>${s}</option>`).join('');
+  $('fMonth').innerHTML='<option value="all">Весь период</option>'+(D.monthly||[]).map(m=>`<option value="${m.mo}">${MONTHS[m.mo]} ${D.year||''}</option>`).join('');
   const cats=D.by_category.map(c=>c.category);
   $('catList').innerHTML=cats.map(c=>`<option value="${(c||'').replace(/"/g,'&quot;')}"></option>`).join('');
   $('fCat').placeholder='все категории ('+cats.length+') — поиск';
@@ -289,6 +302,7 @@ async function load(){
 function setFilter(k,v){S[k]=v; if(k==='store')$('fStore').value=v; if(k==='cat')$('fCat').value=(v==='all'?'':v); if(k==='sup')$('fSup').value=(v==='all'?'':v); S.prSel=null; render();}
 function chips(){
   const c=[]; const mk=(lbl,val,key)=>`<div class="chip">${lbl}: <b>${val}</b><span data-k="${key}">✕</span></div>`;
+  if(S.month!=='all')c.push(mk('Месяц',(MONTHS[+S.month]||S.month),'month'));
   if(S.store!=='all')c.push(mk('Магазин',S.store,'store'));
   if(S.cat!=='all')c.push(mk('Категория',S.cat,'cat'));
   if(S.sup!=='all')c.push(mk('Поставщик',S.sup,'sup'));
@@ -299,7 +313,7 @@ function chips(){
   $('chips').querySelectorAll('span').forEach(s=>s.onclick=()=>{const k=s.dataset.k;
     if(k==='q'){S.q='';$('fQ').value='';}
     else if(k==='noOff'){S.noOff=false;const o=$('fOff');if(o)o.checked=false;}
-    else{S[k]='all';const sel=$('f'+({store:'Store',cat:'Cat',sup:'Sup'}[k]));if(sel)sel.value=(k==='store'?'all':'');}
+    else{S[k]='all';const sel=$('f'+({store:'Store',cat:'Cat',sup:'Sup',month:'Month'}[k]));if(sel)sel.value=((k==='store'||k==='month')?'all':'');}
     render();});
 }
 
@@ -495,13 +509,19 @@ function renderOverview(){
 function agg12(rows){const m={};rows.forEach(r=>{m[r.mo]=m[r.mo]||[r.mo,0,0];m[r.mo][1]+=r.revenue;m[r.mo][2]+=r.gp;});return Object.values(m).sort((a,b)=>a[0]-b[0]);}
 // агрегат категорий под фильтр
 function catAgg(){
-  if(S.store==='all'&&S.sup==='all'&&!S.q) return D.by_category.filter(c=>S.cat==='all'||c.category===S.cat);
+  if(monthSel()&&S.store==='all'&&S.sup==='all'&&!S.q){
+    const m=monthN();
+    return (D.cat_month||[]).filter(r=>r.mo===m&&(S.cat==='all'||r.category===S.cat))
+      .map(r=>({category:r.category,revenue:r.revenue,gp:r.gp,margin:r.revenue?+(r.gp/r.revenue*100).toFixed(1):0})).sort((a,b)=>b.revenue-a.revenue);
+  }
+  if(!monthSel()&&S.store==='all'&&S.sup==='all'&&!S.q) return D.by_category.filter(c=>S.cat==='all'||c.category===S.cat);
   const g=groupSum(workProducts(),'c',['rev','gp','qty']);
   return Object.entries(g).map(([category,v])=>({category,revenue:v.rev,gp:v.gp,qty:v.qty,margin:v.rev?+(v.gp/v.rev*100).toFixed(1):0,
     skus:workProducts().filter(x=>x.c===category).length})).sort((a,b)=>b.revenue-a.revenue);
 }
 // агрегат магазинов под фильтр
 function storeAgg(){
+  if(monthSel()&&S.cat==='all'){const mo=monthN();return (D.store_month||[]).filter(r=>r.mo===mo).map(r=>({store:r.store,revenue:r.revenue})).sort((a,b)=>b.revenue-a.revenue);}
   if(S.cat!=='all'){const m={};D.cat_store.filter(r=>r.category===S.cat).forEach(r=>m[r.store]=(m[r.store]||0)+r.revenue);
     return Object.entries(m).map(([store,revenue])=>({store,revenue})).sort((a,b)=>b.revenue-a.revenue);}
   return D.by_store.map(s=>({store:s.store,revenue:s.revenue})).sort((a,b)=>b.revenue-a.revenue);
@@ -596,7 +616,7 @@ function renderAnalytics(){
     series:[{type:'line',data:cur,smooth:true,showSymbol:false,lineStyle:{width:3,color:'#38bdf8'},areaStyle:{color:'rgba(56,189,248,.12)'},
       markLine:{silent:true,symbol:'none',data:[{yAxis:80,lineStyle:{color:'#22c55e'},label:{formatter:'A · 80%',color:'#4ade80'}},{yAxis:95,lineStyle:{color:'#eab308'},label:{formatter:'B · 95%',color:'#facc15'}}]}}]},true);
   const paretoPct=cl.A?Math.round(cl.A.skus/tot*100):0;
-  $('an_abc_note').innerHTML=`<b>Как читать:</b> товары отсортированы по убыванию выручки. Класс <b class="pos">A</b> — ${cl.A?.skus||0} позиций дают 80% выручки (правило Парето: всего ${paretoPct}% ассортимента). Класс <b style="color:#facc15">B</b> — следующие 15%, класс <b class="neg">C</b> — «длинный хвост» (${cl.C?.skus||0} позиций, лишь 5% выручки — кандидаты на вывод). Список конкретных позиций с классом — на вкладке «Позиции». Товары вне матрицы попадают в категорию «Прочее (нет в матрице)».`;
+  $('an_abc_note').innerHTML=`<b>Как читать:</b> товары отсортированы по убыванию выручки. Класс <b class="pos">A</b> — ${cl.A?.skus||0} позиций дают 80% выручки (правило Парето: всего ${paretoPct}% ассортимента). Класс <b style="color:#facc15">B</b> — следующие 15%, класс <b class="neg">C</b> — «длинный хвост» (${cl.C?.skus||0} позиций, лишь 5% выручки — кандидаты на вывод). Список конкретных позиций с классом — на вкладке «Позиции». Товары вне матрицы попадают в категорию «Прочее (нет в матрице)».${monthSel()?' <b class="neg">При выбранном месяце:</b> ABC, оборачиваемость, покрытие и маржа-скаттер считаются за весь период; помесячно пересчитываются KPI, категории, магазины, поставщики и позиции.':''}`;
   // оборачиваемость: показываем и обороты, и «дни на складе» = период / оборачиваемость (pdays определён выше)
   const tvf=v=>v.toFixed(2)+' об. · '+(v>0?Math.round(pdays/v):'∞')+' дн. на складе';
   hbar('an_turn', D.turnover.filter(t=>S.cat==='all'||t.category===S.cat).slice().sort((a,b)=>b.turnover_rate-a.turnover_rate).slice(0,15).reverse(),
@@ -618,8 +638,11 @@ function renderAnalytics(){
   hbar('an_turnstore', D.turnover_store.slice().sort((a,b)=>a.turnover_rate-b.turnover_rate),
     'store','turnover_rate','#fb923c',tvf,p=>setFilter('store',p.name),'',600);
   // поставщики таблица
-  const stot=D.kpi.revenue||1;
-  const sup=D.by_supplier.filter(s=>S.sup==='all'||s.supplier===S.sup).map(s=>({...s,share:+(s.revenue/stot*100).toFixed(2)}));
+  let supBase;
+  if(monthSel()){const m=monthN();const tm=(D.monthly||[]).find(x=>x.mo===m);const st=(tm&&tm.revenue)||1;
+    supBase=(D.supplier_month||[]).filter(r=>r.mo===m).map(r=>({supplier:r.supplier,revenue:r.revenue,gp:r.gp,margin:r.revenue?+(r.gp/r.revenue*100).toFixed(1):0,skus:'—',cats:'—',stores:'—',share:+(r.revenue/st*100).toFixed(2)})).sort((a,b)=>b.revenue-a.revenue);}
+  else {const stot=D.kpi.revenue||1;supBase=D.by_supplier.map(s=>({...s,share:+(s.revenue/stot*100).toFixed(2)}));}
+  const sup=supBase.filter(s=>S.sup==='all'||s.supplier===S.sup);
   tableSort('an_sup',[['Поставщик','supplier','l'],['Выручка ₴','revenue'],['Доля %','share'],['Прибыль ₴','gp'],['Маржа %','margin'],['SKU','skus'],['Категорий','cats'],['Точек','stores']],
     sup,'revenue',r=>setFilter('sup',r.supplier),
     r=>`<td class="l">${r.supplier}</td><td>${fmtF(r.revenue)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.gp)}</td><td>${r.margin}</td><td>${r.skus}</td><td>${r.cats}</td><td>${r.stores}</td>`);
@@ -777,6 +800,7 @@ function tableSort(id,cols,rows,defKey,onRow,rowHtml,rowClass){
 function syncTabs(){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.p===S.tab));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='p_'+S.tab));}
 $('nav').addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;S.tab=e.target.dataset.p;syncTabs();render();setTimeout(resizeAll,30);});
+$('fMonth').onchange=e=>{S.month=e.target.value;S.prSel=null;render();};
 $('fStore').onchange=e=>{S.store=e.target.value;S.prSel=null;render();};
 let ct;$('fCat').oninput=e=>{clearTimeout(ct);ct=setTimeout(()=>{const v=e.target.value.trim();S.cat=v===''?'all':v;S.prSel=null;render();},200);};
 let st;$('fSup').oninput=e=>{clearTimeout(st);st=setTimeout(()=>{const v=e.target.value.trim();S.sup=v===''?'all':v;S.prSel=null;render();},200);};
@@ -784,7 +808,7 @@ let qt;$('fQ').oninput=e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.valu
 $('fOff').onchange=e=>{S.noOff=e.target.checked;S.prSel=null;render();};
 $('mxStatus').onchange=e=>{S.mxStatus=e.target.value;render();};
 $('cuSub').onchange=e=>{S.culSub=e.target.value;S.cuSel=null;render();};
-$('reset').onclick=()=>{S.store='all';S.cat='all';S.sup='all';S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.culSub='all';S.cuSel=null;S.prSel=null;$('fStore').value='all';$('fCat').value='';$('fSup').value='';$('fQ').value='';$('fOff').checked=false;if($('mxStatus'))$('mxStatus').value='all';if($('cuSub'))$('cuSub').value='all';render();};
+$('reset').onclick=()=>{S.month='all';S.store='all';S.cat='all';S.sup='all';S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.culSub='all';S.cuSel=null;S.prSel=null;$('fMonth').value='all';$('fStore').value='all';$('fCat').value='';$('fSup').value='';$('fQ').value='';$('fOff').checked=false;if($('mxStatus'))$('mxStatus').value='all';if($('cuSub'))$('cuSub').value='all';render();};
 function resizeAll(){Object.values(charts).forEach(c=>c.resize());}
 window.addEventListener('resize',resizeAll);
 // выгрузка CSV (разделитель ; и BOM — корректно открывается в Excel с кириллицей)
@@ -803,7 +827,7 @@ async function exportTable(id){
     const row=ws.addRow(o);
     e.cols.forEach((c,i)=>{const cell=row.getCell(i+1);const isText=c[2]==='l';
       cell.alignment={horizontal:isText?'left':'center',vertical:'middle'};
-      if(!isText&&typeof cell.value==='number')cell.numFmt='#,##0.##';});
+      if(!isText&&typeof cell.value==='number')cell.numFmt=Number.isInteger(cell.value)?'#,##0':'#,##0.00';});
   });
   ws.autoFilter={from:{row:1,column:1},to:{row:1,column:e.cols.length}};
   const buf=await wb.xlsx.writeBuffer();

@@ -95,6 +95,13 @@ def main():
       FROM {ST} GROUP BY category, mo""")
     out["store_month"] = run(f"""SELECT store, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp
       FROM {ST} GROUP BY store, mo""")
+    # для фильтра «Месяц»: помесячно по поставщикам и по позициям (топ-1200)
+    out["supplier_month"] = run(f"""SELECT supplier, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp
+      FROM {ST} GROUP BY supplier, mo""")
+    out["prod_month"] = run(f"""
+      WITH topp AS (SELECT product_name FROM (SELECT product_name, SUM(qty*pr) rev FROM {ST} GROUP BY product_name ORDER BY rev DESC LIMIT 1200))
+      SELECT product_name p, mo, ROUND(SUM(qty*pr),0) rev, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty
+      FROM {ST} JOIN topp USING(product_name) GROUP BY p, mo""")
 
     out["stores"] = [r["store"] for r in run(f"SELECT store FROM {ST} GROUP BY store ORDER BY store")]
 
