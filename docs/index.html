@@ -164,6 +164,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
   <div class="bar" style="margin-bottom:10px">
     <div class="ctrl"><label>Группировка</label><select id="rpDim"><option value="products">Товары (по сети)</option><option value="category">Категории</option><option value="store">Магазины</option><option value="supplier">Поставщики</option></select></div>
     <div class="ctrl"><label>Данные</label><select id="rpSource"><option value="sales">Продажи (чеки)</option><option value="incoming">Закупки (приходы)</option></select></div>
+    <div class="ctrl"><label>Детализация</label><select id="rpMode"><option value="detail">С разрезом (по строкам)</option><option value="total">Только итог (одной строкой)</option></select></div>
     <div class="ctrl"><label>Метрика</label><select id="rpMetric"><option value="rev">Сумма ₴</option><option value="gp">Прибыль/наценка ₴</option><option value="qty">Кол-во</option></select></div>
     <div class="ctrl"><label>Период с</label><select id="rpFrom"></select></div>
     <div class="ctrl"><label>по</label><select id="rpTo"></select></div>
@@ -276,7 +277,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 <script>
 const GH_OWNER="Denbassk", GH_REPO="family-market-dashboard";
 let D=null, charts={};
-const S={month:'all',store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,rpDim:'products',rpMetric:'rev',rpSource:'sales',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null};
+const S={month:'all',store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null};
 function monthSel(){return S.month&&S.month!=='all';}
 function monthN(){return +S.month;}
 const MONTHS=['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
@@ -516,7 +517,15 @@ function reportPivot(dim,months){
 }
 function renderReport(){
   if(!S.rpBuilt){$('rp_tab').innerHTML='<tbody><tr><td class="l muted">Выберите группировку, метрику и период — нажмите «📊 Сформировать отчёт».</td></tr></tbody>';$('rp_kpis').innerHTML='';if(charts.rp_chart)charts.rp_chart.clear();$('rp_cs').textContent='';$('rp_s').textContent='';return;}
-  const dim=S.rpDim, months=monthsInRange(), rows=reportPivot(dim,months);
+  const dim=S.rpDim, months=monthsInRange();
+  let rows=reportPivot(dim,months);
+  if(S.rpMode==='total'&&rows.length){
+    const dn={products:'позициям',category:'категориям',store:'магазинам',supplier:'поставщикам'}[dim];
+    const agg={name:'ИТОГО (сумма по всем '+dn+', с учётом фильтров)',by:{},q:{},total:0,qtot:0};
+    rows.forEach(o=>{months.forEach(mo=>{agg.by[mo]=(agg.by[mo]||0)+(o.by[mo]||0);agg.q[mo]=(agg.q[mo]||0)+(o.q[mo]||0);});agg.total+=o.total;agg.qtot+=o.qtot;});
+    months.forEach(mo=>{agg['m'+mo]=agg.by[mo]||0;agg['q'+mo]=agg.q[mo]||0;});
+    rows=[agg];
+  }
   const gtot=rows.reduce((a,o)=>a+o.total,0)||1;
   rows.forEach(o=>o.share=+(o.total/gtot*100).toFixed(2));
   rows.sort((a,b)=>b.total-a.total);
@@ -934,6 +943,7 @@ $('cuSub').onchange=e=>{S.culSub=e.target.value;S.cuSel=null;render();};
 $('rpDim').onchange=e=>{S.rpDim=e.target.value;};
 $('rpMetric').onchange=e=>{S.rpMetric=e.target.value;};
 $('rpSource').onchange=e=>{S.rpSource=e.target.value;};
+$('rpMode').onchange=e=>{S.rpMode=e.target.value;};
 $('rpFrom').onchange=e=>{S.rpFrom=e.target.value;};
 $('rpTo').onchange=e=>{S.rpTo=e.target.value;};
 $('rpRun').onclick=()=>{S.rpBuilt=true;renderReport();setTimeout(resizeAll,30);};
