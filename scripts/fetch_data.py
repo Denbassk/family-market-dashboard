@@ -43,14 +43,20 @@ def main():
     keep = "(" + ",".join(f"'{k}'" for k in NORM) + ")"
 
     # 1) промежуточная таблица: продажи YEAR в 38 точках + категория/поставщик из матрицы
-    client.query(f"""
+    if not os.environ.get("SKIP_STAGING"):
+      client.query(f"""
     CREATE OR REPLACE TABLE {ST} AS
     WITH m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode)
     SELECT CASE {cases} END AS store, t.barcode, t.product_name,
       t.quantity qty, t.price_retail pr, t.price_purchase pp,
       EXTRACT(MONTH FROM t.transaction_datetime) mo, t.transaction_id tid,
       DATE(t.transaction_datetime) d,
-      COALESCE(m.cat,'Прочее (нет в матрице)') category,
+      CASE
+        WHEN STARTS_WITH(TRIM(t.product_name),'Кулінарія') THEN 'Кулинария'
+        WHEN STARTS_WITH(TRIM(t.product_name),'Випічка') THEN 'Выпечка'
+        WHEN STARTS_WITH(TRIM(t.product_name),'Хот-Дог') THEN 'Хот-дог'
+        ELSE COALESCE(m.cat,'Прочее (нет в матрице)')
+      END category,
       COALESCE(m.sup,'(нет в матрице)') supplier,
       (m.barcode IS NOT NULL) in_matrix
     FROM {TT} t LEFT JOIN m USING(barcode)

@@ -163,7 +163,8 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 <div class="page" id="p_report">
   <div class="bar" style="margin-bottom:10px">
     <div class="ctrl"><label>Группировка</label><select id="rpDim"><option value="products">Товары (по сети)</option><option value="category">Категории</option><option value="store">Магазины</option><option value="supplier">Поставщики</option></select></div>
-    <div class="ctrl"><label>Метрика</label><select id="rpMetric"><option value="rev">Выручка ₴</option><option value="gp">Прибыль ₴</option><option value="qty">Кол-во</option></select></div>
+    <div class="ctrl"><label>Данные</label><select id="rpSource"><option value="sales">Продажи (чеки)</option><option value="incoming">Закупки (приходы)</option></select></div>
+    <div class="ctrl"><label>Метрика</label><select id="rpMetric"><option value="rev">Сумма ₴</option><option value="gp">Прибыль/наценка ₴</option><option value="qty">Кол-во</option></select></div>
     <div class="ctrl"><label>Период с</label><select id="rpFrom"></select></div>
     <div class="ctrl"><label>по</label><select id="rpTo"></select></div>
     <button class="btn acc" id="rpRun">📊 Сформировать отчёт</button>
@@ -275,7 +276,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 <script>
 const GH_OWNER="Denbassk", GH_REPO="family-market-dashboard";
 let D=null, charts={};
-const S={month:'all',store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,rpDim:'products',rpMetric:'rev',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null};
+const S={month:'all',store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,rpDim:'products',rpMetric:'rev',rpSource:'sales',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null};
 function monthSel(){return S.month&&S.month!=='all';}
 function monthN(){return +S.month;}
 const MONTHS=['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
@@ -492,13 +493,15 @@ function monthsInRange(){
   const f=+S.rpFrom, t=(S.rpTo==='all')?Math.max(...all):+S.rpTo, lo=Math.min(f,t), hi=Math.max(f,t);
   return all.filter(m=>m>=lo&&m<=hi);
 }
-const RPLBL={rev:'Выручка ₴',gp:'Прибыль ₴',qty:'Кол-во'}, RPNAME={products:'Товар',category:'Категория',store:'Магазин',supplier:'Поставщик'};
+const RPNAME={products:'Товар',category:'Категория',store:'Магазин',supplier:'Поставщик'};
+function rpMetricLabel(){const inc=S.rpSource==='incoming';return S.rpMetric==='rev'?(inc?'Сумма закупки ₴':'Выручка ₴'):S.rpMetric==='gp'?(inc?'Наценка ₴':'Прибыль ₴'):'Кол-во';}
 function reportPivot(dim,months){
-  const src=dim==='products'?(D.prod_month||[]):dim==='category'?(D.cat_month||[]):dim==='store'?(D.store_month||[]):(D.supplier_month||[]);
+  const inc=S.rpSource==='incoming';
+  const src=dim==='products'?((inc?D.in_prod_month:D.prod_month)||[]):dim==='category'?((inc?D.in_cat_month:D.cat_month)||[]):dim==='store'?((inc?D.in_store_month:D.store_month)||[]):((inc?D.in_supplier_month:D.supplier_month)||[]);
   const key=dim==='products'?'p':dim==='category'?'category':dim==='store'?'store':'supplier', met=S.rpMetric;
   const val=r=>met==='gp'?(r.gp||0):met==='qty'?(r.qty||0):((r.rev==null?r.revenue:r.rev)||0);
   const mset=new Set(months), map={};
-  src.forEach(r=>{if(!mset.has(r.mo))return;const n=r[key];const o=map[n]||(map[n]={name:n,by:{},total:0});const v=val(r);o.by[r.mo]=(o.by[r.mo]||0)+v;o.total+=v;});
+  src.forEach(r=>{if(!mset.has(r.mo))return;const n=r[key];const o=map[n]||(map[n]={name:n,by:{},q:{},total:0,qtot:0});const v=val(r);o.by[r.mo]=(o.by[r.mo]||0)+v;o.total+=v;o.q[r.mo]=(o.q[r.mo]||0)+(r.qty||0);o.qtot+=(r.qty||0);});
   let rows=Object.values(map);
   const meta={};
   if(dim==='products'){(D.products||[]).forEach(p=>meta[p.p]=p);rows.forEach(o=>{const m=meta[o.name]||{};o.c=m.c;o.s=m.s;o.coverage=m.st;o.abc=m.abc;o.xyz=m.xyz;});
@@ -508,7 +511,7 @@ function reportPivot(dim,months){
   else if(dim==='store'){(D.by_store||[]).forEach(s=>meta[s.store]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.skus=m.skus;o.cats=m.cats;});if(S.store!=='all')rows=rows.filter(o=>o.name===S.store);}
   else {(D.by_supplier||[]).forEach(s=>meta[s.supplier]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;o.cats=m.cats;});if(S.sup!=='all')rows=rows.filter(o=>o.name===S.sup);}
   if(S.q)rows=rows.filter(o=>(''+o.name).toLowerCase().includes(S.q.toLowerCase()));
-  rows.forEach(o=>{const f=o.by[months[0]]||0,l=o.by[months[months.length-1]]||0;o.growth=f>0?+(((l-f)/f)*100).toFixed(0):(l>0?100:0);months.forEach(mo=>o['m'+mo]=o.by[mo]||0);});
+  rows.forEach(o=>{months.forEach(mo=>{o['m'+mo]=o.by[mo]||0;o['q'+mo]=o.q[mo]||0;});});
   return rows;
 }
 function renderReport(){
@@ -518,24 +521,29 @@ function renderReport(){
   rows.forEach(o=>o.share=+(o.total/gtot*100).toFixed(2));
   rows.sort((a,b)=>b.total-a.total);
   const plabel=months.length?MONTHS[months[0]]+'–'+MONTHS[months[months.length-1]]:'—', dimN={products:'Товары',category:'Категории',store:'Магазины',supplier:'Поставщики'}[dim];
-  $('rp_cs').textContent=RPLBL[S.rpMetric]+' · '+dimN+' · '+plabel;
-  $('rp_s').textContent=rows.length+' строк · '+RPLBL[S.rpMetric]+' · '+plabel;
-  kpiCards('rp_kpis',[['Итого',fmt(gtot)],['Метрика',RPLBL[S.rpMetric]],['Строк',fmt(rows.length)],['Месяцев',fmt(months.length)],['Группировка',dimN]]);
+  const srcN=S.rpSource==='incoming'?'Закупки':'Продажи';
+  $('rp_cs').textContent=srcN+' · '+rpMetricLabel()+' · '+dimN+' · '+plabel;
+  $('rp_s').textContent=rows.length+' строк · '+srcN+' · '+rpMetricLabel()+' · '+plabel;
+  kpiCards('rp_kpis',[['Итого',fmt(gtot)],['Данные',srcN],['Метрика',rpMetricLabel()],['Строк',fmt(rows.length)],['Месяцев',fmt(months.length)]]);
   const top=rows.slice(0,8);
   chart('rp_chart').setOption({grid:{...baseGrid,bottom:30,right:20,top:34},tooltip:tt({trigger:'axis',valueFormatter:v=>fmt(v)}),
     legend:{type:'scroll',textStyle:{color:TXT,fontSize:10},top:0},xAxis:axCat(months.map(m=>MONTHS[m])),yAxis:axV(),
     series:top.map(o=>({name:(''+o.name).length>22?(''+o.name).slice(0,22)+'…':o.name,type:'line',smooth:true,data:months.map(m=>o.by[m]||0)}))},true);
   chart('rp_chart').resize();
   const monCols=months.map(m=>[MONTHS[m],'m'+m]);
+  const showQty=S.rpMetric!=='qty';
+  const qtyCols=showQty?months.map(m=>[MONTHS[m]+', шт','q'+m]):[];
+  const qtyTot=showQty?[['Кол-во всего','qtot']]:[];
+  const qtyCells=o=>showQty?months.map(m=>`<td class="muted">${fmtF(o.q[m]||0)}</td>`).join('')+`<td>${fmtF(o.qtot)}</td>`:'';
   let head,rowHtml,onRow;
   if(dim==='products'){
-    head=[['Товар','name','l'],['Категория','c','l'],['Поставщик','s','l'],...monCols,['Итого','total'],['Доля %','share'],['Рост %','growth'],['Покрытие','coverage'],['ABC','abc']];
-    rowHtml=o=>`<td class="l" title="${o.name}">${o.name}</td><td class="l muted">${o.c||''}</td><td class="l muted">${o.s||''}</td>`+months.map(m=>`<td>${fmtF(o.by[m]||0)}</td>`).join('')+`<td><b>${fmtF(o.total)}</b></td><td class="muted">${o.share}%</td><td class="${o.growth<0?'neg':'pos'}">${o.growth>0?'+':''}${o.growth}%</td><td>${o.coverage||'—'}</td><td><span class="badge b${o.abc||''}">${o.abc||''}</span></td>`;
+    head=[['Товар','name','l'],['Поставщик','s','l'],...monCols,['Итого','total'],['Доля %','share'],...qtyCols,...qtyTot,['Покрытие','coverage'],['ABC','abc']];
+    rowHtml=o=>`<td class="l" title="${o.name}">${o.name}</td><td class="l muted">${o.s||''}</td>`+months.map(m=>`<td>${fmtF(o.by[m]||0)}</td>`).join('')+`<td><b>${fmtF(o.total)}</b></td><td class="muted">${o.share}%</td>`+qtyCells(o)+`<td>${o.coverage||'—'}</td><td><span class="badge b${o.abc||''}">${o.abc||''}</span></td>`;
     onRow=o=>{S.prSel=o.name;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);};
   } else {
     const extra=dim==='store'?[['SKU','skus'],['Категорий','cats']]:[['SKU','skus'],['Точек','coverage']];
-    head=[[RPNAME[dim],'name','l'],...monCols,['Итого','total'],['Доля %','share'],['Рост %','growth'],...extra];
-    rowHtml=o=>`<td class="l">${o.name}</td>`+months.map(m=>`<td>${fmtF(o.by[m]||0)}</td>`).join('')+`<td><b>${fmtF(o.total)}</b></td><td class="muted">${o.share}%</td><td class="${o.growth<0?'neg':'pos'}">${o.growth>0?'+':''}${o.growth}%</td>`+extra.map(c=>`<td>${o[c[1]]||'—'}</td>`).join('');
+    head=[[RPNAME[dim],'name','l'],...monCols,['Итого','total'],['Доля %','share'],...qtyCols,...qtyTot,...extra];
+    rowHtml=o=>`<td class="l">${o.name}</td>`+months.map(m=>`<td>${fmtF(o.by[m]||0)}</td>`).join('')+`<td><b>${fmtF(o.total)}</b></td><td class="muted">${o.share}%</td>`+qtyCells(o)+extra.map(c=>`<td>${o[c[1]]||'—'}</td>`).join('');
     onRow=dim==='category'?(o=>setFilter('cat',o.name)):dim==='store'?(o=>setFilter('store',o.name)):(o=>setFilter('sup',o.name));
   }
   tableSort('rp_tab',head,rows,'total',onRow,rowHtml);
@@ -925,6 +933,7 @@ $('mxStatus').onchange=e=>{S.mxStatus=e.target.value;render();};
 $('cuSub').onchange=e=>{S.culSub=e.target.value;S.cuSel=null;render();};
 $('rpDim').onchange=e=>{S.rpDim=e.target.value;};
 $('rpMetric').onchange=e=>{S.rpMetric=e.target.value;};
+$('rpSource').onchange=e=>{S.rpSource=e.target.value;};
 $('rpFrom').onchange=e=>{S.rpFrom=e.target.value;};
 $('rpTo').onchange=e=>{S.rpTo=e.target.value;};
 $('rpRun').onclick=()=>{S.rpBuilt=true;renderReport();setTimeout(resizeAll,30);};

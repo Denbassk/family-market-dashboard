@@ -14,12 +14,19 @@ subprocess.run([sys.executable, os.path.join(HERE,"fetch_page3.py")], check=True
 # 2b) матрица напрямую из Google Sheets -> /tmp/matrix.json
 mx="/tmp/matrix.json"; env["OUT_PATH"]=mx
 subprocess.run([sys.executable, os.path.join(HERE,"fetch_matrix.py")], check=True, env=env)
+# 2c) приходы/закупки -> /tmp/incoming.json
+inc="/tmp/incoming.json"; env["OUT_PATH"]=inc
+subprocess.run([sys.executable, os.path.join(HERE,"fetch_incoming.py")], check=True, env=env)
 # 3) merge
 full=json.load(open(DOCS)); p=json.load(open(p3))
 try:
     full["matrix"]=json.load(open(mx))["matrix"]
 except Exception as e:
     print("matrix merge skipped:", e)
+try:
+    for k,v in json.load(open(inc)).items(): full[k]=v
+except Exception as e:
+    print("incoming merge skipped:", e)
 for k in ["moves","moves_summary","oos","dead_items","dead_by_store","dead_by_cat","dead_by_supplier","dead_total",
           "cross","cross_items","writeoffs_by_store","writeoffs_top","writeoffs_by_cat","writeoffs_by_supplier","culinary_writeoffs"]:
     if k in p: full[k]=p[k]
