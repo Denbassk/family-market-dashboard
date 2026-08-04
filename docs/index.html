@@ -163,14 +163,16 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 <div class="page" id="p_report">
   <div class="bar" style="margin-bottom:10px">
     <div class="ctrl"><label>Группировка</label><select id="rpDim"><option value="products">Товары (по сети)</option><option value="category">Категории</option><option value="store">Магазины</option><option value="supplier">Поставщики</option></select></div>
+    <div class="ctrl"><label>Метрика</label><select id="rpMetric"><option value="rev">Выручка ₴</option><option value="gp">Прибыль ₴</option><option value="qty">Кол-во</option></select></div>
     <div class="ctrl"><label>Период с</label><select id="rpFrom"></select></div>
     <div class="ctrl"><label>по</label><select id="rpTo"></select></div>
-    <button class="csvbtn" data-t="rp_tab" style="align-self:flex-end">⬇ Excel-отчёт</button>
+    <button class="btn acc" id="rpRun">📊 Сформировать отчёт</button>
+    <button class="csvbtn" data-t="rp_tab" style="align-self:flex-end">⬇ Excel</button>
   </div>
-  <div class="note" style="margin-top:0">Фильтры «Магазин»/«Категория»/«Поставщик»/«Поиск» из шапки применяются к отчёту (для группировки «Товары» фильтр магазина не влияет — считается по всей сети). <b>Покрытие</b> — в скольких точках позиция продавалась за весь период.</div>
+  <div class="note" style="margin-top:0"><b>Динамика по месяцам:</b> каждый месяц периода — отдельная колонка + «Итого» и «Рост». Фильтры «Магазин/Категория/Поставщик/Поиск» из шапки применяются (для «Товары» магазин не влияет — считается по всей сети). <b>Покрытие</b> — в скольких точках продавалась позиция.</div>
   <div class="kpis" id="rp_kpis"></div>
   <div class="grid">
-    <div class="card full"><h3>Топ-20 по выручке <span id="rp_cs"></span></h3><div id="rp_chart" class="chart tall"></div></div>
+    <div class="card full"><h3>Динамика по месяцам <span id="rp_cs"></span></h3><div id="rp_chart" class="chart tall"></div></div>
     <div class="card full"><h3>Отчёт <span id="rp_s"></span><button class="csvbtn" data-t="rp_tab">⬇ Excel</button></h3>
       <div class="scroll tall"><table id="rp_tab"></table></div></div>
   </div>
@@ -273,7 +275,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 <script>
 const GH_OWNER="Denbassk", GH_REPO="family-market-dashboard";
 let D=null, charts={};
-const S={month:'all',store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,rpDim:'products',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null};
+const S={month:'all',store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,rpDim:'products',rpMetric:'rev',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null};
 function monthSel(){return S.month&&S.month!=='all';}
 function monthN(){return +S.month;}
 const MONTHS=['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
@@ -490,77 +492,53 @@ function monthsInRange(){
   const f=+S.rpFrom, t=(S.rpTo==='all')?Math.max(...all):+S.rpTo, lo=Math.min(f,t), hi=Math.max(f,t);
   return all.filter(m=>m>=lo&&m<=hi);
 }
-function reportRows(dim,mset,whole){
-  if(dim==='products'){
-    let base;const meta={};(D.products||[]).forEach(p=>meta[p.p]=p);
-    if(whole)base=(D.products||[]).map(p=>({name:p.p,c:p.c,s:p.s,revenue:p.rev,gp:p.gp,qty:p.qty,coverage:p.st,margin:p.mrg,abc:p.abc,xyz:p.xyz}));
-    else{const agg={};(D.prod_month||[]).forEach(r=>{if(!mset.has(r.mo))return;const a=agg[r.p]||(agg[r.p]={rev:0,gp:0,qty:0});a.rev+=r.rev;a.gp+=r.gp;a.qty+=r.qty;});
-      base=Object.entries(agg).map(([p,a])=>{const m=meta[p]||{};return {name:p,c:m.c,s:m.s,revenue:a.rev,gp:a.gp,qty:a.qty,coverage:m.st,margin:a.rev?+(a.gp/a.rev*100).toFixed(1):0,abc:m.abc,xyz:m.xyz};});}
-    if(S.cat!=='all')base=base.filter(r=>r.c===S.cat);
-    if(S.sup!=='all')base=base.filter(r=>r.s===S.sup);
-    if(S.noOff)base=base.filter(r=>r.c!=='Прочее (нет в матрице)');
-    if(S.q)base=base.filter(r=>(''+r.name).toLowerCase().includes(S.q.toLowerCase()));
-    return base;
-  }
-  if(dim==='category'){
-    let base;const meta={};(D.by_category||[]).forEach(c=>meta[c.category]=c);
-    if(whole)base=(D.by_category||[]).map(c=>({name:c.category,revenue:c.revenue,gp:c.gp,qty:c.qty,coverage:c.stores,margin:c.margin,skus:c.skus}));
-    else{const agg={};(D.cat_month||[]).forEach(r=>{if(!mset.has(r.mo))return;const a=agg[r.category]||(agg[r.category]={rev:0,gp:0});a.rev+=r.revenue;a.gp+=r.gp;});
-      base=Object.entries(agg).map(([n,a])=>{const m=meta[n]||{};return {name:n,revenue:a.rev,gp:a.gp,qty:m.qty,coverage:m.stores,margin:a.rev?+(a.gp/a.rev*100).toFixed(1):0,skus:m.skus};});}
-    if(S.cat!=='all')base=base.filter(r=>r.name===S.cat);
-    if(S.q)base=base.filter(r=>r.name.toLowerCase().includes(S.q.toLowerCase()));
-    return base;
-  }
-  if(dim==='store'){
-    let base;const meta={};(D.by_store||[]).forEach(s=>meta[s.store]=s);
-    if(whole)base=(D.by_store||[]).map(s=>({name:s.store,revenue:s.revenue,gp:s.gp,qty:s.qty,margin:s.margin,receipts:s.receipts,skus:s.skus,cats:s.cats}));
-    else{const agg={};(D.store_month||[]).forEach(r=>{if(!mset.has(r.mo))return;const a=agg[r.store]||(agg[r.store]={rev:0,gp:0});a.rev+=r.revenue;a.gp+=r.gp;});
-      base=Object.entries(agg).map(([n,a])=>{const m=meta[n]||{};return {name:n,revenue:a.rev,gp:a.gp,qty:m.qty,margin:a.rev?+(a.gp/a.rev*100).toFixed(1):0,receipts:null,skus:m.skus,cats:m.cats};});}
-    if(S.store!=='all')base=base.filter(r=>r.name===S.store);
-    if(S.q)base=base.filter(r=>r.name.toLowerCase().includes(S.q.toLowerCase()));
-    return base;
-  }
-  let base;const meta={};(D.by_supplier||[]).forEach(s=>meta[s.supplier]=s);
-  if(whole)base=(D.by_supplier||[]).map(s=>({name:s.supplier,revenue:s.revenue,gp:s.gp,margin:s.margin,skus:s.skus,cats:s.cats,coverage:s.stores}));
-  else{const agg={};(D.supplier_month||[]).forEach(r=>{if(!mset.has(r.mo))return;const a=agg[r.supplier]||(agg[r.supplier]={rev:0,gp:0});a.rev+=r.revenue;a.gp+=r.gp;});
-    base=Object.entries(agg).map(([n,a])=>{const m=meta[n]||{};return {name:n,revenue:a.rev,gp:a.gp,margin:a.rev?+(a.gp/a.rev*100).toFixed(1):0,skus:m.skus,cats:m.cats,coverage:m.stores};});}
-  if(S.sup!=='all')base=base.filter(r=>r.name===S.sup);
-  if(S.q)base=base.filter(r=>r.name.toLowerCase().includes(S.q.toLowerCase()));
-  return base;
+const RPLBL={rev:'Выручка ₴',gp:'Прибыль ₴',qty:'Кол-во'}, RPNAME={products:'Товар',category:'Категория',store:'Магазин',supplier:'Поставщик'};
+function reportPivot(dim,months){
+  const src=dim==='products'?(D.prod_month||[]):dim==='category'?(D.cat_month||[]):dim==='store'?(D.store_month||[]):(D.supplier_month||[]);
+  const key=dim==='products'?'p':dim==='category'?'category':dim==='store'?'store':'supplier', met=S.rpMetric;
+  const val=r=>met==='gp'?(r.gp||0):met==='qty'?(r.qty||0):((r.rev==null?r.revenue:r.rev)||0);
+  const mset=new Set(months), map={};
+  src.forEach(r=>{if(!mset.has(r.mo))return;const n=r[key];const o=map[n]||(map[n]={name:n,by:{},total:0});const v=val(r);o.by[r.mo]=(o.by[r.mo]||0)+v;o.total+=v;});
+  let rows=Object.values(map);
+  const meta={};
+  if(dim==='products'){(D.products||[]).forEach(p=>meta[p.p]=p);rows.forEach(o=>{const m=meta[o.name]||{};o.c=m.c;o.s=m.s;o.coverage=m.st;o.abc=m.abc;o.xyz=m.xyz;});
+    if(S.cat!=='all')rows=rows.filter(o=>o.c===S.cat);if(S.sup!=='all')rows=rows.filter(o=>o.s===S.sup);
+    if(S.noOff)rows=rows.filter(o=>o.c!=='Прочее (нет в матрице)');}
+  else if(dim==='category'){(D.by_category||[]).forEach(c=>meta[c.category]=c);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;});if(S.cat!=='all')rows=rows.filter(o=>o.name===S.cat);}
+  else if(dim==='store'){(D.by_store||[]).forEach(s=>meta[s.store]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.skus=m.skus;o.cats=m.cats;});if(S.store!=='all')rows=rows.filter(o=>o.name===S.store);}
+  else {(D.by_supplier||[]).forEach(s=>meta[s.supplier]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;o.cats=m.cats;});if(S.sup!=='all')rows=rows.filter(o=>o.name===S.sup);}
+  if(S.q)rows=rows.filter(o=>(''+o.name).toLowerCase().includes(S.q.toLowerCase()));
+  rows.forEach(o=>{const f=o.by[months[0]]||0,l=o.by[months[months.length-1]]||0;o.growth=f>0?+(((l-f)/f)*100).toFixed(0):(l>0?100:0);months.forEach(mo=>o['m'+mo]=o.by[mo]||0);});
+  return rows;
 }
 function renderReport(){
-  const dim=S.rpDim, whole=(S.rpFrom==='all'), months=monthsInRange();
-  const rows=reportRows(dim,new Set(months),whole);
-  const tot=rows.reduce((a,r)=>a+(r.revenue||0),0)||1, totGp=rows.reduce((a,r)=>a+(r.gp||0),0), totQty=rows.reduce((a,r)=>a+(+r.qty||0),0);
-  rows.forEach(r=>r.share=+(r.revenue/tot*100).toFixed(2));
-  const plabel=whole?'весь период':(months.length?MONTHS[months[0]]+'–'+MONTHS[months[months.length-1]]:'—');
-  const dimName={products:'Товары',category:'Категории',store:'Магазины',supplier:'Поставщики'}[dim];
-  $('rp_cs').textContent=dimName+' · '+plabel; $('rp_s').textContent=rows.length+' строк · '+plabel;
-  kpiCards('rp_kpis',[['Выручка ₴',fmt(tot)],['Прибыль ₴',fmt(totGp)],['Маржа',(totGp/tot*100).toFixed(1)+'%'],['Строк в отчёте',fmt(rows.length)],['Продано, ед.',fmt(totQty)],['Период',plabel]]);
-  const top=rows.slice().sort((a,b)=>b.revenue-a.revenue).slice(0,20).reverse();
-  chart('rp_chart').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>`<b>${top[p.dataIndex].name}</b><br>${fmtF(p.value)} ₴`}),
-    xAxis:axV(),yAxis:{...axCat(top.map(r=>(''+r.name).length>32?(''+r.name).slice(0,32)+'…':r.name)),axisLabel:{color:TXT,fontSize:10}},
-    series:[{type:'bar',data:top.map(r=>r.revenue),itemStyle:{color:'#38bdf8',borderRadius:[0,4,4,0]},barMaxWidth:16}]},true);
+  if(!S.rpBuilt){$('rp_tab').innerHTML='<tbody><tr><td class="l muted">Выберите группировку, метрику и период — нажмите «📊 Сформировать отчёт».</td></tr></tbody>';$('rp_kpis').innerHTML='';if(charts.rp_chart)charts.rp_chart.clear();$('rp_cs').textContent='';$('rp_s').textContent='';return;}
+  const dim=S.rpDim, months=monthsInRange(), rows=reportPivot(dim,months);
+  const gtot=rows.reduce((a,o)=>a+o.total,0)||1;
+  rows.forEach(o=>o.share=+(o.total/gtot*100).toFixed(2));
+  rows.sort((a,b)=>b.total-a.total);
+  const plabel=months.length?MONTHS[months[0]]+'–'+MONTHS[months[months.length-1]]:'—', dimN={products:'Товары',category:'Категории',store:'Магазины',supplier:'Поставщики'}[dim];
+  $('rp_cs').textContent=RPLBL[S.rpMetric]+' · '+dimN+' · '+plabel;
+  $('rp_s').textContent=rows.length+' строк · '+RPLBL[S.rpMetric]+' · '+plabel;
+  kpiCards('rp_kpis',[['Итого',fmt(gtot)],['Метрика',RPLBL[S.rpMetric]],['Строк',fmt(rows.length)],['Месяцев',fmt(months.length)],['Группировка',dimN]]);
+  const top=rows.slice(0,8);
+  chart('rp_chart').setOption({grid:{...baseGrid,bottom:30,right:20,top:34},tooltip:tt({trigger:'axis',valueFormatter:v=>fmt(v)}),
+    legend:{type:'scroll',textStyle:{color:TXT,fontSize:10},top:0},xAxis:axCat(months.map(m=>MONTHS[m])),yAxis:axV(),
+    series:top.map(o=>({name:(''+o.name).length>22?(''+o.name).slice(0,22)+'…':o.name,type:'line',smooth:true,data:months.map(m=>o.by[m]||0)}))},true);
   chart('rp_chart').resize();
-  let cols,rowHtml,onRow;
+  const monCols=months.map(m=>[MONTHS[m],'m'+m]);
+  let head,rowHtml,onRow;
   if(dim==='products'){
-    cols=[['Товар','name','l'],['Категория','c','l'],['Поставщик','s','l'],['Выручка ₴','revenue'],['Доля %','share'],['Прибыль ₴','gp'],['Маржа %','margin'],['Кол-во','qty'],['Покрытие','coverage'],['ABC','abc'],['XYZ','xyz']];
-    rowHtml=r=>`<td class="l" title="${r.name}">${r.name}</td><td class="l muted">${r.c||''}</td><td class="l muted">${r.s||''}</td><td>${fmtF(r.revenue)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.gp)}</td><td>${r.margin}</td><td>${fmtF(r.qty)}</td><td>${r.coverage||'—'}</td><td><span class="badge b${r.abc||''}">${r.abc||''}</span></td><td>${r.xyz||'—'}</td>`;
-    onRow=r=>{S.prSel=r.name;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);};
-  } else if(dim==='category'){
-    cols=[['Категория','name','l'],['Выручка ₴','revenue'],['Доля %','share'],['Прибыль ₴','gp'],['Маржа %','margin'],['Кол-во','qty'],['SKU','skus'],['Точек','coverage']];
-    rowHtml=r=>`<td class="l">${r.name}</td><td>${fmtF(r.revenue)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.gp)}</td><td>${r.margin}</td><td>${fmtF(r.qty)}</td><td>${r.skus||'—'}</td><td>${r.coverage||'—'}</td>`;
-    onRow=r=>setFilter('cat',r.name);
-  } else if(dim==='store'){
-    cols=[['Магазин','name','l'],['Выручка ₴','revenue'],['Доля %','share'],['Прибыль ₴','gp'],['Маржа %','margin'],['Чеков','receipts'],['SKU','skus'],['Категорий','cats']];
-    rowHtml=r=>`<td class="l">${r.name}</td><td>${fmtF(r.revenue)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.gp)}</td><td>${r.margin}</td><td>${r.receipts!=null?fmtF(r.receipts):'—'}</td><td>${r.skus||'—'}</td><td>${r.cats||'—'}</td>`;
-    onRow=r=>setFilter('store',r.name);
+    head=[['Товар','name','l'],['Категория','c','l'],['Поставщик','s','l'],...monCols,['Итого','total'],['Доля %','share'],['Рост %','growth'],['Покрытие','coverage'],['ABC','abc']];
+    rowHtml=o=>`<td class="l" title="${o.name}">${o.name}</td><td class="l muted">${o.c||''}</td><td class="l muted">${o.s||''}</td>`+months.map(m=>`<td>${fmtF(o.by[m]||0)}</td>`).join('')+`<td><b>${fmtF(o.total)}</b></td><td class="muted">${o.share}%</td><td class="${o.growth<0?'neg':'pos'}">${o.growth>0?'+':''}${o.growth}%</td><td>${o.coverage||'—'}</td><td><span class="badge b${o.abc||''}">${o.abc||''}</span></td>`;
+    onRow=o=>{S.prSel=o.name;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);};
   } else {
-    cols=[['Поставщик','name','l'],['Выручка ₴','revenue'],['Доля %','share'],['Прибыль ₴','gp'],['Маржа %','margin'],['SKU','skus'],['Категорий','cats'],['Точек','coverage']];
-    rowHtml=r=>`<td class="l">${r.name}</td><td>${fmtF(r.revenue)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.gp)}</td><td>${r.margin}</td><td>${r.skus||'—'}</td><td>${r.cats||'—'}</td><td>${r.coverage||'—'}</td>`;
-    onRow=r=>setFilter('sup',r.name);
+    const extra=dim==='store'?[['SKU','skus'],['Категорий','cats']]:[['SKU','skus'],['Точек','coverage']];
+    head=[[RPNAME[dim],'name','l'],...monCols,['Итого','total'],['Доля %','share'],['Рост %','growth'],...extra];
+    rowHtml=o=>`<td class="l">${o.name}</td>`+months.map(m=>`<td>${fmtF(o.by[m]||0)}</td>`).join('')+`<td><b>${fmtF(o.total)}</b></td><td class="muted">${o.share}%</td><td class="${o.growth<0?'neg':'pos'}">${o.growth>0?'+':''}${o.growth}%</td>`+extra.map(c=>`<td>${o[c[1]]||'—'}</td>`).join('');
+    onRow=dim==='category'?(o=>setFilter('cat',o.name)):dim==='store'?(o=>setFilter('store',o.name)):(o=>setFilter('sup',o.name));
   }
-  tableSort('rp_tab',cols,rows,'revenue',onRow,rowHtml);
+  tableSort('rp_tab',head,rows,'total',onRow,rowHtml);
 }
 // ============ ПАНЕЛЬ АЛЕРТОВ ============
 function renderAlerts(){
@@ -945,9 +923,11 @@ let qt;$('fQ').oninput=e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.valu
 $('fOff').onchange=e=>{S.noOff=e.target.checked;S.prSel=null;render();};
 $('mxStatus').onchange=e=>{S.mxStatus=e.target.value;render();};
 $('cuSub').onchange=e=>{S.culSub=e.target.value;S.cuSel=null;render();};
-$('rpDim').onchange=e=>{S.rpDim=e.target.value;render();};
-$('rpFrom').onchange=e=>{S.rpFrom=e.target.value;render();};
-$('rpTo').onchange=e=>{S.rpTo=e.target.value;render();};
+$('rpDim').onchange=e=>{S.rpDim=e.target.value;};
+$('rpMetric').onchange=e=>{S.rpMetric=e.target.value;};
+$('rpFrom').onchange=e=>{S.rpFrom=e.target.value;};
+$('rpTo').onchange=e=>{S.rpTo=e.target.value;};
+$('rpRun').onclick=()=>{S.rpBuilt=true;renderReport();setTimeout(resizeAll,30);};
 $('reset').onclick=()=>{S.month='all';S.store='all';S.cat='all';S.sup='all';S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.culSub='all';S.cuSel=null;S.prSel=null;$('fMonth').value='all';$('fStore').value='all';$('fCat').value='';$('fSup').value='';$('fQ').value='';$('fOff').checked=false;if($('mxStatus'))$('mxStatus').value='all';if($('cuSub'))$('cuSub').value='all';render();};
 function resizeAll(){Object.values(charts).forEach(c=>c.resize());}
 window.addEventListener('resize',resizeAll);

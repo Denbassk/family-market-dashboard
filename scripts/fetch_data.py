@@ -91,15 +91,15 @@ def main():
       FROM {ST} GROUP BY category, store""")
 
     # динамика по категориям и магазинам (для фильтра по времени)
-    out["cat_month"] = run(f"""SELECT category, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp
+    out["cat_month"] = run(f"""SELECT category, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty
       FROM {ST} GROUP BY category, mo""")
-    out["store_month"] = run(f"""SELECT store, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp
+    out["store_month"] = run(f"""SELECT store, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty
       FROM {ST} GROUP BY store, mo""")
-    # для фильтра «Месяц»: помесячно по поставщикам и по позициям (топ-1200)
-    out["supplier_month"] = run(f"""SELECT supplier, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp
+    # помесячно по поставщикам и по ВСЕМ позициям (для конструктора отчётов и динамики)
+    out["supplier_month"] = run(f"""SELECT supplier, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty
       FROM {ST} GROUP BY supplier, mo""")
     out["prod_month"] = run(f"""
-      WITH topp AS (SELECT product_name FROM (SELECT product_name, SUM(qty*pr) rev FROM {ST} GROUP BY product_name ORDER BY rev DESC LIMIT 1200))
+      WITH topp AS (SELECT product_name FROM (SELECT product_name, SUM(qty*pr) rev FROM {ST} GROUP BY product_name ORDER BY rev DESC LIMIT 3500))
       SELECT product_name p, mo, ROUND(SUM(qty*pr),0) rev, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty
       FROM {ST} JOIN topp USING(product_name) GROUP BY p, mo""")
 
@@ -114,7 +114,7 @@ def main():
       SELECT product_name p, c, s, ROUND(rev,0) rev, ROUND(gp,0) gp, ROUND(qty,0) qty, st,
         ROUND(SAFE_DIVIDE(gp,rev)*100,1) mrg,
         CASE WHEN cum<=0.8 THEN 'A' WHEN cum<=0.95 THEN 'B' ELSE 'C' END abc
-      FROM r ORDER BY rev DESC LIMIT 3000""")
+      FROM r ORDER BY rev DESC LIMIT 4500""")
 
     # XYZ: стабильность спроса по месяцам (коэффициент вариации выручки). X — ровный спрос, Z — рваный/сезонный.
     # Текущий (неполный) месяц исключаем, чтобы не занижать стабильность.
