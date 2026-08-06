@@ -86,10 +86,13 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
   .upd{text-align:left;font-size:11px}
   .nav{flex-wrap:nowrap;overflow-x:auto;gap:2px;-webkit-overflow-scrolling:touch}
   .nav button{padding:8px 11px;font-size:13px;white-space:nowrap;flex:0 0 auto}
-  .bar{padding:10px;gap:8px}
-  .ctrl{flex:1 1 100%;min-width:0}
-  select,input[type=text]{min-width:0;width:100%}
-  .bar>.btn,.bar #refresh{flex:1 1 45%}
+  .bar{padding:10px;gap:8px;align-items:stretch}
+  .ctrl{flex:1 1 100%;min-width:0;width:100%}
+  .ctrl label{font-size:11px;margin-bottom:2px}
+  select,input[type=text]{min-width:0!important;width:100%!important;font-size:16px;min-height:44px;-webkit-appearance:menulist;appearance:menulist;background:var(--c2);color:var(--txt);border:1px solid var(--line)}
+  input[type=text]{-webkit-appearance:none;appearance:none}
+  .bar>.btn,.bar #refresh,.bar #rpRun,.bar .csvbtn{flex:1 1 100%;min-height:44px;font-size:15px;align-self:stretch}
+  label.btn{min-height:44px}
   .chips{gap:5px}
   .kpis{grid-template-columns:repeat(auto-fit,minmax(45%,1fr));gap:8px;margin:10px 0}
   .kpi{padding:10px}.kpi .v{font-size:16px}.kpi .t{font-size:10px}
