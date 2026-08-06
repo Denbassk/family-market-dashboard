@@ -11,6 +11,7 @@ from fetch_data import NORM, YEAR
 creds = service_account.Credentials.from_service_account_file(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
 client = bigquery.Client(credentials=creds, project=creds.project_id)
 IN = "`family-market-analytics.family_market.incoming_transactions`"
+REF = "`family-market-analytics.family_market.torgsoft_incoming_ref_2026`"
 MX = "`family-market-analytics.family_market.assortment_matrix_full`"
 IS = "`family-market-analytics.family_market._dash_in26`"
 cases = " ".join(f"WHEN store='{k}' THEN '{v}'" for k, v in NORM.items())
@@ -21,6 +22,7 @@ def run(sql): return [dict(r) for r in client.query(sql).result()]
 
 
 def main():
+    # staging приходов (для срезов по товарам/категориям — в эталоне нет штрихкодов)
     client.query(f"""
     CREATE OR REPLACE TABLE {IS} AS
     WITH m AS (SELECT barcode, ANY_VALUE(category) cat FROM {MX} GROUP BY barcode)
@@ -36,10 +38,13 @@ def main():
     """).result()
 
     out = {}
-    out["in_store_month"] = run(f"""SELECT store, mo, ROUND(SUM(amt),0) revenue, ROUND(SUM(amt_ret-amt),0) gp, ROUND(SUM(qty),0) qty
-      FROM {IS} GROUP BY store, mo""")
-    out["in_supplier_month"] = run(f"""SELECT supplier, mo, ROUND(SUM(amt),0) revenue, ROUND(SUM(amt_ret-amt),0) gp, ROUND(SUM(qty),0) qty
-      FROM {IS} GROUP BY supplier, mo""")
+    # Магазины и Поставщики — из ЭТАЛОНА (torgsoft_incoming_ref_2026), уровень накладных, без задвоений.
+    out["in_store_month"] = run(f"""SELECT CASE {cases} END store, EXTRACT(MONTH FROM doc_date) mo,
+      ROUND(SUM(amount),0) revenue, ROUND(SUM(amount_retail-amount),0) gp, 0 qty
+      FROM {REF} WHERE store IN {keep} AND EXTRACT(YEAR FROM doc_date)={YEAR} GROUP BY store, mo""")
+    out["in_supplier_month"] = run(f"""SELECT supplier, EXTRACT(MONTH FROM doc_date) mo,
+      ROUND(SUM(amount),0) revenue, ROUND(SUM(amount_retail-amount),0) gp, 0 qty
+      FROM {REF} WHERE store IN {keep} AND EXTRACT(YEAR FROM doc_date)={YEAR} GROUP BY supplier, mo""")
     out["in_cat_month"] = run(f"""SELECT category, mo, ROUND(SUM(amt),0) revenue, ROUND(SUM(amt_ret-amt),0) gp, ROUND(SUM(qty),0) qty
       FROM {IS} GROUP BY category, mo""")
     out["in_prod_month"] = run(f"""

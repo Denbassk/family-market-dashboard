@@ -21,7 +21,7 @@ NORM = {
  "Небесної Сотні 14/1":"Героїв Небесної Сотні 14/1","Нескорених 33":"Нескорених 33","Нескорених 4Д":"Нескорених 4Д",
  "Ньютона 102":"Ньютона 102","Ньютона 111":"Ньютона 111","Олімпійська 9А":"Олімпійська 9А",
  "Переяславська 23":"Переяславська 23","Петра Григоренка 37":"Петра Григоренка 37",
- "Полевая 83":"Полевая 83 (опт)","Полевая-Магазин":"Полевая 83 (опт)",  # склад/опт — помечен, но исключён из перемещений
+ "Полевая 83":"Полевая магазин","Полевая-Магазин":"Полевая магазин",  # склад/опт — помечен, но исключён из перемещений
  "Пр-т Героїв Харкова 160":"Героїв Харкова 160","Пр-т Тракторобудiвникiв 95":"Тракторобудівників 95",
  "Пр-т Ювілейний 67":"Ювілейний 67","Роганська 130/4":"Роганська 130/4","Роганська 148":"Роганська 148",
  "Салтівське шосе 264В":"Салтівське шосе 264В","Танкопія 16":"Танкопія 16","Шевченко 341":"Шевченко 341",
@@ -68,7 +68,7 @@ FROM (
           GREATEST(0, CAST(CEIL(r.qty90/3.0) AS INT64) - CAST(ROUND(r.stock_now,0) AS INT64))) move_qty
   FROM donors d JOIN recv r ON d.barcode=r.barcode AND d.store!=r.store
   LEFT JOIN m ON m.barcode=d.barcode)
-WHERE move_qty>0 AND donor!='Полевая 83 (опт)' AND receiver!='Полевая 83 (опт)'"""
+WHERE move_qty>0 AND donor!='Полевая магазин' AND receiver!='Полевая магазин'"""
 move = move_core + " ORDER BY recv_sells DESC, value DESC LIMIT 300"
 out["moves"] = rows(move)
 out["moves_summary"] = rows(f"SELECT COUNT(*) pairs, COUNT(DISTINCT product) skus, ROUND(SUM(value),0) value FROM ({move_core})")[0]
@@ -86,7 +86,7 @@ SELECT s.nm product, COALESCE(m.cat,'Прочее (нет в матрице)') c
   s.store, CAST(ROUND(s.qty90,0) AS INT64) sold90, CAST(CEIL(s.qty90/3.0) AS INT64) need_month,
   IFNULL(a.tot,0)>0 elsewhere
 FROM sales90 s LEFT JOIN stock st USING(barcode,store) LEFT JOIN anystk a USING(barcode) LEFT JOIN m ON m.barcode=s.barcode
-WHERE s.qty90>=10 AND COALESCE(st.qty,0)<=0 AND s.store!='Полевая 83 (опт)'
+WHERE s.qty90>=10 AND COALESCE(st.qty,0)<=0 AND s.store!='Полевая магазин'
 ORDER BY sold90 DESC LIMIT 500"""
 out["oos"] = rows(oos)
 
