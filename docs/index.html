@@ -23,6 +23,22 @@ h1{font-size:20px;font-weight:700}.sub{color:var(--muted);font-size:12px;margin-
 select,input[type=text]{background:var(--c2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px;min-width:150px}
 input[type=text]{min-width:190px}
 select:focus,input:focus{outline:1px solid var(--acc)}
+/* мультиселект */
+.ms{position:relative;min-width:190px}
+.ms-btn{width:100%;text-align:left;background:var(--c2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 26px 7px 10px;font-size:12.5px;cursor:pointer;min-height:33px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
+.ms-btn::after{content:'▾';position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:11px}
+.ms-btn.act{border-color:var(--acc);color:var(--acc)}
+.ms-pop{position:absolute;z-index:40;top:calc(100% + 4px);left:0;min-width:240px;max-width:340px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.45);padding:8px;display:none}
+.ms.open .ms-pop{display:block}
+.ms-search{width:100%;min-width:0;margin-bottom:6px}
+.ms-list{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:1px}
+.ms-opt{display:flex;gap:8px;align-items:center;padding:5px 7px;border-radius:6px;cursor:pointer;font-size:12.5px}
+.ms-opt:hover{background:var(--c2)}
+.ms-opt input{min-width:0;margin:0}
+.ms-opt.hid{display:none}
+.ms-foot{display:flex;gap:8px;margin-top:7px;border-top:1px solid var(--line);padding-top:7px}
+.ms-foot button{flex:1;background:var(--c2);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px;font-size:12px;cursor:pointer}
+.ms-empty{color:var(--muted);font-size:12px;padding:6px 7px}
 .btn{background:var(--c2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:12.5px;cursor:pointer}
 .btn:hover{background:#26324b}
 .btn.acc{background:var(--acc);color:#04202e;border:none;font-weight:600}
@@ -141,9 +157,9 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 
 <div class="bar">
   <div class="ctrl" id="cMonth"><label>Месяц</label><select id="fMonth"></select></div>
-  <div class="ctrl" id="cStore"><label>Магазин</label><select id="fStore"></select></div>
-  <div class="ctrl" id="cCat"><label>Категория</label><input id="fCat" list="catList" placeholder="все — поиск/выбор" autocomplete="off"><datalist id="catList"></datalist></div>
-  <div class="ctrl" id="cSup"><label>Поставщик</label><input id="fSup" list="supList" placeholder="все — поиск/выбор" autocomplete="off"><datalist id="supList"></datalist></div>
+  <div class="ctrl" id="cStore"><label>Магазин</label><div class="ms" id="msStore"></div></div>
+  <div class="ctrl" id="cCat"><label>Категория</label><div class="ms" id="msCat"></div></div>
+  <div class="ctrl" id="cSup"><label>Поставщик</label><div class="ms" id="msSup"></div></div>
   <div class="ctrl" id="cQ"><label>Поиск товара</label><input type="text" id="fQ" list="prodList" placeholder="начните вводить название…" autocomplete="off"><datalist id="prodList"></datalist></div>
   <div class="ctrl" id="cOff"><label>Внематричные</label><label class="btn" style="display:flex;gap:7px;align-items:center;font-weight:400"><input type="checkbox" id="fOff"> скрыть технические</label></div>
   <div class="ctrl" id="barHint" style="display:none;align-self:center"><span class="muted" style="font-size:12px">Отчёт настраивается своими фильтрами внутри вкладки ↓</span></div>
@@ -296,7 +312,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 <script>
 const GH_OWNER="Denbassk", GH_REPO="family-market-dashboard";
 let D=null, charts={};
-const S={month:'all',store:'all',cat:'all',sup:'all',q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null};
+const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null};
 function monthSel(){return S.month&&S.month!=='all';}
 function monthN(){return +S.month;}
 const MONTHS=['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
@@ -309,6 +325,9 @@ const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
 const $=id=>document.getElementById(id);
 const uniq=a=>[...new Set(a)];
+// мультиселект: пустой массив = «все»
+const allSel=s=>!s||!s.length;
+const inSel=(v,s)=>!s||!s.length||s.includes(v);
 
 // ---------- рабочий набор позиций под текущий фильтр ----------
 function workProducts(){
@@ -317,10 +336,10 @@ function workProducts(){
     const m=monthN(), meta={};(D.products||[]).forEach(p=>meta[p.p]=p);
     base=(D.prod_month||[]).filter(r=>r.mo===m).map(r=>{const d=meta[r.p]||{};return {p:r.p,c:d.c||'Прочее (нет в матрице)',s:d.s||'(нет в матрице)',rev:r.rev,gp:r.gp,qty:r.qty,st:d.st,mrg:r.rev?+(r.gp/r.rev*100).toFixed(1):0,abc:d.abc,xyz:d.xyz};});
   } else {
-    base = S.store==='all' ? D.products : (D.store_top_products||[]).filter(r=>r.store===S.store);
+    base = (S.store.length===1) ? (D.store_top_products||[]).filter(r=>r.store===S.store[0]) : D.products;
   }
-  if(S.cat!=='all') base=base.filter(r=>r.c===S.cat);
-  if(S.sup!=='all') base=base.filter(r=>r.s===S.sup);
+  if(!allSel(S.cat)) base=base.filter(r=>inSel(r.c,S.cat));
+  if(!allSel(S.sup)) base=base.filter(r=>inSel(r.s,S.sup));
   if(S.abc&&S.abc!=='all') base=base.filter(r=>(r.abc||'')===S.abc);
   if(S.noOff) base=base.filter(r=>!isTech(r.p));
   if(S.q) base=base.filter(r=>r.p.toLowerCase().includes(S.q.toLowerCase()));
@@ -332,18 +351,47 @@ function isTech(name){const n=(name||'').toLowerCase();if(TECH_SUB.some(k=>n.inc
 function sum(a,f){let s=0;for(const x of a)s+=(+f(x)||0);return s;}
 function groupSum(a,key,fields){const m={};for(const x of a){const k=x[key];if(!(k in m)){m[k]={};fields.forEach(f=>m[k][f]=0);}fields.forEach(f=>m[k][f]+=(+x[f]||0));}return m;}
 
+// ---------- Мультиселект фильтров (Магазин/Категория/Поставщик) с каскадом категория↔поставщик ----------
+const MSDATA={store:[],cat:[],sup:[]};
+let CAT2SUP={},SUP2CAT={};
+const MSLABEL={store:'магазинов',cat:'категорий',sup:'поставщиков'};
+const MSBOX={store:'msStore',cat:'msCat',sup:'msSup'};
+function buildCascade(){CAT2SUP={};SUP2CAT={};(D.products||[]).forEach(p=>{const c=p.c,s=p.s;if(!c||!s)return;(CAT2SUP[c]=CAT2SUP[c]||new Set()).add(s);(SUP2CAT[s]=SUP2CAT[s]||new Set()).add(c);});}
+function msOptions(key){
+  if(key==='sup'&&!allSel(S.cat)){const set=new Set();S.cat.forEach(c=>(CAT2SUP[c]||[]).forEach(s=>set.add(s)));return MSDATA.sup.filter(s=>set.has(s)||S.sup.includes(s));}
+  if(key==='cat'&&!allSel(S.sup)){const set=new Set();S.sup.forEach(s=>(SUP2CAT[s]||[]).forEach(c=>set.add(c)));return MSDATA.cat.filter(c=>set.has(c)||S.cat.includes(c));}
+  return MSDATA[key];
+}
+function msSummary(key){const sel=S[key];if(!sel.length)return 'Все '+MSLABEL[key]+' ('+MSDATA[key].length+')';if(sel.length===1)return sel[0];return sel.length+' выбрано';}
+function msBuild(key){
+  const box=$(MSBOX[key]);if(!box)return;
+  box.innerHTML='<button class="ms-btn" type="button"></button><div class="ms-pop"><input class="ms-search" type="text" placeholder="поиск…" autocomplete="off"><div class="ms-list"></div><div class="ms-foot"><button type="button" data-a="all">Выбрать все</button><button type="button" data-a="clear">Очистить</button></div></div>';
+  const btn=box.querySelector('.ms-btn'),search=box.querySelector('.ms-search'),list=box.querySelector('.ms-list');
+  const draw=()=>{const opts=msOptions(key),q=(search.value||'').toLowerCase();
+    list.innerHTML=opts.length?opts.map(o=>`<label class="ms-opt${q&&!(''+o).toLowerCase().includes(q)?' hid':''}"><input type="checkbox" value="${(''+o).replace(/"/g,'&quot;')}" ${S[key].includes(o)?'checked':''}><span>${o}</span></label>`).join(''):'<div class="ms-empty">нет вариантов под текущий фильтр</div>';
+    list.querySelectorAll('input').forEach(inp=>inp.onchange=()=>{const v=inp.value;if(inp.checked){if(!S[key].includes(v))S[key].push(v);}else S[key]=S[key].filter(x=>x!==v);S.prSel=null;msSyncAll();render();});};
+  btn.onclick=()=>{const open=box.classList.toggle('open');if(open){document.querySelectorAll('.ms.open').forEach(o=>{if(o!==box)o.classList.remove('open');});search.value='';draw();search.focus();}btn.classList.toggle('act',S[key].length>0);};
+  search.oninput=draw;
+  box.querySelectorAll('.ms-foot button').forEach(b=>b.onclick=()=>{S[key]=b.dataset.a==='clear'?[]:msOptions(key).slice();S.prSel=null;msSyncAll();render();draw();});
+  box._draw=draw;box._btn=btn;msSync(key);
+}
+function msSync(key){const box=$(MSBOX[key]);if(!box||!box._btn)return;box._btn.textContent=msSummary(key);box._btn.classList.toggle('act',S[key].length>0);if(box.classList.contains('open')&&box._draw)box._draw();}
+function msSyncAll(){['store','cat','sup'].forEach(msSync);}
+function initMS(){MSDATA.store=(D.stores||[]).slice();MSDATA.cat=(D.by_category||[]).map(c=>c.category);MSDATA.sup=(D.by_supplier||[]).map(s=>s.supplier);buildCascade();['store','cat','sup'].forEach(msBuild);}
+document.addEventListener('click',e=>{if(!e.target.closest('.ms'))document.querySelectorAll('.ms.open').forEach(o=>o.classList.remove('open'));});
+
 // точные KPI для одиночного фильтра, иначе — из позиций (приближённо)
 function kpiNow(){
   const m=monthSel()?monthN():null;
-  const nf=[S.store,S.cat,S.sup].filter(x=>x!=='all').length;
+  const one=a=>a.length===1?a[0]:null;
+  const nf=[S.store,S.cat,S.sup].filter(a=>a.length).length;
   const mk=r=>({revenue:(r&&r.revenue)||0,gp:(r&&r.gp)||0,margin:(r&&r.revenue)?+((r.gp/r.revenue)*100).toFixed(1):0,qty:r?(r.qty!=null?r.qty:r.units):undefined,receipts:r?r.receipts:undefined,exact:true});
-  if(!S.q){
+  if(!S.q&&nf<=1){
     if(nf===0){ if(m)return mk((D.monthly||[]).find(x=>x.mo===m)); return {...D.kpi,exact:true}; }
-    if(nf===1){
-      if(S.store!=='all'){ if(m)return mk((D.store_month||[]).find(x=>x.store===S.store&&x.mo===m)); const r=D.by_store.find(x=>x.store===S.store);if(r)return {...r,exact:true}; }
-      if(S.cat!=='all'){ if(m)return mk((D.cat_month||[]).find(x=>x.category===S.cat&&x.mo===m)); const r=D.by_category.find(x=>x.category===S.cat);if(r)return {...r,exact:true}; }
-      if(S.sup!=='all'){ if(m)return mk((D.supplier_month||[]).find(x=>x.supplier===S.sup&&x.mo===m)); const r=D.by_supplier.find(x=>x.supplier===S.sup);if(r)return {...r,exact:true}; }
-    }
+    const st=one(S.store),ct=one(S.cat),sp=one(S.sup);
+    if(st!==null){ if(m)return mk((D.store_month||[]).find(x=>x.store===st&&x.mo===m)); const r=D.by_store.find(x=>x.store===st);if(r)return {...r,exact:true}; }
+    if(ct!==null){ if(m)return mk((D.cat_month||[]).find(x=>x.category===ct&&x.mo===m)); const r=D.by_category.find(x=>x.category===ct);if(r)return {...r,exact:true}; }
+    if(sp!==null){ if(m)return mk((D.supplier_month||[]).find(x=>x.supplier===sp&&x.mo===m)); const r=D.by_supplier.find(x=>x.supplier===sp);if(r)return {...r,exact:true}; }
   }
   const w=workProducts();
   const rev=sum(w,x=>x.rev),gp=sum(w,x=>x.gp),qty=sum(w,x=>x.qty);
@@ -368,29 +416,25 @@ async function load(){
   $('foot').textContent='Family Market · период '+(D.period?fmtD(D.period.start)+'–'+fmtD(D.period.end):D.year)+' · обновлено '+D.updated_at+' · категории из матрицы · Полевая — опт/склад (помечена) · внематричные ≈'+fmt(D.kpi.offmatrix_rev)+' ₴';
   $('prodList').innerHTML=(D.products||[]).slice(0,2000).map(p=>`<option value="${(p.p||'').replace(/"/g,'&quot;')}"></option>`).join('');
   // фильтры
-  $('fStore').innerHTML='<option value="all">Все магазины ('+D.stores.length+')</option>'+D.stores.map(s=>`<option>${s}</option>`).join('');
   $('fMonth').innerHTML='<option value="all">Весь период</option>'+(D.monthly||[]).map(m=>`<option value="${m.mo}">${MONTHS[m.mo]} ${D.year||''}</option>`).join('');
   $('rpFrom').innerHTML='<option value="all">весь период</option>'+(D.monthly||[]).map(m=>`<option value="${m.mo}">${MONTHS[m.mo]}</option>`).join('');
   $('rpTo').innerHTML='<option value="all">по последний</option>'+(D.monthly||[]).map(m=>`<option value="${m.mo}">${MONTHS[m.mo]}</option>`).join('');
-  const cats=D.by_category.map(c=>c.category);
-  $('catList').innerHTML=cats.map(c=>`<option value="${(c||'').replace(/"/g,'&quot;')}"></option>`).join('');
-  $('fCat').placeholder='все категории ('+cats.length+') — поиск';
-  const sups=D.by_supplier.map(s=>s.supplier);
-  $('supList').innerHTML=sups.map(s=>`<option value="${(s||'').replace(/"/g,'&quot;')}"></option>`).join('');
-  $('fSup').placeholder='все поставщики ('+sups.length+') — поиск';
+  initMS(); // мультиселект Магазин/Категория/Поставщик (с каскадом)
   $('mxStatus').innerHTML=['all','Прибыльный','Кандидат на вывод','Расширить покрытие','Новинка','Нет данных'].map(g=>`<option value="${g}">${g==='all'?'Все статусы':g}</option>`).join('');
   render();
 }
 
-function setFilter(k,v){S[k]=v; if(k==='store')$('fStore').value=v; if(k==='cat')$('fCat').value=(v==='all'?'':v); if(k==='sup')$('fSup').value=(v==='all'?'':v); S.prSel=null; render();}
+// клик по графику/строке = выбрать один вариант (заменяет текущий выбор фильтра)
+function setFilter(k,v){ if(k==='store'||k==='cat'||k==='sup'){S[k]=[v];msSync(k);} else {S[k]=v;} S.prSel=null; render();}
 function chips(){
   const c=[]; const mk=(lbl,val,key)=>`<div class="chip">${lbl}: <b>${val}</b><span data-k="${key}">✕</span></div>`;
+  const many=arr=>arr.length===1?arr[0]:arr.length+' выбр.';
   // показываем чип только если фильтр релевантен активной вкладке (согласованность с верхней панелью)
   const rel=id=>!FILTER_VIS[id]||FILTER_VIS[id].includes(S.tab);
   if(S.month!=='all'&&rel('cMonth'))c.push(mk('Месяц',(MONTHS[+S.month]||S.month),'month'));
-  if(S.store!=='all'&&rel('cStore'))c.push(mk('Магазин',S.store,'store'));
-  if(S.cat!=='all'&&rel('cCat'))c.push(mk('Категория',S.cat,'cat'));
-  if(S.sup!=='all'&&rel('cSup'))c.push(mk('Поставщик',S.sup,'sup'));
+  if(!allSel(S.store)&&rel('cStore'))c.push(mk('Магазин',many(S.store),'store'));
+  if(!allSel(S.cat)&&rel('cCat'))c.push(mk('Категория',many(S.cat),'cat'));
+  if(!allSel(S.sup)&&rel('cSup'))c.push(mk('Поставщик',many(S.sup),'sup'));
   if(S.abc!=='all')c.push(mk('ABC-класс',S.abc,'abc'));
   if(S.noOff&&rel('cOff'))c.push(mk('Фильтр','скрыть технические','noOff'));
   if(S.q&&rel('cQ'))c.push(mk('Поиск',S.q,'q'));
@@ -398,7 +442,9 @@ function chips(){
   $('chips').querySelectorAll('span').forEach(s=>s.onclick=()=>{const k=s.dataset.k;
     if(k==='q'){S.q='';$('fQ').value='';}
     else if(k==='noOff'){S.noOff=false;const o=$('fOff');if(o)o.checked=false;}
-    else{S[k]='all';const sel=$('f'+({store:'Store',cat:'Cat',sup:'Sup',month:'Month'}[k]));if(sel)sel.value=((k==='store'||k==='month')?'all':'');}
+    else if(k==='store'||k==='cat'||k==='sup'){S[k]=[];msSync(k);}
+    else if(k==='month'){S.month='all';$('fMonth').value='all';}
+    else{S[k]='all';}
     render();});
 }
 
@@ -417,15 +463,15 @@ function renderCulinary(){
   const C=D.culinary;
   if(!C||!C.products){$('cu_tab').innerHTML='<tbody><tr><td class="l">Нет данных по кулинарии. Нажмите «Обновить данные».</td></tr></tbody>';$('cu_kpis').innerHTML='';return;}
   const pmap={};C.products.forEach(p=>pmap[p.p]=p);
-  const storeSel=S.store!=='all';
+  const storeSel=!allSel(S.store);
   let prods;
-  if(storeSel)prods=(C.prod_store||[]).filter(r=>r.store===S.store).map(r=>{const m=pmap[r.p]||{};return {p:r.p,sub:m.sub||'',rev:r.rev,qty:r.qty,mrg:m.mrg||0,gp:Math.round(r.rev*(m.mrg||0)/100),abc:m.abc||'—',st:1};});
+  if(storeSel)prods=(C.prod_store||[]).filter(r=>inSel(r.store,S.store)).map(r=>{const m=pmap[r.p]||{};return {p:r.p,sub:m.sub||'',rev:r.rev,qty:r.qty,mrg:m.mrg||0,gp:Math.round(r.rev*(m.mrg||0)/100),abc:m.abc||'—',st:1};});
   else prods=C.products.map(p=>({...p}));
   if(S.culSub!=='all')prods=prods.filter(p=>p.sub===S.culSub);
   if(S.q)prods=prods.filter(p=>(''+p.p).toLowerCase().includes(S.q.toLowerCase()));
   let kpi;
   if(!storeSel&&S.culSub==='all'&&!S.q)kpi=C.kpi;
-  else if(storeSel&&S.culSub==='all'&&!S.q){const s=(C.by_store||[]).find(x=>x.store===S.store);kpi=s?{revenue:s.revenue,gp:s.gp,margin:s.margin,units:s.qty,receipts:s.receipts,skus:prods.length}:{};}
+  else if(storeSel&&S.culSub==='all'&&!S.q){const s=(C.by_store||[]).find(x=>inSel(x.store,S.store));kpi=s?{revenue:s.revenue,gp:s.gp,margin:s.margin,units:s.qty,receipts:s.receipts,skus:prods.length}:{};}
   else {const rev=sum(prods,x=>x.rev),gp=sum(prods,x=>x.gp||0);kpi={revenue:rev,gp:gp,margin:rev?+(gp/rev*100).toFixed(1):0,units:sum(prods,x=>x.qty),skus:prods.length};}
   kpiCards('cu_kpis',[
     ['Выручка ₴',fmt(kpi.revenue)],['Прибыль ₴',fmt(kpi.gp)],['Маржа',(kpi.margin||0)+'%'],
@@ -436,7 +482,7 @@ function renderCulinary(){
   chart('cu_sub').setOption({tooltip:tt({trigger:'item',formatter:p=>`<b>${p.name}</b><br>${fmtF(p.value)} ₴ (${p.percent}%)`}),
     series:[{type:'pie',radius:['45%','72%'],center:['50%','52%'],data:bs.map(s=>({name:s.sub,value:s.revenue,itemStyle:{color:s.sub==='Випічка'?'#fb923c':'#38bdf8'}})),label:{color:TXT,formatter:'{b}: {d}%'}}]},true);
   chart('cu_sub').resize();
-  const mSrc=storeSel?(C.store_month||[]).filter(r=>r.store===S.store):(C.by_month||[]);
+  const mSrc=storeSel?(C.store_month||[]).filter(r=>inSel(r.store,S.store)):(C.by_month||[]);
   const series=agg12(mSrc.map(r=>({mo:r.mo,revenue:r.revenue,gp:r.gp}))),mos=series.map(x=>MONTHS[x[0]]);
   $('cu_dyn_s').textContent=storeSel?S.store:'вся сеть';
   chart('cu_dyn').setOption({grid:{...baseGrid,bottom:30},tooltip:tt({trigger:'axis',valueFormatter:v=>fmt(v)+' ₴'}),legend:{data:['Выручка','Прибыль'],textStyle:{color:TXT},top:0,right:0},xAxis:axCat(mos),yAxis:axV(),
@@ -479,8 +525,8 @@ function renderMatrix(){
   const H=M.cols, iSup=H.indexOf('Поставщик'),iProd=H.indexOf('Товар'),iCat=H.indexOf('Категория'),iStatus=H.indexOf('Статус');
   const isTot=r=>(''+(r[iProd]||'')).trim().startsWith('ИТОГО');
   let rows=M.rows.filter(r=>{
-    if(S.cat!=='all'&&r[iCat]!==S.cat)return false;
-    if(S.sup!=='all'&&r[iSup]!==S.sup)return false;
+    if(!allSel(S.cat)&&!inSel(r[iCat],S.cat))return false;
+    if(!allSel(S.sup)&&!inSel(r[iSup],S.sup))return false;
     if(S.mxStatus&&S.mxStatus!=='all'&&statusGroup(r[iStatus])!==S.mxStatus)return false;
     if(S.q&&!(''+r[iProd]).toLowerCase().includes(S.q.toLowerCase()))return false;
     return true;});
@@ -530,11 +576,11 @@ function reportPivot(dim,months){
   let rows=Object.values(map);
   const meta={};
   if(dim==='products'){(D.products||[]).forEach(p=>meta[p.p]=p);rows.forEach(o=>{const m=meta[o.name]||{};o.c=m.c;o.s=m.s;o.coverage=m.st;o.abc=m.abc;o.xyz=m.xyz;});
-    if(S.cat!=='all')rows=rows.filter(o=>o.c===S.cat);if(S.sup!=='all')rows=rows.filter(o=>o.s===S.sup);
+    if(!allSel(S.cat))rows=rows.filter(o=>inSel(o.c,S.cat));if(!allSel(S.sup))rows=rows.filter(o=>inSel(o.s,S.sup));
     if(S.noOff)rows=rows.filter(o=>!isTech(o.name));}
-  else if(dim==='category'){(D.by_category||[]).forEach(c=>meta[c.category]=c);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;});if(S.cat!=='all')rows=rows.filter(o=>o.name===S.cat);}
-  else if(dim==='store'){(D.by_store||[]).forEach(s=>meta[s.store]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.skus=m.skus;o.cats=m.cats;});if(S.store!=='all')rows=rows.filter(o=>o.name===S.store);}
-  else {(D.by_supplier||[]).forEach(s=>meta[s.supplier]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;o.cats=m.cats;});if(S.sup!=='all')rows=rows.filter(o=>o.name===S.sup);}
+  else if(dim==='category'){(D.by_category||[]).forEach(c=>meta[c.category]=c);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;});if(!allSel(S.cat))rows=rows.filter(o=>inSel(o.name,S.cat));}
+  else if(dim==='store'){(D.by_store||[]).forEach(s=>meta[s.store]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.skus=m.skus;o.cats=m.cats;});if(!allSel(S.store))rows=rows.filter(o=>inSel(o.name,S.store));}
+  else {(D.by_supplier||[]).forEach(s=>meta[s.supplier]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;o.cats=m.cats;});if(!allSel(S.sup))rows=rows.filter(o=>inSel(o.name,S.sup));}
   if(S.q)rows=rows.filter(o=>(''+o.name).toLowerCase().includes(S.q.toLowerCase()));
   rows.forEach(o=>{months.forEach(mo=>{o['m'+mo]=o.by[mo]||0;o['q'+mo]=o.q[mo]||0;});});
   return rows;
@@ -630,8 +676,8 @@ function renderOverview(){
   ]);
   // динамика
   let series, note='';
-  if(S.cat!=='all'){const m=D.cat_month.filter(r=>r.category===S.cat);series=agg12(m);note='категория: '+S.cat;}
-  else if(S.store!=='all'){const m=D.store_month.filter(r=>r.store===S.store);series=agg12(m);note='магазин: '+S.store;}
+  if(!allSel(S.cat)){const m=D.cat_month.filter(r=>inSel(r.category,S.cat));series=agg12(m);note='категория: '+S.cat.join(', ');}
+  else if(!allSel(S.store)){const m=D.store_month.filter(r=>inSel(r.store,S.store));series=agg12(m);note='магазин: '+S.store.join(', ');}
   else {series=D.monthly.map(r=>[r.mo,r.revenue,r.gp]);note='все точки';}
   $('ov_dyn_s').textContent=note;
   const mos=series.map(x=>MONTHS[x[0]]);
@@ -665,20 +711,20 @@ function renderOverview(){
 function agg12(rows){const m={};rows.forEach(r=>{m[r.mo]=m[r.mo]||[r.mo,0,0];m[r.mo][1]+=r.revenue;m[r.mo][2]+=r.gp;});return Object.values(m).sort((a,b)=>a[0]-b[0]);}
 // агрегат категорий под фильтр
 function catAgg(){
-  if(monthSel()&&S.store==='all'&&S.sup==='all'&&!S.q){
+  if(monthSel()&&allSel(S.store)&&allSel(S.sup)&&!S.q){
     const m=monthN();
-    return (D.cat_month||[]).filter(r=>r.mo===m&&(S.cat==='all'||r.category===S.cat))
+    return (D.cat_month||[]).filter(r=>r.mo===m&&(allSel(S.cat)||inSel(r.category,S.cat)))
       .map(r=>({category:r.category,revenue:r.revenue,gp:r.gp,margin:r.revenue?+(r.gp/r.revenue*100).toFixed(1):0})).sort((a,b)=>b.revenue-a.revenue);
   }
-  if(!monthSel()&&S.store==='all'&&S.sup==='all'&&!S.q) return D.by_category.filter(c=>S.cat==='all'||c.category===S.cat);
+  if(!monthSel()&&allSel(S.store)&&allSel(S.sup)&&!S.q) return D.by_category.filter(c=>allSel(S.cat)||inSel(c.category,S.cat));
   const g=groupSum(workProducts(),'c',['rev','gp','qty']);
   return Object.entries(g).map(([category,v])=>({category,revenue:v.rev,gp:v.gp,qty:v.qty,margin:v.rev?+(v.gp/v.rev*100).toFixed(1):0,
     skus:workProducts().filter(x=>x.c===category).length})).sort((a,b)=>b.revenue-a.revenue);
 }
 // агрегат магазинов под фильтр
 function storeAgg(){
-  if(monthSel()&&S.cat==='all'){const mo=monthN();return (D.store_month||[]).filter(r=>r.mo===mo).map(r=>({store:r.store,revenue:r.revenue})).sort((a,b)=>b.revenue-a.revenue);}
-  if(S.cat!=='all'){const m={};D.cat_store.filter(r=>r.category===S.cat).forEach(r=>m[r.store]=(m[r.store]||0)+r.revenue);
+  if(monthSel()&&allSel(S.cat)){const mo=monthN();return (D.store_month||[]).filter(r=>r.mo===mo).map(r=>({store:r.store,revenue:r.revenue})).sort((a,b)=>b.revenue-a.revenue);}
+  if(!allSel(S.cat)){const m={};D.cat_store.filter(r=>inSel(r.category,S.cat)).forEach(r=>m[r.store]=(m[r.store]||0)+r.revenue);
     return Object.entries(m).map(([store,revenue])=>({store,revenue})).sort((a,b)=>b.revenue-a.revenue);}
   return D.by_store.map(s=>({store:s.store,revenue:s.revenue})).sort((a,b)=>b.revenue-a.revenue);
 }
@@ -688,7 +734,6 @@ function renderDeep(dim,val){
   ['and_dyn','and_top','and_break'].forEach(id=>{if(charts[id]){charts[id].dispose();delete charts[id];}});
   const w=workProducts(), k=kpiNow(), totalRev=D.kpi.revenue||1;
   const label=dim==='cat'?'Категория':dim==='sup'?'Поставщик':'Магазин';
-  const fsel=dim==='cat'?'fCat':dim==='sup'?'fSup':'fStore';
   const abcMix={A:0,B:0,C:0}, xyzMix={X:0,Y:0,Z:0};
   w.forEach(p=>{if(abcMix[p.abc]!=null)abcMix[p.abc]++;if(xyzMix[p.xyz]!=null)xyzMix[p.xyz]++;});
   const froz=(D.dead_items||[]).filter(r=>dim==='cat'?r.c===val:dim==='sup'?r.s===val:r.store===val);
@@ -701,7 +746,7 @@ function renderDeep(dim,val){
   const secTitle=dim==='cat'?'Поставщики в категории':dim==='sup'?'Категории поставщика':'Категории в магазине';
   $('an_deep').innerHTML=`
     <div class="drill"><h4>🔎 Разрез: ${label} — ${val}
-      <span class="btn" style="float:right;padding:3px 10px" onclick="S.${dim}='all';var e=document.getElementById('${fsel}');if(e)e.value='all';S.prSel=null;render();">✕ сбросить разрез</span></h4>
+      <span class="btn" style="float:right;padding:3px 10px" onclick="S.${dim}=[];msSync('${dim}');S.prSel=null;render();">✕ сбросить разрез</span></h4>
       <div class="dgrid">
         <div class="dstat"><div class="v">${fmt(k.revenue)}</div><div class="t">Выручка ₴</div></div>
         <div class="dstat"><div class="v">${fmt(k.gp)}</div><div class="t">Прибыль ₴</div></div>
@@ -752,7 +797,8 @@ function renderDeep(dim,val){
 }
 // ============ АНАЛИТИКА ============
 function renderAnalytics(){
-  const focus=S.cat!=='all'?['cat',S.cat]:(S.sup!=='all'?['sup',S.sup]:(S.store!=='all'?['store',S.store]:null));
+  const one=a=>a.length===1?a[0]:null; const fc=one(S.cat),fsu=one(S.sup),fst=one(S.store);
+  const focus=fc!==null?['cat',fc]:(fsu!==null?['sup',fsu]:(fst!==null?['store',fst]:null));
   if(focus){$('an_overview').style.display='none';$('an_deep').style.display='block';renderDeep(focus[0],focus[1]);return;}
   $('an_deep').style.display='none';$('an_overview').style.display='grid';
   const cl={};(D.abc.classes||[]).forEach(c=>cl[c.abc]=c);const tot=D.abc.total_sku||0;
@@ -763,7 +809,7 @@ function renderAnalytics(){
     ['Всего позиций',fmt(tot),'']
   ]);
   $('an_abc_k').querySelectorAll('.kpi').forEach((el,i)=>{if(i<3){el.style.cursor='pointer';el.title='Открыть список позиций класса '+['A','B','C'][i];
-    el.onclick=()=>{S.abc=['A','B','C'][i];S.store='all';$('fStore').value='all';S.tab='products';syncTabs();render();setTimeout(resizeAll,30);};}});
+    el.onclick=()=>{S.abc=['A','B','C'][i];S.store=[];msSync('store');S.tab='products';syncTabs();render();setTimeout(resizeAll,30);};}});
   const cur=D.abc.curve||[];
   chart('an_abc').setOption({grid:{...baseGrid,bottom:34,top:16},tooltip:tt({trigger:'axis',
     formatter:p=>`Позиций: ${p[0].data[0]}<br>Кумул. выручка: ${p[0].data[1]}%`}),
@@ -775,9 +821,9 @@ function renderAnalytics(){
   $('an_abc_note').innerHTML=`<b>Как читать:</b> товары отсортированы по убыванию выручки. Класс <b class="pos">A</b> — ${cl.A?.skus||0} позиций дают 80% выручки (правило Парето: всего ${paretoPct}% ассортимента). Класс <b style="color:#facc15">B</b> — следующие 15%, класс <b class="neg">C</b> — «длинный хвост» (${cl.C?.skus||0} позиций, лишь 5% выручки — кандидаты на вывод). Список конкретных позиций с классом — на вкладке «Позиции». Товары вне матрицы попадают в категорию «Прочее (нет в матрице)».${monthSel()?' <b class="neg">При выбранном месяце:</b> ABC, оборачиваемость, покрытие и маржа-скаттер считаются за весь период; помесячно пересчитываются KPI, категории, магазины, поставщики и позиции.':''}`;
   // оборачиваемость: показываем и обороты, и «дни на складе» = период / оборачиваемость (pdays определён выше)
   const tvf=v=>v.toFixed(2)+' об. · '+(v>0?Math.round(pdays/v):'∞')+' дн. на складе';
-  hbar('an_turn', D.turnover.filter(t=>S.cat==='all'||t.category===S.cat).slice().sort((a,b)=>b.turnover_rate-a.turnover_rate).slice(0,15).reverse(),
+  hbar('an_turn', D.turnover.filter(t=>allSel(S.cat)||inSel(t.category,S.cat)).slice().sort((a,b)=>b.turnover_rate-a.turnover_rate).slice(0,15).reverse(),
     'category','turnover_rate','#a78bfa',tvf,p=>setFilter('cat',p.name),'');
-  hbar('an_turnsup', (D.turnover_supplier||[]).filter(t=>S.sup==='all'||t.supplier===S.sup).slice(0,15).reverse(),
+  hbar('an_turnsup', (D.turnover_supplier||[]).filter(t=>allSel(S.sup)||inSel(t.supplier,S.sup)).slice(0,15).reverse(),
     'supplier','turnover_rate','#38bdf8',tvf,p=>setFilter('sup',p.name),'');
   const pdays=D.period?.days||0, pmon=(pdays/30.4).toFixed(1);
   $('an_turn_note').innerHTML=`<b>Что это:</b> оборачиваемость = продажи по себестоимости ÷ средний складской остаток по себестоимости, за весь период (${D.period?fmtD(D.period.start)+'–'+fmtD(D.period.end)+', ~'+pmon+' мес':''}). Показывает, <b>сколько раз запас полностью обернулся</b> (продался и пополнился) за период. Выше — быстрее продаётся, меньше денег «заморожено» в остатках. Пример: 3 = товар распродан и завезён ~3 раза за период; в пересчёте на месяц ≈ ${pmon>0?(3/pmon).toFixed(2):'—'}. <b>«Дни на складе»</b> = период ÷ оборачиваемость — сколько дней в среднем товар лежит до продажи (меньше = лучше; видно в подсказке на графике).`;
@@ -798,7 +844,7 @@ function renderAnalytics(){
   if(monthSel()){const m=monthN();const tm=(D.monthly||[]).find(x=>x.mo===m);const st=(tm&&tm.revenue)||1;
     supBase=(D.supplier_month||[]).filter(r=>r.mo===m).map(r=>({supplier:r.supplier,revenue:r.revenue,gp:r.gp,margin:r.revenue?+(r.gp/r.revenue*100).toFixed(1):0,skus:'—',cats:'—',stores:'—',share:+(r.revenue/st*100).toFixed(2)})).sort((a,b)=>b.revenue-a.revenue);}
   else {const stot=D.kpi.revenue||1;supBase=D.by_supplier.map(s=>({...s,share:+(s.revenue/stot*100).toFixed(2)}));}
-  const sup=supBase.filter(s=>S.sup==='all'||s.supplier===S.sup);
+  const sup=supBase.filter(s=>allSel(S.sup)||inSel(s.supplier,S.sup));
   tableSort('an_sup',[['Поставщик','supplier','l'],['Выручка ₴','revenue'],['Доля %','share'],['Прибыль ₴','gp'],['Маржа %','margin'],['SKU','skus'],['Категорий','cats'],['Точек','stores']],
     sup,'revenue',r=>setFilter('sup',r.supplier),
     r=>`<td class="l">${r.supplier}</td><td>${fmtF(r.revenue)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.gp)}</td><td>${r.margin}</td><td>${r.skus}</td><td>${r.cats}</td><td>${r.stores}</td>`);
@@ -847,7 +893,7 @@ function coverage(){
 // ============ ПОЗИЦИИ ============
 function renderProducts(){
   const w=workProducts().slice();
-  $('pr_s').textContent=w.length+' позиций'+(S.store!=='all'?' (топ по магазину)':'');
+  $('pr_s').textContent=w.length+' позиций'+(!allSel(S.store)?' (топ по магазину)':'');
   // drill карточка
   $('pr_drill').innerHTML = S.prSel ? productCard(S.prSel) : '';
   const xb=x=>`<span class="badge b${x==='X'?'A':x==='Y'?'B':x==='Z'?'C':''}">${x||'—'}</span>`;
@@ -882,9 +928,9 @@ function productCard(name){
 function renderFrozen(){
   // дефицит (out-of-stock): товар продаётся, но остаток 0
   let oosR=(D.oos||[]).slice();
-  if(S.store!=='all')oosR=oosR.filter(r=>r.store===S.store);
-  if(S.cat!=='all')oosR=oosR.filter(r=>r.category===S.cat);
-  if(S.sup!=='all')oosR=oosR.filter(r=>r.supplier===S.sup);
+  if(!allSel(S.store))oosR=oosR.filter(r=>inSel(r.store,S.store));
+  if(!allSel(S.cat))oosR=oosR.filter(r=>inSel(r.category,S.cat));
+  if(!allSel(S.sup))oosR=oosR.filter(r=>inSel(r.supplier,S.sup));
   if(S.noOff)oosR=oosR.filter(r=>!isTech(r.product));
   if(S.q)oosR=oosR.filter(r=>r.product.toLowerCase().includes(S.q.toLowerCase()));
   tableSort('fr_oos',[['Товар','product','l'],['Категория','category','l'],['Поставщик','supplier','l'],['Магазин','store','l'],['Продажи 90д','sold90'],['Норма/мес','need_month'],['Где взять','elsewhere']],oosR.slice(0,300),'sold90',
@@ -892,9 +938,9 @@ function renderFrozen(){
     r=>`<td class="l" title="${r.product}">${r.product}</td><td class="l muted">${r.category}</td><td class="l muted">${r.supplier}</td><td class="l">${r.store}</td><td>${fmtF(r.sold90)}</td><td>${fmtF(r.need_month)}</td><td class="${r.elsewhere?'pos':'muted'}">${r.elsewhere?'есть в др. точках':'дозаказ у поставщика'}</td>`);
   const dt=D.dead_total||{v:0,n:0};
   let items=(D.dead_items||[]).slice();
-  if(S.store!=='all')items=items.filter(r=>r.store===S.store);
-  if(S.cat!=='all')items=items.filter(r=>r.c===S.cat);
-  if(S.sup!=='all')items=items.filter(r=>r.s===S.sup);
+  if(!allSel(S.store))items=items.filter(r=>inSel(r.store,S.store));
+  if(!allSel(S.cat))items=items.filter(r=>inSel(r.c,S.cat));
+  if(!allSel(S.sup))items=items.filter(r=>inSel(r.s,S.sup));
   if(S.noOff)items=items.filter(r=>!isTech(r.p));
   if(S.q)items=items.filter(r=>r.p.toLowerCase().includes(S.q.toLowerCase()));
   kpiCards('fr_kpis',[
@@ -917,9 +963,9 @@ function renderFrozen(){
 // ============ ПЕРЕМЕЩЕНИЯ ============
 function renderMoves(){
   let m=(D.moves||[]).slice();
-  if(S.cat!=='all')m=m.filter(r=>r.category===S.cat);
-  if(S.sup!=='all')m=m.filter(r=>r.supplier===S.sup);
-  if(S.store!=='all')m=m.filter(r=>r.donor===S.store||r.receiver===S.store);
+  if(!allSel(S.cat))m=m.filter(r=>inSel(r.category,S.cat));
+  if(!allSel(S.sup))m=m.filter(r=>inSel(r.supplier,S.sup));
+  if(!allSel(S.store))m=m.filter(r=>inSel(r.donor,S.store)||inSel(r.receiver,S.store));
   if(S.q)m=m.filter(r=>r.product.toLowerCase().includes(S.q.toLowerCase()));
   const s=D.moves_summary||{};
   kpiCards('mv_kpis',[['Рекомендаций всего',fmt(s.pairs)],['Товаров к переносу',fmt(s.skus)],['Ценность к переносу ₴',fmt(sum(m,x=>x.value))],['Строк в выборке',fmt(m.length)]]);
@@ -1015,9 +1061,7 @@ $('nav').addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;S.ta
 (()=>{const q=$('stQ');if(q){let t;q.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(renderStale,250);});}
   const rb=$('stReset');if(rb)rb.onclick=()=>{$('stDays').value='7';$('stStore').value='all';$('stCat').value='all';$('stSup').value='all';$('stQ').value='';renderStale();};})();
 $('fMonth').onchange=e=>{S.month=e.target.value;S.prSel=null;render();};
-$('fStore').onchange=e=>{S.store=e.target.value;S.prSel=null;render();};
-let ct;$('fCat').oninput=e=>{clearTimeout(ct);ct=setTimeout(()=>{const v=e.target.value.trim();S.cat=v===''?'all':v;S.prSel=null;render();},200);};
-let st;$('fSup').oninput=e=>{clearTimeout(st);st=setTimeout(()=>{const v=e.target.value.trim();S.sup=v===''?'all':v;S.prSel=null;render();},200);};
+// Магазин/Категория/Поставщик — через мультиселект (initMS), отдельные обработчики не нужны
 let qt;$('fQ').oninput=e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.value.trim();render();},250);};
 $('fOff').onchange=e=>{S.noOff=e.target.checked;S.prSel=null;render();};
 $('mxStatus').onchange=e=>{S.mxStatus=e.target.value;render();};
@@ -1029,7 +1073,7 @@ $('rpMode').onchange=e=>{S.rpMode=e.target.value;};
 $('rpFrom').onchange=e=>{S.rpFrom=e.target.value;};
 $('rpTo').onchange=e=>{S.rpTo=e.target.value;};
 $('rpRun').onclick=()=>{S.rpBuilt=true;renderReport();setTimeout(resizeAll,30);};
-$('reset').onclick=()=>{S.month='all';S.store='all';S.cat='all';S.sup='all';S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.culSub='all';S.cuSel=null;S.prSel=null;$('fMonth').value='all';$('fStore').value='all';$('fCat').value='';$('fSup').value='';$('fQ').value='';$('fOff').checked=false;if($('mxStatus'))$('mxStatus').value='all';if($('cuSub'))$('cuSub').value='all';render();};
+$('reset').onclick=()=>{S.month='all';S.store=[];S.cat=[];S.sup=[];S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.culSub='all';S.cuSel=null;S.prSel=null;$('fMonth').value='all';$('fQ').value='';$('fOff').checked=false;msSyncAll();if($('mxStatus'))$('mxStatus').value='all';if($('cuSub'))$('cuSub').value='all';render();};
 function resizeAll(){Object.values(charts).forEach(c=>c.resize());}
 window.addEventListener('resize',resizeAll);
 // выгрузка CSV (разделитель ; и BOM — корректно открывается в Excel с кириллицей)
