@@ -362,7 +362,10 @@ function msOptions(key){
   if(key==='cat'&&!allSel(S.sup)){const set=new Set();S.sup.forEach(s=>(SUP2CAT[s]||[]).forEach(c=>set.add(c)));return MSDATA.cat.filter(c=>set.has(c)||S.cat.includes(c));}
   return MSDATA[key];
 }
-function msSummary(key){const sel=S[key];if(!sel.length)return 'Все '+MSLABEL[key]+' ('+MSDATA[key].length+')';if(sel.length===1)return sel[0];return sel.length+' выбрано';}
+function msSummary(key){const sel=S[key];if(!sel.length)return 'Все '+MSLABEL[key]+' ('+msOptions(key).length+')';if(sel.length===1)return sel[0];return sel.length+' выбрано';}
+// каскадные счётчики для чипов
+const supsOfCats=cats=>{const s=new Set();cats.forEach(c=>(CAT2SUP[c]||[]).forEach(x=>s.add(x)));return s.size;};
+const catsOfSups=sups=>{const s=new Set();sups.forEach(p=>(SUP2CAT[p]||[]).forEach(x=>s.add(x)));return s.size;};
 function msBuild(key){
   const box=$(MSBOX[key]);if(!box)return;
   box.innerHTML='<button class="ms-btn" type="button"></button><div class="ms-pop"><input class="ms-search" type="text" placeholder="поиск…" autocomplete="off"><div class="ms-list"></div><div class="ms-foot"><button type="button" data-a="all">Выбрать все</button><button type="button" data-a="clear">Очистить</button></div></div>';
@@ -433,8 +436,8 @@ function chips(){
   const rel=id=>!FILTER_VIS[id]||FILTER_VIS[id].includes(S.tab);
   if(S.month!=='all'&&rel('cMonth'))c.push(mk('Месяц',(MONTHS[+S.month]||S.month),'month'));
   if(!allSel(S.store)&&rel('cStore'))c.push(mk('Магазин',many(S.store),'store'));
-  if(!allSel(S.cat)&&rel('cCat'))c.push(mk('Категория',many(S.cat),'cat'));
-  if(!allSel(S.sup)&&rel('cSup'))c.push(mk('Поставщик',many(S.sup),'sup'));
+  if(!allSel(S.cat)&&rel('cCat'))c.push(mk('Категория',many(S.cat)+' · '+supsOfCats(S.cat)+' поставщ.','cat'));
+  if(!allSel(S.sup)&&rel('cSup'))c.push(mk('Поставщик',many(S.sup)+' · '+catsOfSups(S.sup)+' катег.','sup'));
   if(S.abc!=='all')c.push(mk('ABC-класс',S.abc,'abc'));
   if(S.noOff&&rel('cOff'))c.push(mk('Фильтр','скрыть технические','noOff'));
   if(S.q&&rel('cQ'))c.push(mk('Поиск',S.q,'q'));
@@ -672,7 +675,7 @@ function renderOverview(){
   kpiCards('ov_kpis',[
     ['Выручка ₴',fmt(k.revenue)],['Прибыль ₴',fmt(k.gp)],['Маржа',(k.margin||0)+'%'],
     ['Продано, ед.',(k.qty!=null||k.units!=null)?fmt(k.qty!=null?k.qty:k.units):'—'],['Чеков',k.receipts!=null?fmt(k.receipts):'—'],
-    ['Позиций (SKU)',k.skus!=null?fmt(k.skus):'—'],[k.exact?'Точный срез':'Оценка по топ-товарам', k.exact?'✓':'≈']
+    ['Позиций (SKU)',k.skus!=null?fmt(k.skus):'—'],['Средний чек ₴',(k.receipts&&k.revenue)?fmt(k.revenue/k.receipts):'—',k.exact?'точный срез':'≈ оценка']
   ]);
   // динамика
   let series, note='';

@@ -78,7 +78,7 @@ def main():
       ROUND(SUM(qty),0) qty, COUNT(DISTINCT tid) receipts FROM {ST} GROUP BY mo ORDER BY mo""")
 
     out["by_category"] = run(f"""SELECT category, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
-      ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, ROUND(SUM(qty),0) qty,
+      ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, ROUND(SUM(qty),0) qty, COUNT(DISTINCT tid) receipts,
       COUNT(DISTINCT barcode) skus, COUNT(DISTINCT store) stores
       FROM {ST} GROUP BY category ORDER BY revenue DESC""")
 
