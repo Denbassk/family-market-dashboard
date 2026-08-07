@@ -160,6 +160,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
   <button data-p="analytics">Аналитика</button>
   <button data-p="products">Позиции</button>
   <button data-p="frozen">Дефицит · неликвиды · списания</button>
+  <button data-p="stores">Магазины</button>
   <button data-p="moves">Перемещения</button>
   <button data-p="culinary">Кулинария и выпечка</button>
   <button data-p="matrix">Матрица</button>
@@ -255,6 +256,18 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
     <div class="card"><h3>Кросс-продажи: пары товаров <span>вместе в одном чеке</span><button class="csvbtn" data-t="fr_cross">⬇ Excel</button></h3><div class="scroll"><table id="fr_cross"></table></div></div>
     <div class="card"><h3>Списания: топ позиций <span>по себестоимости</span><button class="csvbtn" data-t="fr_wo">⬇ Excel</button></h3><div class="scroll"><table id="fr_wo"></table></div></div>
   </div>
+</div>
+
+<!-- МАГАЗИНЫ: эффективность + тепловая карта -->
+<div class="page" id="p_stores">
+  <div class="kpis" id="st_kpis2"></div>
+  <div class="card full" style="margin-bottom:12px"><h3>Тепловая карта продаж <span>день недели × час · клик по строке магазина ниже фокусирует карту · местное время</span>
+    <span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center;font-weight:400"><label style="font-size:11px;color:var(--muted)">показатель</label><select id="hmMetric" style="min-width:120px"><option value="revenue">Выручка</option><option value="receipts">Чеки</option></select></span></h3>
+    <div id="hm_chart" class="chart" style="height:340px"></div>
+    <div class="note" id="hm_note"></div></div>
+  <div class="card full"><h3>Эффективность магазинов <span>сортируйте по любому столбцу · клик = фильтр по магазину</span><button class="csvbtn" data-t="stf_tab">⬇ Excel</button></h3>
+    <div class="scroll tall"><table id="stf_tab"></table></div>
+    <div class="note">Оборот, дн — за сколько дней распродаётся средний остаток (меньше = лучше). Неликвид ₴ — заморожено в товарах без движения. Списания ₴ — сумма списаний за период.</div></div>
 </div>
 
 <!-- ПЕРЕМЕЩЕНИЯ -->
@@ -474,6 +487,7 @@ function render(){ if(!D)return; chips(); applyFilterVis();
   else if(S.tab==='analytics')renderAnalytics();
   else if(S.tab==='products')renderProducts();
   else if(S.tab==='frozen')renderFrozen();
+  else if(S.tab==='stores')renderStores();
   else if(S.tab==='moves'){renderMoves();renderStale();}
   else if(S.tab==='culinary')renderCulinary();
   else if(S.tab==='matrix')renderMatrix();
@@ -980,6 +994,48 @@ function renderFrozen(){
     x=>`<td class="l" title="${x.product_name}">${x.product_name}</td><td class="l muted">${x.supplier||'—'}</td><td>${fmtF(x.amount)}</td><td>${fmtF(x.qty)}</td>`);
 }
 
+// ============ МАГАЗИНЫ: эффективность + тепловая карта ============
+function renderStores(){
+  const period=(D.period&&D.period.days)||1;
+  const turn={},dead={},wro={};
+  (D.turnover_store||[]).forEach(t=>turn[t.store]=t);
+  (D.dead_by_store||[]).forEach(t=>dead[t.store]=t);
+  (D.writeoffs_by_store||[]).forEach(t=>wro[t.store]=t);
+  let base=(D.by_store||[]).slice();
+  if(!allSel(S.store))base=base.filter(r=>inSel(r.store,S.store));
+  const rows=base.map(r=>{const t=turn[r.store]||{},dd=dead[r.store]||{},w=wro[r.store]||{};const tr=t.turnover_rate||0;
+    return {store:r.store,revenue:r.revenue,gp:r.gp,margin:r.margin,receipts:r.receipts,
+      avgcheck:r.receipts?Math.round(r.revenue/r.receipts):0,revsku:r.skus?Math.round(r.revenue/r.skus):0,
+      skus:r.skus,turndays:tr?Math.round(period/tr):null,dead:dd.dead_value||0,wro:w.amount||0};});
+  const tR=sum(rows,x=>x.revenue),tRe=sum(rows,x=>x.receipts),tDead=sum(rows,x=>x.dead),tW=sum(rows,x=>x.wro);
+  kpiCards('st_kpis2',[['Магазинов в выборке',fmt(rows.length)],['Выручка ₴',fmt(tR)],['Средний чек ₴',tRe?fmt(tR/tRe):'—'],['Заморожено в неликвидах ₴',fmt(tDead)],['Списания ₴',fmt(tW)]]);
+  tableSort('stf_tab',
+    [['Магазин','store','l'],['Выручка ₴','revenue'],['Прибыль ₴','gp'],['Маржа %','margin'],['Ср.чек ₴','avgcheck'],['Выр/SKU ₴','revsku'],['Чеков','receipts'],['SKU','skus'],['Оборот, дн','turndays'],['Неликвид ₴','dead'],['Списания ₴','wro']],
+    rows,'revenue',r=>setFilter('store',r.store),
+    r=>`<td class="l">${r.store}</td><td>${fmt(r.revenue)}</td><td>${fmt(r.gp)}</td><td class="${r.margin<8?'neg':(r.margin>=18?'pos':'')}">${(r.margin||0)}%</td><td>${fmtF(r.avgcheck)}</td><td>${fmtF(r.revsku)}</td><td>${fmtF(r.receipts)}</td><td>${fmtF(r.skus)}</td><td>${r.turndays!=null?fmtF(r.turndays):'—'}</td><td>${fmt(r.dead)}</td><td>${fmt(r.wro)}</td>`);
+  renderHeatmap();
+}
+function renderHeatmap(){
+  const hm=D.heatmap;
+  if(!hm||!hm.length){if(charts['hm_chart']){charts['hm_chart'].dispose();delete charts['hm_chart'];}$('hm_chart').innerHTML='<div class="ms-empty" style="padding:24px">Данные теплокарты появятся после пересборки («Обновить данные»).</div>';$('hm_note').textContent='';return;}
+  const metric=($('hmMetric')&&$('hmMetric').value)||'revenue';
+  const rows=allSel(S.store)?hm:hm.filter(r=>inSel(r.store,S.store));
+  const dayOrder=[2,3,4,5,6,7,1],dayName=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],hours=[];for(let h=6;h<=23;h++)hours.push(h);
+  const agg={};rows.forEach(r=>{const k=r.dow+'_'+r.hr;agg[k]=(agg[k]||0)+(r[metric]||0);});
+  const data=[];let mx=0;dayOrder.forEach((dw,yi)=>hours.forEach((h,xi)=>{const v=Math.round(agg[dw+'_'+h]||0);if(v>mx)mx=v;data.push([xi,yi,v]);}));
+  chart('hm_chart').setOption({
+    tooltip:tt({position:'top',formatter:p=>dayName[p.value[1]]+', '+hours[p.value[0]]+':00 — '+fmt(p.value[2])+(metric==='revenue'?' ₴':' чек.')}),
+    grid:{left:8,right:12,top:10,bottom:20,containLabel:true},
+    xAxis:{type:'category',data:hours.map(h=>h+':00'),splitArea:{show:true},axisLabel:{color:TXT,fontSize:10},axisLine:{lineStyle:{color:AX}},axisTick:{show:false}},
+    yAxis:{type:'category',data:dayName,splitArea:{show:true},axisLabel:{color:TXT},axisLine:{lineStyle:{color:AX}},axisTick:{show:false}},
+    visualMap:{min:0,max:mx||1,show:false,inRange:{color:['#0d1526','#173a5e','#1d63b8','#2f9be0','#4ade80','#facc15','#f87171']}},
+    series:[{type:'heatmap',data:data,itemStyle:{borderColor:'#0b1220',borderWidth:1},emphasis:{itemStyle:{borderColor:'#fff',borderWidth:1.5}}}]
+  });
+  chart('hm_chart').resize();
+  const peak=data.slice().sort((a,b)=>b[2]-a[2])[0];
+  $('hm_note').innerHTML=(allSel(S.store)?'По всей сети (38 магазинов)':'Магазины: '+S.store.join(', '))+'. Пик: <b>'+dayName[peak[1]]+' '+hours[peak[0]]+':00</b> ('+fmt(peak[2])+(metric==='revenue'?' ₴':' чек.')+'). Показатель: '+(metric==='revenue'?'выручка':'чеки')+'. Время местное.';
+}
+
 // ============ ПЕРЕМЕЩЕНИЯ ============
 function renderMoves(){
   let m=(D.moves||[]).slice();
@@ -1062,7 +1118,7 @@ function syncTabs(){document.querySelectorAll('.nav button').forEach(b=>b.classL
 // какие фильтры верхней панели показывать на каждой вкладке (Отчёты — свои контролы, глобальные скрыты)
 const FILTER_VIS={
   cMonth:['overview','products','analytics'],
-  cStore:['overview','products','analytics','frozen','moves','culinary','matrix'],
+  cStore:['overview','products','analytics','frozen','moves','culinary','matrix','stores'],
   cCat:['overview','products','analytics','frozen','moves','matrix'],
   cSup:['overview','products','analytics','frozen','moves','matrix'],
   cQ:['overview','products','frozen','moves','culinary','matrix'],
@@ -1085,6 +1141,7 @@ $('fMonth').onchange=e=>{S.month=e.target.value;S.prSel=null;render();};
 let qt;$('fQ').oninput=e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.value.trim();render();},250);};
 $('fOff').onchange=e=>{S.noOff=e.target.checked;S.prSel=null;render();};
 $('mxStatus').onchange=e=>{S.mxStatus=e.target.value;render();};
+$('hmMetric').onchange=()=>{renderHeatmap();setTimeout(resizeAll,20);};
 $('cuSub').onchange=e=>{S.culSub=e.target.value;S.cuSel=null;render();};
 $('rpDim').onchange=e=>{S.rpDim=e.target.value;};
 $('rpMetric').onchange=e=>{S.rpMetric=e.target.value;};

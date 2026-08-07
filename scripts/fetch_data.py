@@ -96,6 +96,12 @@ def main():
     out["cat_store"] = run(f"""SELECT category, store, ROUND(SUM(qty*pr),0) revenue
       FROM {ST} GROUP BY category, store""")
 
+    # тепловая карта: день недели × час (по чекам, локальное время торгсофта). dow: 1=Вс..7=Сб
+    out["heatmap"] = run(f"""SELECT CASE {cases} END store,
+      EXTRACT(DAYOFWEEK FROM transaction_datetime) dow, EXTRACT(HOUR FROM transaction_datetime) hr,
+      ROUND(SUM(quantity*price_retail),0) revenue, COUNT(DISTINCT transaction_id) receipts
+      FROM {TT} WHERE EXTRACT(YEAR FROM transaction_datetime)={YEAR} AND store IN {keep} GROUP BY 1,2,3""")
+
     # динамика по категориям и магазинам (для фильтра по времени)
     out["cat_month"] = run(f"""SELECT category, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty,
       COUNT(DISTINCT tid) receipts, COUNT(DISTINCT barcode) skus
