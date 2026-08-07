@@ -17,6 +17,9 @@ subprocess.run([sys.executable, os.path.join(HERE,"fetch_matrix.py")], check=Tru
 # 2c) приходы/закупки -> /tmp/incoming.json
 inc="/tmp/incoming.json"; env["OUT_PATH"]=inc
 subprocess.run([sys.executable, os.path.join(HERE,"fetch_incoming.py")], check=True, env=env)
+# 2d) «не двигается N дней» -> docs/stale.json (отдельный файл, грузится по требованию)
+env2=dict(os.environ); env2["OUT_PATH"]=os.path.join(HERE,"..","docs","stale.json")
+subprocess.run([sys.executable, os.path.join(HERE,"fetch_stale.py")], check=True, env=env2)
 # 3) merge
 full=json.load(open(DOCS)); p=json.load(open(p3))
 try:

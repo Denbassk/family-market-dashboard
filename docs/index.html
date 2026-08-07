@@ -68,6 +68,7 @@ tbody tr{cursor:pointer}tbody tr:hover{background:var(--c2)}
 .badge{padding:1px 7px;border-radius:6px;font-weight:700;font-size:10.5px}
 .bA{background:rgba(34,197,94,.18);color:#4ade80}.bB{background:rgba(234,179,8,.18);color:#facc15}.bC{background:rgba(239,68,68,.18);color:#f87171}
 .pos{color:#4ade80}.neg{color:#f87171}.muted{color:var(--muted)}
+tbody tr.warn{background:rgba(248,113,113,.07)}tbody tr.warn:hover{background:rgba(248,113,113,.14)}
 .note{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;margin-top:8px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
@@ -231,6 +232,20 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 
 <!-- ПЕРЕМЕЩЕНИЯ -->
 <div class="page" id="p_moves">
+  <div class="card full" id="stale_card">
+    <h3>Товары без движения <span>есть остаток, но нет продаж N дней · остаток = снимок склада, движение = по чекам</span><button class="csvbtn" data-t="st_tab">⬇ Excel</button></h3>
+    <div class="bar" style="margin:2px 0 12px">
+      <div class="ctrl"><label>Не продаётся ≥</label><select id="stDays"><option value="3">3 дня</option><option value="5">5 дней</option><option value="7" selected>7 дней</option><option value="10">10 дней</option><option value="14">14 дней</option><option value="30">30 дней</option><option value="60">60 дней</option><option value="999">ни одной продажи</option></select></div>
+      <div class="ctrl"><label>Магазин</label><select id="stStore"><option value="all">Все магазины</option></select></div>
+      <div class="ctrl"><label>Категория</label><select id="stCat"><option value="all">Все категории</option></select></div>
+      <div class="ctrl"><label>Поставщик</label><select id="stSup"><option value="all">Все поставщики</option></select></div>
+      <div class="ctrl"><label>Поиск товара</label><input id="stQ" placeholder="название…" autocomplete="off"></div>
+      <button class="csvbtn" id="stReset" style="align-self:flex-end">Сбросить</button>
+    </div>
+    <div class="kpis" id="st_kpis"></div>
+    <div class="scroll tall"><table id="st_tab"></table></div>
+    <div class="note" id="st_note"></div>
+  </div>
   <div class="kpis" id="mv_kpis"></div>
   <div class="card full"><h3>Рекомендации по перемещению <span>только между розничными точками · клик = карточка позиции</span><button class="csvbtn" data-t="mv_tab">⬇ Excel</button></h3>
     <div class="scroll tall"><table id="mv_tab"></table></div>
@@ -387,7 +402,7 @@ function render(){ if(!D)return; chips();
   else if(S.tab==='analytics')renderAnalytics();
   else if(S.tab==='products')renderProducts();
   else if(S.tab==='frozen')renderFrozen();
-  else if(S.tab==='moves')renderMoves();
+  else if(S.tab==='moves'){renderMoves();renderStale();}
   else if(S.tab==='culinary')renderCulinary();
   else if(S.tab==='matrix')renderMatrix();
 }
@@ -909,6 +924,42 @@ function renderMoves(){
   $('mv_note').innerHTML='<b>Логика:</b> только между розничными магазинами (склад/опт «Полевая» исключён). <b>Донор</b> — 0 продаж за 90 дней (остаток можно освободить). <b>Получатель</b> — есть спрос, но остаток ≤2. <b>Норма/мес</b> = месячная скорость продаж получателя (минимально необходимый остаток). <b>Переместить</b> = сколько довезти до месячной нормы, но не больше остатка донора. Клик по строке — карточка товара.';
 }
 
+// ---------- ТОВАРЫ БЕЗ ДВИЖЕНИЯ (ленивая загрузка stale.json) ----------
+let STALE=null, staleLoading=false;
+async function ensureStale(){
+  if(STALE||staleLoading)return;
+  staleLoading=true;
+  $('st_tab').innerHTML='<tbody><tr><td class="l" style="padding:14px">Загрузка данных по остаткам… (≈9 МБ, один раз за сессию)</td></tr></tbody>';
+  try{const r=await fetch('stale.json?t='+Date.now());STALE=await r.json();}
+  catch(e){$('st_tab').innerHTML='<tbody><tr><td class="l">Не удалось загрузить stale.json — обновите страницу.</td></tr></tbody>';staleLoading=false;return;}
+  staleLoading=false;
+  const rows=STALE.rows||[];
+  const uniq=k=>[...new Set(rows.map(r=>r[k]).filter(Boolean))].sort((a,b)=>(''+a).localeCompare(''+b,'ru'));
+  const stores=uniq('st'),cats=uniq('c'),sups=uniq('s');
+  $('stStore').innerHTML='<option value="all">Все магазины ('+stores.length+')</option>'+stores.map(s=>`<option>${s}</option>`).join('');
+  $('stCat').innerHTML='<option value="all">Все категории ('+cats.length+')</option>'+cats.map(c=>`<option>${c}</option>`).join('');
+  $('stSup').innerHTML='<option value="all">Все поставщики ('+sups.length+')</option>'+sups.map(s=>`<option>${s}</option>`).join('');
+  renderStale();
+}
+function renderStale(){
+  if(!STALE){ensureStale();return;}
+  const rows=STALE.rows||[];
+  const days=+$('stDays').value, st=$('stStore').value, cat=$('stCat').value, sup=$('stSup').value, q=($('stQ').value||'').toLowerCase().trim();
+  const f=rows.filter(r=>{
+    if(days>=999){if(r.d<999)return false;} else if(r.d<days)return false;
+    if(st!=='all'&&r.st!==st)return false;
+    if(cat!=='all'&&r.c!==cat)return false;
+    if(sup!=='all'&&r.s!==sup)return false;
+    if(q&&!(r.p||'').toLowerCase().includes(q))return false;
+    return true;});
+  kpiCards('st_kpis',[['Позиций без движения',fmt(f.length)],['Заморожено ₴ (себестоим.)',fmt(sum(f,x=>x.v))],['Единиц на складе',fmt(sum(f,x=>x.q))],['Данные на',STALE.as_of||'—']]);
+  tableSort('st_tab',
+    [['Товар','p','l'],['Категория','c','l'],['Поставщик','s','l'],['Магазин','st','l'],['Остаток, шт','q'],['Заморожено ₴','v'],['Дней без продаж','d'],['Последняя продажа','last','l'],['Последний приход','last_in','l']],
+    f,'v',null,
+    r=>`<td class="l" title="${r.p}">${r.p}</td><td class="l muted">${r.c}</td><td class="l muted">${r.s}</td><td class="l">${r.st}</td><td>${fmtF(r.q)}</td><td>${fmt(r.v)}</td><td class="${r.d>=30?'neg':(r.d>=999?'neg':'')}"><b>${r.d>=999?'нет продаж':r.d}</b></td><td class="l muted">${r.last}</td><td class="l muted">${r.last_in}</td>`,
+    r=>r.d>=999?'warn':'');
+  $('st_note').innerHTML='<b>Методика:</b> текущий остаток берём из снимка склада (только позиции с остатком &gt;0), дату последней продажи — из чеков, дни без движения = дата данных ('+(STALE.as_of||'')+') − последняя продажа. «нет продаж» — не продавалось ни разу. «Последний приход» — для контекста (недавно завезённое ≠ неликвид). Фильтры блока независимы от верхней панели. Всего в базе: '+fmt(rows.length)+' позиций с остатком.';
+}
 // ---------- generic sortable table (клик по любому заголовку — сортировка, повторный клик — реверс) ----------
 const sortState={},EXP={};
 function tableSort(id,cols,rows,defKey,onRow,rowHtml,rowClass){
@@ -935,6 +986,10 @@ function tableSort(id,cols,rows,defKey,onRow,rowHtml,rowClass){
 function syncTabs(){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.p===S.tab));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='p_'+S.tab));}
 $('nav').addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;S.tab=e.target.dataset.p;syncTabs();render();setTimeout(resizeAll,30);});
+// фильтры инструмента «Товары без движения»
+['stDays','stStore','stCat','stSup'].forEach(id=>{const el=$(id);if(el)el.addEventListener('change',renderStale);});
+(()=>{const q=$('stQ');if(q){let t;q.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(renderStale,250);});}
+  const rb=$('stReset');if(rb)rb.onclick=()=>{$('stDays').value='7';$('stStore').value='all';$('stCat').value='all';$('stSup').value='all';$('stQ').value='';renderStale();};})();
 $('fMonth').onchange=e=>{S.month=e.target.value;S.prSel=null;render();};
 $('fStore').onchange=e=>{S.store=e.target.value;S.prSel=null;render();};
 let ct;$('fCat').oninput=e=>{clearTimeout(ct);ct=setTimeout(()=>{const v=e.target.value.trim();S.cat=v===''?'all':v;S.prSel=null;render();},200);};
