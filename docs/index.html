@@ -321,10 +321,13 @@ function workProducts(){
   if(S.cat!=='all') base=base.filter(r=>r.c===S.cat);
   if(S.sup!=='all') base=base.filter(r=>r.s===S.sup);
   if(S.abc&&S.abc!=='all') base=base.filter(r=>(r.abc||'')===S.abc);
-  if(S.noOff) base=base.filter(r=>r.c!=='Прочее (нет в матрице)');
+  if(S.noOff) base=base.filter(r=>!isTech(r.p));
   if(S.q) base=base.filter(r=>r.p.toLowerCase().includes(S.q.toLowerCase()));
   return base;
 }
+// «Технические» товары — расходники собств. производства (зеркало scripts/fetch_stale.py: is_tech)
+const TECH_SUB=["кава зернова","зернова кава","кава в зернах","сухе молоко (1кг)","капучино (1кг)","капучіно (1кг)","лате (1кг)","латте (1кг)","какао (1кг)","еспресо (1кг)","айріш капучино","стакан паперов","стакан пластик","стакан гофр","паперовий стакан","пластиковий стакан","гофр.стакан","гофр стакан","кришка для","кришка біла","розмішувач","мішалка для","стірер","булка для хот","булочка для хот","пакет фасув"];
+function isTech(name){const n=(name||'').toLowerCase();if(TECH_SUB.some(k=>n.includes(k)))return true;if((n.includes('сосиск')||n.includes('сардель'))&&(n.includes('1кг')||n.includes('мк ')))return true;return false;}
 function sum(a,f){let s=0;for(const x of a)s+=(+f(x)||0);return s;}
 function groupSum(a,key,fields){const m={};for(const x of a){const k=x[key];if(!(k in m)){m[k]={};fields.forEach(f=>m[k][f]=0);}fields.forEach(f=>m[k][f]+=(+x[f]||0));}return m;}
 
@@ -386,7 +389,7 @@ function chips(){
   if(S.cat!=='all')c.push(mk('Категория',S.cat,'cat'));
   if(S.sup!=='all')c.push(mk('Поставщик',S.sup,'sup'));
   if(S.abc!=='all')c.push(mk('ABC-класс',S.abc,'abc'));
-  if(S.noOff)c.push(mk('Фильтр','без внематричных','noOff'));
+  if(S.noOff)c.push(mk('Фильтр','скрыть технические','noOff'));
   if(S.q)c.push(mk('Поиск',S.q,'q'));
   $('chips').innerHTML=c.join('');
   $('chips').querySelectorAll('span').forEach(s=>s.onclick=()=>{const k=s.dataset.k;
@@ -525,7 +528,7 @@ function reportPivot(dim,months){
   const meta={};
   if(dim==='products'){(D.products||[]).forEach(p=>meta[p.p]=p);rows.forEach(o=>{const m=meta[o.name]||{};o.c=m.c;o.s=m.s;o.coverage=m.st;o.abc=m.abc;o.xyz=m.xyz;});
     if(S.cat!=='all')rows=rows.filter(o=>o.c===S.cat);if(S.sup!=='all')rows=rows.filter(o=>o.s===S.sup);
-    if(S.noOff)rows=rows.filter(o=>o.c!=='Прочее (нет в матрице)');}
+    if(S.noOff)rows=rows.filter(o=>!isTech(o.name));}
   else if(dim==='category'){(D.by_category||[]).forEach(c=>meta[c.category]=c);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;});if(S.cat!=='all')rows=rows.filter(o=>o.name===S.cat);}
   else if(dim==='store'){(D.by_store||[]).forEach(s=>meta[s.store]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.skus=m.skus;o.cats=m.cats;});if(S.store!=='all')rows=rows.filter(o=>o.name===S.store);}
   else {(D.by_supplier||[]).forEach(s=>meta[s.supplier]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;o.cats=m.cats;});if(S.sup!=='all')rows=rows.filter(o=>o.name===S.sup);}
@@ -879,7 +882,7 @@ function renderFrozen(){
   if(S.store!=='all')oosR=oosR.filter(r=>r.store===S.store);
   if(S.cat!=='all')oosR=oosR.filter(r=>r.category===S.cat);
   if(S.sup!=='all')oosR=oosR.filter(r=>r.supplier===S.sup);
-  if(S.noOff)oosR=oosR.filter(r=>r.category!=='Прочее (нет в матрице)');
+  if(S.noOff)oosR=oosR.filter(r=>!isTech(r.product));
   if(S.q)oosR=oosR.filter(r=>r.product.toLowerCase().includes(S.q.toLowerCase()));
   tableSort('fr_oos',[['Товар','product','l'],['Категория','category','l'],['Поставщик','supplier','l'],['Магазин','store','l'],['Продажи 90д','sold90'],['Норма/мес','need_month'],['Где взять','elsewhere']],oosR.slice(0,300),'sold90',
     r=>{S.q=r.product;$('fQ').value=r.product;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);},
@@ -889,7 +892,7 @@ function renderFrozen(){
   if(S.store!=='all')items=items.filter(r=>r.store===S.store);
   if(S.cat!=='all')items=items.filter(r=>r.c===S.cat);
   if(S.sup!=='all')items=items.filter(r=>r.s===S.sup);
-  if(S.noOff)items=items.filter(r=>r.c!=='Прочее (нет в матрице)');
+  if(S.noOff)items=items.filter(r=>!isTech(r.p));
   if(S.q)items=items.filter(r=>r.p.toLowerCase().includes(S.q.toLowerCase()));
   kpiCards('fr_kpis',[
     ['Заморожено всего ₴',fmt(dt.v)],['Позиций-остатков',fmt(dt.n)],
@@ -945,8 +948,10 @@ function renderStale(){
   if(!STALE){ensureStale();return;}
   const rows=STALE.rows||[];
   const days=+$('stDays').value, st=$('stStore').value, cat=$('stCat').value, sup=$('stSup').value, q=($('stQ').value||'').toLowerCase().trim();
+  const hideTech=S.noOff;
   const f=rows.filter(r=>{
     if(days>=999){if(r.d<999)return false;} else if(r.d<days)return false;
+    if(hideTech&&r.t)return false;
     if(st!=='all'&&r.st!==st)return false;
     if(cat!=='all'&&r.c!==cat)return false;
     if(sup!=='all'&&r.s!==sup)return false;
@@ -958,7 +963,7 @@ function renderStale(){
     f,'v',null,
     r=>`<td class="l" title="${r.p}">${r.p}</td><td class="l muted">${r.c}</td><td class="l muted">${r.s}</td><td class="l">${r.st}</td><td>${fmtF(r.q)}</td><td>${fmt(r.v)}</td><td class="${r.d>=30?'neg':(r.d>=999?'neg':'')}"><b>${r.d>=999?'нет продаж':r.d}</b></td><td class="l muted">${r.last}</td><td class="l muted">${r.last_in}</td>`,
     r=>r.d>=999?'warn':'');
-  $('st_note').innerHTML='<b>Методика:</b> текущий остаток берём из снимка склада (только позиции с остатком &gt;0), дату последней продажи — из чеков, дни без движения = дата данных ('+(STALE.as_of||'')+') − последняя продажа. «нет продаж» — не продавалось ни разу. «Последний приход» — для контекста (недавно завезённое ≠ неликвид). Фильтры блока независимы от верхней панели. Всего в базе: '+fmt(rows.length)+' позиций с остатком.';
+  $('st_note').innerHTML='<b>Методика:</b> текущий остаток берём из снимка склада (только позиции с остатком &gt;0), дату последней продажи — из чеков, дни без движения = дата данных ('+(STALE.as_of||'')+') − последняя продажа. «нет продаж» — не продавалось ни разу. «Последний приход» — для контекста (недавно завезённое ≠ неликвид). Свои фильтры (дни/магазин/категория/поставщик/поиск) независимы от верхней панели, а галочка «скрыть технические» вверху действует и здесь. Технических (расходники производства): '+fmt(rows.filter(r=>r.t).length)+' строк · '+(hideTech?'скрыты':'показаны')+'. Всего в базе: '+fmt(rows.length)+' позиций с остатком.';
 }
 // ---------- generic sortable table (клик по любому заголовку — сортировка, повторный клик — реверс) ----------
 const sortState={},EXP={};

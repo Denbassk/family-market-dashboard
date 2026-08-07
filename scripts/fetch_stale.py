@@ -15,6 +15,30 @@ creds = service_account.Credentials.from_service_account_file(os.environ["GOOGLE
 client = bigquery.Client(credentials=creds, project=creds.project_id)
 IN = "`family-market-analytics.family_market.incoming_transactions`"
 
+# «Технические» товары — расходники собственного производства (не пробиваются на кассе поштучно,
+# требуют комплектации: кофейный аппарат, хот-дог, упаковка). Узкий список без ложных срабатываний.
+TECH_SUB = [
+    # кофейный аппарат
+    "кава зернова", "зернова кава", "кава в зернах",
+    "сухе молоко (1кг)", "капучино (1кг)", "капучіно (1кг)", "лате (1кг)", "латте (1кг)",
+    "какао (1кг)", "еспресо (1кг)", "айріш капучино",
+    # стаканчики / крышки / размешиватели
+    "стакан паперов", "стакан пластик", "стакан гофр", "паперовий стакан", "пластиковий стакан",
+    "гофр.стакан", "гофр стакан", "кришка для", "кришка біла", "розмішувач", "мішалка для", "стірер",
+    # булочки для хот-дога / упаковка
+    "булка для хот", "булочка для хот", "пакет фасув",
+]
+
+
+def is_tech(name):
+    n = (name or "").lower()
+    if any(k in n for k in TECH_SUB):
+        return 1
+    # оптовые расходники хот-дога: сосиски/сардельки от мясокомбината или на вес (1кг)
+    if ("сосиск" in n or "сардель" in n) and ("1кг" in n or "мк " in n):
+        return 1
+    return 0
+
 
 def main():
     sql = f"""
@@ -36,6 +60,8 @@ def main():
     WHERE IFNULL(DATE_DIFF(DATE((SELECT md FROM maxd)), DATE(ls.t), DAY), 999) >= 3
     ORDER BY v DESC"""
     rows = [dict(r) for r in client.query(sql).result()]
+    for r in rows:
+        r["t"] = is_tech(r.get("p"))
     maxd = list(client.query(f"SELECT CAST(DATE(MAX(transaction_datetime)) AS STRING) d FROM {TT}").result())[0]["d"]
     out = {"rows": rows, "as_of": maxd,
            "updated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
