@@ -75,7 +75,7 @@ def main():
       ROUND(SUM(IF(NOT in_matrix, qty*pr, 0)),0) offmatrix_rev FROM {ST}""")[0]
 
     out["monthly"] = run(f"""SELECT mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
-      COUNT(DISTINCT tid) receipts FROM {ST} GROUP BY mo ORDER BY mo""")
+      ROUND(SUM(qty),0) qty, COUNT(DISTINCT tid) receipts FROM {ST} GROUP BY mo ORDER BY mo""")
 
     out["by_category"] = run(f"""SELECT category, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
       ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, ROUND(SUM(qty),0) qty,
@@ -88,7 +88,7 @@ def main():
       FROM {ST} GROUP BY store ORDER BY revenue DESC""")
 
     out["by_supplier"] = run(f"""SELECT supplier, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
-      ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin,
+      ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, ROUND(SUM(qty),0) qty,
       COUNT(DISTINCT barcode) skus, COUNT(DISTINCT category) cats, COUNT(DISTINCT store) stores
       FROM {ST} GROUP BY supplier ORDER BY revenue DESC""")
 

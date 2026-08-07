@@ -9,3 +9,7 @@ node_modules/
 *.log
 package-lock.json
 package.json
+.serena/cache/
+.serena/project.local.yml
+page3_data.json
+*.tmp
