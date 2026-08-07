@@ -388,7 +388,7 @@ function kpiNow(){
   const m=monthSel()?monthN():null;
   const one=a=>a.length===1?a[0]:null;
   const nf=[S.store,S.cat,S.sup].filter(a=>a.length).length;
-  const mk=r=>({revenue:(r&&r.revenue)||0,gp:(r&&r.gp)||0,margin:(r&&r.revenue)?+((r.gp/r.revenue)*100).toFixed(1):0,qty:r?(r.qty!=null?r.qty:r.units):undefined,receipts:r?r.receipts:undefined,exact:true});
+  const mk=r=>({revenue:(r&&r.revenue)||0,gp:(r&&r.gp)||0,margin:(r&&r.revenue)?+((r.gp/r.revenue)*100).toFixed(1):0,qty:r?(r.qty!=null?r.qty:r.units):undefined,receipts:r?r.receipts:undefined,skus:r?r.skus:undefined,exact:true});
   if(!S.q&&nf<=1){
     if(nf===0){ if(m)return mk((D.monthly||[]).find(x=>x.mo===m)); return {...D.kpi,exact:true}; }
     const st=one(S.store),ct=one(S.cat),sp=one(S.sup);
@@ -398,7 +398,14 @@ function kpiNow(){
   }
   const w=workProducts();
   const rev=sum(w,x=>x.rev),gp=sum(w,x=>x.gp),qty=sum(w,x=>x.qty);
-  return {revenue:rev,gp:gp,margin:rev?+(gp/rev*100).toFixed(1):0,qty:qty,skus:w.length,exact:false};
+  // чеки суммируемы только по магазинам/месяцам (чек принадлежит одному магазину и месяцу);
+  // при фильтре по категории/поставщику чек пересекает их — сумма была бы неверной, оставляем «—».
+  let receipts;
+  if(allSel(S.cat)&&allSel(S.sup)&&!S.q&&!allSel(S.store)){
+    const src=monthSel()?(D.store_month||[]).filter(r=>r.mo===monthN()):(D.by_store||[]);
+    receipts=src.filter(r=>inSel(r.store,S.store)).reduce((a,r)=>a+(r.receipts||0),0);
+  }
+  return {revenue:rev,gp:gp,margin:rev?+(gp/rev*100).toFixed(1):0,qty:qty,skus:w.length,receipts:receipts,exact:false};
 }
 
 // ---------- ECharts helper ----------

@@ -75,7 +75,7 @@ def main():
       ROUND(SUM(IF(NOT in_matrix, qty*pr, 0)),0) offmatrix_rev FROM {ST}""")[0]
 
     out["monthly"] = run(f"""SELECT mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
-      ROUND(SUM(qty),0) qty, COUNT(DISTINCT tid) receipts FROM {ST} GROUP BY mo ORDER BY mo""")
+      ROUND(SUM(qty),0) qty, COUNT(DISTINCT tid) receipts, COUNT(DISTINCT barcode) skus FROM {ST} GROUP BY mo ORDER BY mo""")
 
     out["by_category"] = run(f"""SELECT category, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp,
       ROUND(SAFE_DIVIDE(SUM((pr-pp)*qty),SUM(qty*pr))*100,1) margin, ROUND(SUM(qty),0) qty, COUNT(DISTINCT tid) receipts,
@@ -97,12 +97,15 @@ def main():
       FROM {ST} GROUP BY category, store""")
 
     # динамика по категориям и магазинам (для фильтра по времени)
-    out["cat_month"] = run(f"""SELECT category, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty
+    out["cat_month"] = run(f"""SELECT category, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty,
+      COUNT(DISTINCT tid) receipts, COUNT(DISTINCT barcode) skus
       FROM {ST} GROUP BY category, mo""")
-    out["store_month"] = run(f"""SELECT store, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty
+    out["store_month"] = run(f"""SELECT store, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty,
+      COUNT(DISTINCT tid) receipts, COUNT(DISTINCT barcode) skus
       FROM {ST} GROUP BY store, mo""")
     # помесячно по поставщикам и по ВСЕМ позициям (для конструктора отчётов и динамики)
-    out["supplier_month"] = run(f"""SELECT supplier, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty
+    out["supplier_month"] = run(f"""SELECT supplier, mo, ROUND(SUM(qty*pr),0) revenue, ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty,
+      COUNT(DISTINCT tid) receipts, COUNT(DISTINCT barcode) skus
       FROM {ST} GROUP BY supplier, mo""")
     out["prod_month"] = run(f"""
       WITH topp AS (SELECT product_name FROM (SELECT product_name, SUM(qty*pr) rev FROM {ST} GROUP BY product_name ORDER BY rev DESC LIMIT 3500))
