@@ -31,7 +31,7 @@ select:focus,input:focus{outline:1px solid var(--acc)}
 .ms-pop{position:absolute;z-index:40;top:calc(100% + 4px);left:0;min-width:240px;max-width:340px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.45);padding:8px;display:none}
 .ms.open .ms-pop{display:block}
 .ms-search{width:100%;min-width:0;margin-bottom:6px}
-.ms-list{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:1px}
+.ms-list{max-height:260px;overflow:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:1px}
 .ms-opt{display:flex;gap:8px;align-items:center;padding:5px 7px;border-radius:6px;cursor:pointer;font-size:12.5px}
 .ms-opt:hover{background:var(--c2)}
 .ms-opt input{min-width:0;margin:0}
@@ -110,7 +110,17 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
   input[type=text]{-webkit-appearance:none;appearance:none}
   .bar>.btn,.bar #refresh,.bar #rpRun,.bar .csvbtn{flex:1 1 100%;min-height:44px;font-size:15px;align-self:stretch}
   label.btn{min-height:44px}
+  /* мультиселект на телефоне: во всю ширину, крупные тап-цели, попап на всю ширину фильтра */
+  .ms{width:100%;min-width:0}
+  .ms-btn{width:100%;min-height:44px;font-size:16px;padding:11px 30px 11px 12px}
+  .ms-pop{position:absolute;width:100%;min-width:0;max-width:none;left:0;padding:10px}
+  .ms-list{max-height:52vh}
+  .ms-opt{padding:10px 8px;font-size:15px}
+  .ms-opt input{width:20px;height:20px;flex:0 0 auto}
+  .ms-foot button{padding:11px;font-size:14px}
   .chips{gap:5px}
+  .chip{font-size:12px;padding:5px 11px 5px 12px}
+  .chip span{padding:2px 4px}
   .kpis{grid-template-columns:repeat(auto-fit,minmax(45%,1fr));gap:8px;margin:10px 0}
   .kpi{padding:10px}.kpi .v{font-size:16px}.kpi .t{font-size:10px}
   .card{padding:10px}
