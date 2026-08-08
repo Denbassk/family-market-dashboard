@@ -95,6 +95,9 @@ def main():
     # покрытие: категория x магазин (выручка)
     out["cat_store"] = run(f"""SELECT category, store, ROUND(SUM(qty*pr),0) revenue
       FROM {ST} GROUP BY category, store""")
+    # поставщик x магазин (для фильтра «Обзора» по поставщику)
+    out["sup_store"] = run(f"""SELECT supplier, store, ROUND(SUM(qty*pr),0) revenue
+      FROM {ST} GROUP BY supplier, store""")
 
     # тепловая карта: день недели × час (по чекам, локальное время торгсофта). dow: 1=Вс..7=Сб
     out["heatmap"] = run(f"""SELECT CASE {cases} END store,

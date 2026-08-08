@@ -27,7 +27,9 @@ select:focus,input:focus{outline:1px solid var(--acc)}
 .ms{position:relative;min-width:190px}
 .ms-btn{width:100%;text-align:left;background:var(--c2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 26px 7px 10px;font-size:12.5px;cursor:pointer;min-height:33px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
 .ms-btn::after{content:'▾';position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:11px}
-.ms-btn.act{border-color:var(--acc);color:var(--acc)}
+.ms-btn.act{border-color:var(--acc);color:var(--acc);background:rgba(56,189,248,.13);font-weight:600;box-shadow:inset 3px 0 0 var(--acc)}
+.ctrl.hasval label{color:var(--acc)}
+.ctrl.hasval label::after{content:'●';margin-left:5px;font-size:8px;color:var(--acc);vertical-align:middle}
 .ms-pop{position:absolute;z-index:40;top:calc(100% + 4px);left:0;min-width:240px;max-width:340px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.45);padding:8px;display:none}
 .ms.open .ms-pop{display:block}
 .ms-search{width:100%;min-width:0;margin-bottom:6px}
@@ -59,8 +61,10 @@ tr.mxtotal:hover td{background:rgba(56,189,248,.24)!important}
 #mx_tab td.l,#mx_tab th.l{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #mx_tab td:nth-child(2),#mx_tab th:nth-child(2){max-width:300px}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;min-height:0}
-.chip{background:var(--c2);border:1px solid var(--line);border-radius:20px;padding:3px 10px 3px 11px;font-size:11.5px;display:flex;gap:7px;align-items:center}
-.chip b{color:var(--acc)}.chip span{cursor:pointer;color:var(--muted);font-weight:700}.chip span:hover{color:var(--c)}
+.chip{background:rgba(56,189,248,.12);border:1px solid var(--acc);border-radius:20px;padding:3px 6px 3px 11px;font-size:11.5px;display:flex;gap:7px;align-items:center}
+.chip b{color:var(--acc)}.chip span{cursor:pointer;color:var(--acc);font-weight:700;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;background:rgba(56,189,248,.18)}.chip span:hover{background:var(--acc);color:#04202e}
+.chips:empty{display:none}
+#chips.has::before{content:'Активные фильтры:';color:var(--muted);font-size:11px;align-self:center;margin-right:2px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin:12px 0}
 .kpi{background:linear-gradient(135deg,var(--card),var(--c2));border:1px solid var(--line);border-radius:12px;padding:12px 13px}
 .kpi .v{font-size:20px;font-weight:700;color:#fff;line-height:1.1}
@@ -472,6 +476,7 @@ function chips(){
   if(S.noOff&&rel('cOff'))c.push(mk('Фильтр','скрыть технические','noOff'));
   if(S.q&&rel('cQ'))c.push(mk('Поиск',S.q,'q'));
   $('chips').innerHTML=c.join('');
+  $('chips').classList.toggle('has',c.length>0);
   $('chips').querySelectorAll('span').forEach(s=>s.onclick=()=>{const k=s.dataset.k;
     if(k==='q'){S.q='';$('fQ').value='';}
     else if(k==='noOff'){S.noOff=false;const o=$('fOff');if(o)o.checked=false;}
@@ -711,6 +716,7 @@ function renderOverview(){
   // динамика
   let series, note='';
   if(!allSel(S.cat)){const m=D.cat_month.filter(r=>inSel(r.category,S.cat));series=agg12(m);note='категория: '+S.cat.join(', ');}
+  else if(!allSel(S.sup)){const m=(D.supplier_month||[]).filter(r=>inSel(r.supplier,S.sup));series=agg12(m);note='поставщик: '+S.sup.join(', ');}
   else if(!allSel(S.store)){const m=D.store_month.filter(r=>inSel(r.store,S.store));series=agg12(m);note='магазин: '+S.store.join(', ');}
   else {series=D.monthly.map(r=>[r.mo,r.revenue,r.gp]);note='все точки';}
   $('ov_dyn_s').textContent=note;
@@ -757,9 +763,13 @@ function catAgg(){
 }
 // агрегат магазинов под фильтр
 function storeAgg(){
-  if(monthSel()&&allSel(S.cat)){const mo=monthN();return (D.store_month||[]).filter(r=>r.mo===mo).map(r=>({store:r.store,revenue:r.revenue})).sort((a,b)=>b.revenue-a.revenue);}
+  // поставщик выбран → разрез поставщик×магазин (если данные есть)
+  if(!allSel(S.sup)&&D.sup_store){const m={};D.sup_store.filter(r=>inSel(r.supplier,S.sup)).forEach(r=>m[r.store]=(m[r.store]||0)+r.revenue);
+    return Object.entries(m).map(([store,revenue])=>({store,revenue})).sort((a,b)=>b.revenue-a.revenue);}
+  // категория выбрана → категория×магазин
   if(!allSel(S.cat)){const m={};D.cat_store.filter(r=>inSel(r.category,S.cat)).forEach(r=>m[r.store]=(m[r.store]||0)+r.revenue);
     return Object.entries(m).map(([store,revenue])=>({store,revenue})).sort((a,b)=>b.revenue-a.revenue);}
+  if(monthSel()){const mo=monthN();return (D.store_month||[]).filter(r=>r.mo===mo).map(r=>({store:r.store,revenue:r.revenue})).sort((a,b)=>b.revenue-a.revenue);}
   return D.by_store.map(s=>({store:s.store,revenue:s.revenue})).sort((a,b)=>b.revenue-a.revenue);
 }
 
@@ -1127,7 +1137,9 @@ const FILTER_VIS={
 function applyFilterVis(){
   const tab=S.tab;
   for(const id in FILTER_VIS){const el=$(id);if(el)el.style.display=FILTER_VIS[id].includes(tab)?'':'none';}
-  // если для вкладки скрыты все фильтры — прячем и разделитель-панель целиком не нужно, но оставляем кнопки
+  // подсветка активных фильтров (точка на подписи)
+  const active={cMonth:S.month!=='all',cStore:!allSel(S.store),cCat:!allSel(S.cat),cSup:!allSel(S.sup),cQ:!!S.q,cOff:S.noOff};
+  for(const id in active){const el=$(id);if(el)el.classList.toggle('hasval',!!active[id]);}
   const anyVisible=Object.keys(FILTER_VIS).some(id=>FILTER_VIS[id].includes(tab));
   const hint=$('barHint');if(hint)hint.style.display=anyVisible?'none':'';
 }
