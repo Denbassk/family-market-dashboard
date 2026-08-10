@@ -48,7 +48,7 @@ def main():
     stock AS (SELECT barcode, ANY_VALUE(product_name) nm, CASE {cs_sc} END store, SUM(qty_in_stock) qty, ANY_VALUE(cost_price) cost
       FROM {SC} WHERE store_address IN {keep} AND qty_in_stock>0 GROUP BY barcode, store),
     m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode)
-    SELECT st.nm p, COALESCE(m.cat,'Прочее (нет в матрице)') c, COALESCE(m.sup,'(нет в матрице)') s, st.store st,
+    SELECT CAST(st.barcode AS STRING) b, st.nm p, COALESCE(m.cat,'Прочее (нет в матрице)') c, COALESCE(m.sup,'(нет в матрице)') s, st.store st,
       CAST(ROUND(st.qty,0) AS INT64) q, CAST(ROUND(st.qty*st.cost,0) AS INT64) v,
       IFNULL(DATE_DIFF(DATE((SELECT md FROM maxd)), DATE(ls.t), DAY), 999) d,
       IFNULL(CAST(DATE(ls.t) AS STRING), '—') last,

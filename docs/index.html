@@ -1227,4 +1227,146 @@ $('refresh').onclick=async()=>{
   finally{setTimeout(()=>{b.disabled=false;if(b.textContent==='Запуск…')b.textContent=o;},3000);}};
 load().catch(e=>$('upd').textContent='Ошибка загрузки: '+e.message);
 </script>
-</body></html>
+<!-- ==== ЭКСПОРТ «Товары без движения»: Excel + TXT для ТСД ==== -->
+<script>
+(function(){
+  var ROWS=null, CARD=null;
+
+  function findCard(){
+    var all=document.querySelectorAll('div,section'), best=null;
+    for(var i=0;i<all.length;i++){
+      var t=all[i].textContent||'';
+      if(t.indexOf('Товары без движения')>-1 && all[i].querySelector('select')){
+        if(!best || all[i].textContent.length < best.textContent.length) best=all[i];
+      }
+    }
+    return best;
+  }
+
+  function getData(){
+    if(ROWS) return Promise.resolve(ROWS);
+    return fetch('stale.json',{cache:'no-store'}).then(function(r){return r.json();})
+      .then(function(j){ ROWS=j.rows||[]; return ROWS; });
+  }
+
+  function txtOf(el){ 
+    var p=el.closest('label'); return ((p?p.textContent:'')+' '+(el.parentNode?el.parentNode.textContent:'')).toLowerCase();
+  }
+
+  function filters(){
+    var f={days:0,store:'',cat:'',sup:'',q:'',tech:false};
+    if(!CARD) return f;
+    var sel=CARD.querySelectorAll('select');
+    if(sel[0]) f.days=parseInt((sel[0].value||sel[0].options[sel[0].selectedIndex].text).replace(/\D/g,''),10)||0;
+    ['store','cat','sup'].forEach(function(k,i){
+      var s=sel[i+1]; if(!s) return;
+      var v=(s.options[s.selectedIndex]||{}).text||s.value||'';
+      if(!/^\s*(Все|Всі|All)/i.test(v)) f[k]=v.replace(/\s*\(\d+\)\s*$/,'').trim();
+    });
+    var inp=CARD.querySelector('input[type=text],input[type=search],input:not([type])');
+    if(inp) f.q=(inp.value||'').trim().toLowerCase();
+    var cbs=document.querySelectorAll('input[type=checkbox]');
+    for(var i=0;i<cbs.length;i++) if(txtOf(cbs[i]).indexOf('техн')>-1) f.tech=cbs[i].checked;
+    return f;
+  }
+
+  function pick(rows){
+    var f=filters();
+    return rows.filter(function(r){
+      if(f.days && (r.d||0)<f.days) return false;
+      if(f.tech && r.t) return false;
+      if(f.store && r.st!==f.store) return false;
+      if(f.cat && r.c!==f.cat) return false;
+      if(f.sup && r.s!==f.sup) return false;
+      if(f.q && (r.p||'').toLowerCase().indexOf(f.q)<0) return false;
+      return true;
+    });
+  }
+
+  function dl(content,name,mime){
+    var u=URL.createObjectURL(new Blob([content],{type:mime}));
+    var a=document.createElement('a'); a.href=u; a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(u);},1000);
+  }
+  function stamp(){ return new Date().toISOString().slice(0,10); }
+  function slug(s){ return (s||'all').replace(/[^\wА-Яа-яІіЇїЄєҐґ]+/g,'_').slice(0,40); }
+
+  function xlsxLib(){
+    if(window.XLSX) return Promise.resolve(window.XLSX);
+    return new Promise(function(res,rej){
+      var s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      s.onload=function(){res(window.XLSX);}; s.onerror=rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  function doXlsx(){
+    getData().then(function(rows){
+      var d=pick(rows);
+      if(!d.length) return alert('Нет строк под текущими фильтрами');
+      if(d[0].b===undefined) return alert('В stale.json нет штрихкодов — перезапустите fetch_stale.py');
+      return xlsxLib().then(function(X){
+        var head=['Штрихкод','Товар','Категория','Поставщик','Магазин','Остаток, шт','Заморожено, грн','Дней без продаж','Последняя продажа','Последний приход','Технический'];
+        var body=d.map(function(r){return [String(r.b||''),r.p,r.c,r.s,r.st,r.q,r.v,(r.d>=999?'нет продаж':r.d),r.last,r.last_in,(r.t?'да':'')];});
+        var ws=X.utils.aoa_to_sheet([head].concat(body));
+        for(var i=1;i<=body.length;i++){ var c=ws[X.utils.encode_cell({r:i,c:0})]; if(c){c.t='s';c.z='@';} }
+        ws['!cols']=[16,46,22,24,20,11,15,15,14,14,11].map(function(w){return {wch:w};});
+        ws['!autofilter']={ref:X.utils.encode_range({s:{r:0,c:0},e:{r:body.length,c:head.length-1}})};
+        var wb=X.utils.book_new(); X.utils.book_append_sheet(wb,ws,'Без движения');
+        X.writeFile(wb,'bez_dvizheniya_'+stamp()+'.xlsx');
+      });
+    }).catch(function(e){alert('Ошибка выгрузки: '+e);});
+  }
+
+  function doTxt(){
+    getData().then(function(rows){
+      var d=pick(rows), f=filters();
+      if(!d.length) return alert('Нет строк под текущими фильтрами');
+      if(d[0].b===undefined) return alert('В stale.json нет штрихкодов — перезапустите fetch_stale.py');
+      if(!f.store && !confirm('Выбраны все магазины — остатки одного штрихкода сложатся в одну строку. Продолжить?')) return;
+      var agg={},order=[],skip=0;
+      d.forEach(function(r){
+        var c=String(r.b||'').trim();
+        if(!/^\d{6,14}$/.test(c)){skip++;return;}
+        var q=Math.max(0,Math.round(Number(r.q)||0)); if(!q) return;
+        if(agg[c]===undefined){agg[c]=0;order.push(c);}
+        agg[c]+=q;
+      });
+      if(!order.length) return alert('Валидных штрихкодов не найдено');
+      var txt=order.map(function(c){return c+';'+agg[c];}).join('\r\n')+'\r\n';
+      dl(txt,'tsd_'+slug(f.store)+'_'+stamp()+'.txt','text/plain');
+      if(skip) console.warn('пропущено строк без штрихкода:',skip);
+    }).catch(function(e){alert('Ошибка выгрузки: '+e);});
+  }
+
+  function mkBtn(txt,fn,ref){
+    var b=document.createElement('button');
+    b.type='button'; b.textContent=txt;
+    if(ref&&ref.className) b.className=ref.className;
+    else b.style.cssText='margin-left:8px;padding:4px 10px;font-size:12px;cursor:pointer;background:#1b6ef3;color:#fff;border:0;border-radius:4px';
+    b.style.marginLeft='8px'; b.onclick=fn;
+    return b;
+  }
+
+  function init(){
+    CARD=findCard(); if(!CARD) return;
+    if(CARD.querySelector('[data-tsd-export]')) return;
+    var ref=null, bs=CARD.querySelectorAll('button,a');
+    for(var i=0;i<bs.length;i++) if(/Excel/i.test(bs[i].textContent)) ref=bs[i];
+    var wrap=document.createElement('span');
+    wrap.setAttribute('data-tsd-export','1');
+    wrap.appendChild(mkBtn('↓ Excel + штрихкоды',doXlsx,ref));
+    wrap.appendChild(mkBtn('↓ TXT для ТСД',doTxt,ref));
+    if(ref&&ref.parentNode) ref.parentNode.insertBefore(wrap,ref.nextSibling);
+    else CARD.insertBefore(wrap,CARD.firstChild);
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(init,600);});
+  else setTimeout(init,600);
+  setTimeout(init,2500);
+})();
+</script>
+</body>
+</html>
