@@ -66,7 +66,7 @@ def main():
     out = {"rows": rows, "as_of": maxd,
            "updated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
     OUT = os.environ.get("OUT_PATH", os.path.join(os.path.dirname(__file__), "..", "docs", "stale.json"))
-    json.dump(out, open(OUT, "w"), ensure_ascii=False, separators=(",", ":"))
+    json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     print("stale rows:", len(rows), "| as_of:", maxd, "| KB:", round(os.path.getsize(OUT) / 1024, 1))
 
 
