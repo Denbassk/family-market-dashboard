@@ -303,7 +303,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
       <div class="ctrl"><label>Не продаётся ≥</label><select id="stDays"><option value="3">3 дня</option><option value="5">5 дней</option><option value="7" selected>7 дней</option><option value="10">10 дней</option><option value="14">14 дней</option><option value="30">30 дней</option><option value="60">60 дней</option><option value="999">ни одной продажи</option></select></div>
       <div class="ctrl"><label>Магазин</label><select id="stStore"><option value="all">Все магазины</option></select></div>
       <div class="ctrl"><label>Категория</label><select id="stCat"><option value="all">Все категории</option></select></div>
-      <div class="ctrl"><label>Поставщик</label><select id="stSup"><option value="all">Все поставщики</option></select></div>
+      <div class="ctrl" id="cStSup"><label>Поставщик</label><select id="stSup" style="display:none"><option value="all">Все поставщики</option></select><div class="ms" id="msStSup"></div></div>
       <div class="ctrl"><label>Поиск товара</label><input id="stQ" placeholder="название…" autocomplete="off"></div>
       <button class="csvbtn" id="stReset" style="align-self:flex-end">Сбросить</button>
     </div>
@@ -1105,19 +1105,44 @@ async function ensureStale(){
   $('stStore').innerHTML='<option value="all">Все магазины ('+stores.length+')</option>'+stores.map(s=>`<option>${s}</option>`).join('');
   $('stCat').innerHTML='<option value="all">Все категории ('+cats.length+')</option>'+cats.map(c=>`<option>${c}</option>`).join('');
   $('stSup').innerHTML='<option value="all">Все поставщики ('+sups.length+')</option>'+sups.map(s=>`<option>${s}</option>`).join('');
+  mkStSup(sups);
   renderStale();
 }
+let ST_SUP=[];
+function mkStSup(sups){
+  const box=$('msStSup'); if(!box) return;
+  box.innerHTML='<button type="button" class="ms-btn" id="msSupBtn"></button><div class="ms-pop">'+
+    '<input type="text" class="ms-search" id="msSupQ" placeholder="поиск поставщика…">'+
+    '<div class="ms-list" id="msSupL"></div>'+
+    '<div class="ms-foot"><button type="button" id="msSupAll">Все</button><button type="button" id="msSupInv">Снять</button></div></div>';
+  const list=$('msSupL');
+  list.innerHTML=sups.map(s=>'<label class="ms-opt"><input type="checkbox" value="'+s.replace(/"/g,'&quot;')+'"><span>'+s+'</span></label>').join('');
+  const sync=()=>{const b=$('msSupBtn');
+    b.textContent=ST_SUP.length?(ST_SUP.length===1?ST_SUP[0]:'Выбрано: '+ST_SUP.length):('Все поставщики ('+sups.length+')');
+    b.classList.toggle('act',ST_SUP.length>0);
+    $('cStSup').classList.toggle('hasval',ST_SUP.length>0);
+    $('stSup').value=ST_SUP.length===1?ST_SUP[0]:'all';
+    renderStale();};
+  list.querySelectorAll('input').forEach(cb=>cb.onchange=()=>{ST_SUP=[...list.querySelectorAll('input:checked')].map(x=>x.value);sync();});
+  $('msSupQ').oninput=e=>{const q=e.target.value.toLowerCase();
+    list.querySelectorAll('.ms-opt').forEach(o=>o.classList.toggle('hid',!o.textContent.toLowerCase().includes(q)));};
+  $('msSupAll').onclick=$('msSupInv').onclick=()=>{list.querySelectorAll('input').forEach(cb=>cb.checked=false);ST_SUP=[];sync();};
+  $('msSupBtn').onclick=e=>{e.stopPropagation();box.classList.toggle('open');};
+  document.addEventListener('click',e=>{if(!box.contains(e.target))box.classList.remove('open');});
+  sync();
+}
+
 function renderStale(){
   if(!STALE){ensureStale();return;}
   const rows=STALE.rows||[];
-  const days=+$('stDays').value, st=$('stStore').value, cat=$('stCat').value, sup=$('stSup').value, q=($('stQ').value||'').toLowerCase().trim();
+  const days=+$('stDays').value, st=$('stStore').value, cat=$('stCat').value, q=($('stQ').value||'').toLowerCase().trim();
   const hideTech=S.noOff;
   const f=rows.filter(r=>{
     if(days>=999){if(r.d<999)return false;} else if(r.d<days)return false;
     if(hideTech&&r.t)return false;
     if(st!=='all'&&r.st!==st)return false;
     if(cat!=='all'&&r.c!==cat)return false;
-    if(sup!=='all'&&r.s!==sup)return false;
+    if(ST_SUP.length&&!ST_SUP.includes(r.s))return false;
     if(q&&!(r.p||'').toLowerCase().includes(q))return false;
     return true;});
   kpiCards('st_kpis',[['Позиций без движения',fmt(f.length)],['Заморожено ₴ (себестоим.)',fmt(sum(f,x=>x.v))],['Единиц на складе',fmt(sum(f,x=>x.q))],['Данные на',STALE.as_of||'—']]);
