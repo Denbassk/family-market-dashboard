@@ -13,3 +13,9 @@ package.json
 .serena/project.local.yml
 page3_data.json
 *.tmp
+.claude/
+skills-lock.json
+
+credentials/
+.claude/
+skills-lock.json
