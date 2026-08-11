@@ -1110,7 +1110,14 @@ async function ensureStale(){
 }
 let ST_SUP=[];
 function mkStSup(sups){
-  const box=$('msStSup'); if(!box) return;
+  let box=$('msStSup');
+  if(!box){
+    box=document.createElement('div');
+    box.id='msStSup'; box.className='ms';
+    const host=$('cStSup')||document.body;
+    host.appendChild(box);
+  }
+  const sel=$('stSup'); if(sel) sel.style.display='none';
   box.innerHTML='<button type="button" class="ms-btn" id="msSupBtn"></button><div class="ms-pop">'+
     '<input type="text" class="ms-search" id="msSupQ" placeholder="поиск поставщика…">'+
     '<div class="ms-list" id="msSupL"></div>'+
@@ -1200,7 +1207,11 @@ $('nav').addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;S.ta
 // фильтры инструмента «Товары без движения»
 ['stDays','stStore','stCat','stSup'].forEach(id=>{const el=$(id);if(el)el.addEventListener('change',renderStale);});
 (()=>{const q=$('stQ');if(q){let t;q.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(renderStale,250);});}
-  const rb=$('stReset');if(rb)rb.onclick=()=>{$('stDays').value='7';$('stStore').value='all';$('stCat').value='all';$('stSup').value='all';$('stQ').value='';renderStale();};})();
+  const rb=$('stReset');if(rb)rb.onclick=()=>{$('stDays').value='7';$('stStore').value='all';$('stCat').value='all';$('stSup').value='all';$('stQ').value='';
+ST_SUP=[];const _l=$('msSupL');if(_l){_l.querySelectorAll('input').forEach(cb=>cb.checked=false);}
+const _b=$('msSupBtn');if(_b){_b.textContent='Все поставщики';_b.classList.remove('act');}
+$('cStSup').classList.remove('hasval');renderStale();
+};})();
 $('fMonth').onchange=e=>{S.month=e.target.value;S.prSel=null;render();};
 // Магазин/Категория/Поставщик — через мультиселект (initMS), отдельные обработчики не нужны
 let qt;$('fQ').oninput=e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.value.trim();render();},250);};
