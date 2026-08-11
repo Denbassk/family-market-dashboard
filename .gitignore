@@ -19,3 +19,11 @@ skills-lock.json
 credentials/
 .claude/
 skills-lock.json
+
+reports_stock/
+scripts/check_*.py
+scripts/ins_*.py
+scripts/cmp_*.py
+scripts/diag_*.py
+scripts/patch_*.py
+docs/*.bak_*
