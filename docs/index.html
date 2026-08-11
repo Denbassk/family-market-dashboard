@@ -1152,6 +1152,8 @@ function renderStale(){
     if(ST_SUP.length&&!ST_SUP.includes(r.s))return false;
     if(q&&!(r.p||'').toLowerCase().includes(q))return false;
     return true;});
+      window.STALE_F=f;
+
   kpiCards('st_kpis',[['Позиций без движения',fmt(f.length)],['Заморожено ₴ (себестоим.)',fmt(sum(f,x=>x.v))],['Единиц на складе',fmt(sum(f,x=>x.q))],['Данные на',STALE.as_of||'—']]);
   tableSort('st_tab',
     [['Товар','p','l'],['Категория','c','l'],['Поставщик','s','l'],['Магазин','st','l'],['Остаток, шт','q'],['Заморожено ₴','v'],['Дней без продаж','d'],['Последняя продажа','last','l'],['Последний приход','last_in','l']],
@@ -1306,18 +1308,9 @@ load().catch(e=>$('upd').textContent='Ошибка загрузки: '+e.message
     return f;
   }
 
-  function pick(rows){
-    var f=filters();
-    return rows.filter(function(r){
-      if(f.days && (r.d||0)<f.days) return false;
-      if(f.tech && r.t) return false;
-      if(f.store && r.st!==f.store) return false;
-      if(f.cat && r.c!==f.cat) return false;
-      if(SUPSEL.size){ if(!SUPSEL.has(r.s)) return false; }
-      else if(f.sup && r.s!==f.sup) return false;
-      if(f.q && (r.p||'').toLowerCase().indexOf(f.q)<0) return false;
-      return true;
-    });
+  function pick(){
+    var base = window.STALE_F || [];
+    return SUPSEL.size ? base.filter(function(r){return SUPSEL.has(r.s);}) : base.slice();
   }
 
   function dl(content,name,mime){
@@ -1341,7 +1334,7 @@ load().catch(e=>$('upd').textContent='Ошибка загрузки: '+e.message
 
   function doXlsx(){
     getData().then(function(rows){
-      var d=pick(rows);
+      var d=pick();
       if(!d.length) return alert('Нет строк под текущими фильтрами');
       if(d[0].b===undefined) return alert('В stale.json нет штрихкодов — перезапустите fetch_stale.py');
       return xlsxLib().then(function(X){
@@ -1359,7 +1352,7 @@ load().catch(e=>$('upd').textContent='Ошибка загрузки: '+e.message
 
   function doTxt(){
     getData().then(function(rows){
-      var d=pick(rows), f=filters();
+      var d=pick(); var _st=(document.getElementById('stStore')||{}).value||'all'; var f={store:(_st==='all'?'':_st)};
       if(!d.length) return alert('Нет строк под текущими фильтрами');
       if(d[0].b===undefined) return alert('В stale.json нет штрихкодов — перезапустите fetch_stale.py');
       if(!f.store && !confirm('Выбраны все магазины — остатки одного штрихкода сложатся в одну строку. Продолжить?')) return;
@@ -1401,12 +1394,8 @@ load().catch(e=>$('upd').textContent='Ошибка загрузки: '+e.message
   }
 
   function supStats(){
-    var f=filters(), agg={};
-    (ROWS||[]).forEach(function(r){
-      if(f.days && (r.d||0)<f.days) return;
-      if(f.tech && r.t) return;
-      if(f.store && r.st!==f.store) return;
-      if(f.cat && r.c!==f.cat) return;
+    var agg={};
+    (window.STALE_F||[]).forEach(function(r){
       var k=r.s||'(нет)';
       if(!agg[k]) agg[k]={n:0,v:0};
       agg[k].n++; agg[k].v+=(Number(r.v)||0);
