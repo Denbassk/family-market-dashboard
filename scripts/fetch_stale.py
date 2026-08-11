@@ -27,6 +27,23 @@ TECH = ['пакет', 'плівка', 'пленка', 'стрейч', 'етик�
         'скотч', 'лоток', 'контейнер', 'рукав', 'мішк', 'мешк', 'перчатк', 'рукавич',
         'серветк', 'салфетк', 'форма для', 'підклад', 'подлож']
 
+TECH_SUB = ['кава зернова','зернова кава','кава в зернах','сухе молоко (1кг)',
+    'капучино (1кг)','капучіно (1кг)','лате (1кг)','латте (1кг)','какао (1кг)',
+    'еспресо (1кг)','айріш капучино','стакан паперов','стакан пластик',
+    'стакан гофр','паперовий стакан','пластиковий стакан','гофр.стакан',
+    'гофр стакан','кришка для','кришка біла','розмішувач','мішалка для',
+    'стірер','булка для хот','булочка для хот','пакет фасув','трубочк']
+
+def is_tech(nm, sup):
+    n = (nm or '').lower()
+    s = (sup or '').lower()
+    if 'каваапарат' in s or 'кавоапарат' in s: return True
+    if 'прем' in s and 'фуд' in s: return True
+    if any(w in n for w in TECH): return True
+    if any(w in n for w in TECH_SUB): return True
+    if ('сосиск' in n or 'сардель' in n) and ('1кг' in n or 'мк ' in n): return True
+    return False
+
 cl = bigquery.Client()
 
 def cols(t):
@@ -65,7 +82,7 @@ WITH st AS (
          ANY_VALUE(product_name) nm, SUM(quantity) qty,
          SUM(quantity * COALESCE(cost_price, 0)) val
   FROM `{DS}.stock_matrix`
-  WHERE snapshot_date = DATE'{snap}' AND quantity > 0
+  WHERE snapshot_date = DATE'{snap}' AND quantity >= 0.001
   GROUP BY bc, store
 ),
 sl AS (
@@ -101,7 +118,7 @@ for r in cl.query(q):
     rows.append({'b': r.bc, 'p': nm, 'c': '(нет в матрице)', 's': r.sup, 'st': r.store,
                  'q': float(r.qty), 'v': float(r.val),
                  'd': int(r.d), 'last': r.last_sale or '—', 'last_in': r.last_in or '—',
-                 't': 1 if any(w in nm.lower() for w in TECH) else 0})
+                 't': 1 if is_tech(nm, r.sup) else 0})
 rows.sort(key=lambda x: -x['v'])
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
