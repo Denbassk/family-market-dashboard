@@ -1254,7 +1254,7 @@ async function exportTable(id){
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='family_'+id+'_'+(D&&D.period?D.period.end:'')+'.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
 }
-document.addEventListener('click',e=>{const t=e.target;if(t.classList&&t.classList.contains('csvbtn'))exportTable(t.dataset.t);});
+document.addEventListener('click',e=>{const t=e.target;if(t.classList&&t.classList.contains('csvbtn')&&t.dataset.t)exportTable(t.dataset.t);});
 // кнопка ручной пересборки данных (workflow_dispatch; токен запрашивается и нигде не сохраняется)
 $('refresh').onclick=async()=>{
   const b=$('refresh');b.disabled=true;const o=b.textContent;b.textContent='Запуск…';
