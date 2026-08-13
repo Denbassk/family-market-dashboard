@@ -30,7 +30,7 @@ try:
     for k,v in json.load(open(inc)).items(): full[k]=v
 except Exception as e:
     print("incoming merge skipped:", e)
-for k in ["moves","moves_summary","oos","dead_items","dead_by_store","dead_by_cat","dead_by_supplier","dead_total",
+for k in ["moves","moves_summary","oos","dead_items","dead_by_store","dead_by_cat","dead_by_supplier","dead_total","stock_as_of",
           "cross","cross_items","writeoffs_by_store","writeoffs_top","writeoffs_by_cat","writeoffs_by_supplier","culinary_writeoffs"]:
     if k in p: full[k]=p[k]
 json.dump(full, open(DOCS,"w"), ensure_ascii=False, separators=(",",":"))

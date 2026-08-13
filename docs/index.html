@@ -175,7 +175,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 
 <div class="top">
   <div><h1>📊 Family Market — аналитика ассортимента</h1>
-    <div class="sub">Категории и поставщики — из матрицы <code>assortment_matrix_full</code> · продажи <code>turnover_transactions</code> · оборачиваемость <code>turnover_monthly</code> · остатки <code>stock_current</code></div></div>
+    <div class="sub">Категории и поставщики — из матрицы <code>assortment_matrix_full</code> · продажи <code>turnover_transactions</code> · оборачиваемость <code>turnover_monthly</code> · остатки <code>stock_matrix</code> (снимок Торгсофта)</div></div>
   <div class="upd" id="upd">загрузка…</div>
 </div>
 
@@ -1017,7 +1017,8 @@ function renderFrozen(){
   if(S.q)items=items.filter(r=>r.p.toLowerCase().includes(S.q.toLowerCase()));
   kpiCards('fr_kpis',[
     ['Заморожено всего ₴',fmt(dt.v)],['Позиций-остатков',fmt(dt.n)],
-    ['В выборке ₴',fmt(sum(items,x=>x.value))],['Позиций в выборке',fmt(items.length)]
+    ['В выборке ₴',fmt(sum(items,x=>x.value))],['Позиций в выборке',fmt(items.length)],
+    ['Остатки на',D.stock_as_of||'—','снимок Торгсофта']
   ]);
   hbar('fr_store',(D.dead_by_store||[]).slice().sort((a,b)=>b.dead_value-a.dead_value).slice(0,20).sort((a,b)=>a.dead_value-b.dead_value),'store','dead_value','#ef4444',v=>fmtF(v)+' ₴',p=>setFilter('store',p.name),'',460);
   hbar('fr_sup',(D.dead_by_supplier||[]).slice(0,18).sort((a,b)=>a.dead_value-b.dead_value),'supplier','dead_value','#fb923c',v=>fmtF(v)+' ₴',p=>setFilter('sup',p.name),'',460);

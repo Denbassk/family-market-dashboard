@@ -27,10 +27,9 @@ NORM = {
  "Салтівське шосе 264В":"Салтівське шосе 264В","Танкопія 16":"Танкопія 16","Шевченко 341":"Шевченко 341",
 }
 keep = "(" + ",".join(f"'{k}'" for k in NORM) + ")"
-cs_sc = " ".join(f"WHEN store_address='{k}' THEN '{v}'" for k, v in NORM.items())
 cs_tt = " ".join(f"WHEN store='{k}' THEN '{v}'" for k, v in NORM.items())
 cs_wo = " ".join(f"WHEN sender_store='{k}' THEN '{v}'" for k, v in NORM.items())
-SC = "`family-market-analytics.returns_system.stock_current`"
+SM = "`family-market-analytics.family_market.stock_matrix`"   # свежий снимок Торгсофта (заменил удалённую stock_current)
 TT = "`family-market-analytics.family_market.turnover_transactions`"
 MX = "`family-market-analytics.family_market.assortment_matrix_full`"
 WO = "`family-market-analytics.writeoffs.writeoffs_report`"
@@ -38,7 +37,18 @@ CW = "`family-market-analytics.family_market.culinary_writeoffs`"
 ST = "`family-market-analytics.family_market._dash_tx26`"
 
 def rows(sql): return [dict(r) for r in client.query(sql).result()]
-out = {"year": YEAR, "updated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
+# актуальный снимок остатков (не хардкод)
+snap = list(client.query(f"SELECT CAST(MAX(snapshot_date) AS STRING) d FROM {SM}").result())[0]["d"]
+print("снимок остатков stock_matrix:", snap)
+# общий шаблон CTE остатков (нормализация store через cs_tt, вес учтён quantity>=0.001)
+def stock_cte(with_meta=True):
+    if with_meta:
+        return (f"stock AS (SELECT barcode, ANY_VALUE(product_name) nm, CASE {cs_tt} END store, "
+                f"SUM(quantity) qty, ANY_VALUE(COALESCE(cost_price,0)) cost FROM {SM} "
+                f"WHERE snapshot_date=DATE'{snap}' AND store IN {keep} AND quantity>=0.001 GROUP BY barcode, store)")
+    return (f"stock AS (SELECT barcode, CASE {cs_tt} END store, SUM(quantity) qty FROM {SM} "
+            f"WHERE snapshot_date=DATE'{snap}' AND store IN {keep} GROUP BY barcode, store)")
+out = {"year": YEAR, "updated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"), "stock_as_of": snap}
 
 # ---------- ПЕРЕМЕЩЕНИЯ (донор без продаж 90д -> получатель со спросом) ----------
 # Только между розничными магазинами (Полевая-склад/опт уже исключена из keep).
@@ -50,8 +60,7 @@ WITH sales90 AS (
   SELECT barcode, CASE {cs_tt} END store, SUM(quantity) qty90
   FROM {TT} WHERE transaction_datetime>=TIMESTAMP_SUB((SELECT MAX(transaction_datetime) FROM {TT}),INTERVAL 90 DAY)
     AND store IN {keep} GROUP BY barcode, store),
-stock AS (SELECT barcode, ANY_VALUE(product_name) nm, CASE {cs_sc} END store, SUM(qty_in_stock) qty, ANY_VALUE(cost_price) cost
-  FROM {SC} WHERE store_address IN {keep} AND qty_in_stock>0 GROUP BY barcode, store),
+{stock_cte()},
 m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
 donors AS (SELECT s.barcode, s.nm, s.store, s.qty, s.cost FROM stock s
   LEFT JOIN sales90 sl USING(barcode,store) WHERE COALESCE(sl.qty90,0)=0 AND s.qty>=3),
@@ -78,9 +87,8 @@ oos = f"""
 WITH sales90 AS (SELECT barcode, ANY_VALUE(product_name) nm, CASE {cs_tt} END store, SUM(quantity) qty90
   FROM {TT} WHERE transaction_datetime>=TIMESTAMP_SUB((SELECT MAX(transaction_datetime) FROM {TT}),INTERVAL 90 DAY)
     AND store IN {keep} GROUP BY barcode, store),
-stock AS (SELECT barcode, CASE {cs_sc} END store, SUM(qty_in_stock) qty FROM {SC}
-  WHERE store_address IN {keep} GROUP BY barcode, store),
-anystk AS (SELECT barcode, SUM(qty_in_stock) tot FROM {SC} WHERE store_address IN {keep} GROUP BY barcode),
+{stock_cte(False)},
+anystk AS (SELECT barcode, SUM(quantity) tot FROM {SM} WHERE snapshot_date=DATE'{snap}' AND store IN {keep} GROUP BY barcode),
 m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode)
 SELECT s.nm product, COALESCE(m.cat,'Прочее (нет в матрице)') category, COALESCE(m.sup,'(нет в матрице)') supplier,
   s.store, CAST(ROUND(s.qty90,0) AS INT64) sold90, CAST(CEIL(s.qty90/3.0) AS INT64) need_month,
@@ -95,8 +103,7 @@ dead = f"""
 WITH sales90 AS (SELECT barcode, CASE {cs_tt} END store, SUM(quantity) q90 FROM {TT}
   WHERE transaction_datetime>=TIMESTAMP_SUB((SELECT MAX(transaction_datetime) FROM {TT}),INTERVAL 90 DAY)
     AND store IN {keep} GROUP BY barcode,store),
-stock AS (SELECT barcode, ANY_VALUE(product_name) nm, CASE {cs_sc} END store, SUM(qty_in_stock) qty, ANY_VALUE(cost_price) cost
-  FROM {SC} WHERE store_address IN {keep} AND qty_in_stock>0 GROUP BY barcode,store),
+{stock_cte()},
 m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
 dead0 AS (
   SELECT s.nm p, COALESCE(m.cat,'Прочее (нет в матрице)') c, COALESCE(m.sup,'(нет в матрице)') s,
