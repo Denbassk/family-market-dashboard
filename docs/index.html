@@ -308,7 +308,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
       <div class="ctrl"><label>Категория</label><select id="stCat"><option value="all">Все категории</option></select></div>
       <div class="ctrl" id="cStSup"><label>Поставщик</label><select id="stSup" style="display:none"><option value="all">Все поставщики</option></select><div class="ms" id="msStSup"></div></div>
       <div class="ctrl"><label>Поиск товара</label><input id="stQ" placeholder="название…" autocomplete="off"></div>
-      <div class="ctrl"><label>Точки</label><label class="sw" style="height:33px"><input type="checkbox" id="stRetail" checked><i></i><span id="stRetailLbl">только розница</span></label></div>
+      <div class="ctrl"><label>Склад</label><label class="sw" style="height:33px"><input type="checkbox" id="stRetail" checked><i></i><span id="stRetailLbl">склад скрыт</span></label></div>
       <button class="csvbtn" id="stReset" style="align-self:flex-end">Сбросить</button>
     </div>
     <div class="kpis" id="st_kpis"></div>
@@ -1152,7 +1152,7 @@ function renderStale(){
   const retail=!$('stRetail')||$('stRetail').checked;
   const f=rows.filter(r=>{
     if(days>=999){if(r.d<999)return false;} else if(r.d<days)return false;
-    if(retail&&/^Полевая/.test(r.st||''))return false;
+    if(retail&&(r.st||'')==='Полевая-Склад')return false;
     if(hideTech&&r.t)return false;
     if(st!=='all'&&r.st!==st)return false;
     if(cat!=='all'&&r.c!==cat)return false;
@@ -1217,10 +1217,10 @@ function applyFilterVis(){
 $('nav').addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;S.tab=e.target.dataset.p;syncTabs();render();setTimeout(resizeAll,30);});
 // фильтры инструмента «Товары без движения»
 ['stDays','stStore','stCat','stSup'].forEach(id=>{const el=$(id);if(el)el.addEventListener('change',renderStale);});
-(()=>{const rt=$('stRetail');if(rt)rt.addEventListener('change',()=>{const l=$('stRetailLbl');if(l)l.textContent=rt.checked?'только розница':'все точки (со складом)';renderStale();});})();
+(()=>{const rt=$('stRetail');if(rt)rt.addEventListener('change',()=>{const l=$('stRetailLbl');if(l)l.textContent=rt.checked?'склад скрыт':'показывать склад';renderStale();});})();
 (()=>{const q=$('stQ');if(q){let t;q.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(renderStale,250);});}
   const rb=$('stReset');if(rb)rb.onclick=()=>{$('stDays').value='7';$('stStore').value='all';$('stCat').value='all';$('stSup').value='all';$('stQ').value='';
-if($('stRetail')){$('stRetail').checked=true;const _rl=$('stRetailLbl');if(_rl)_rl.textContent='только розница';}
+if($('stRetail')){$('stRetail').checked=true;const _rl=$('stRetailLbl');if(_rl)_rl.textContent='склад скрыт';}
 ST_SUP=[];const _l=$('msSupL');if(_l){_l.querySelectorAll('input').forEach(cb=>cb.checked=false);}
 const _b=$('msSupBtn');if(_b){_b.textContent='Все поставщики';_b.classList.remove('act');}
 $('cStSup').classList.remove('hasval');renderStale();
