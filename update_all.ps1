@@ -15,9 +15,9 @@ $last = Get-ChildItem "$root\reports_stock\*.xlsx" -EA SilentlyContinue |
 if (-not $last) { Write-Host "В reports_stock нет xlsx - выгрузите остатки" -ForegroundColor Red; exit 1 }
 Write-Host "Файл остатков: $($last.Name)" -ForegroundColor Yellow
 
-Step "Загрузка снимка в stock_matrix" 'python scripts\load_stock.py'
-Step "Сборка stale.json"              'python scripts\fetch_stale.py'
-Step "Сборка full_data.json"          'python scripts\fetch_data.py'
+Step "1/2 Загрузка снимка Торгсофта в stock_matrix" 'python scripts\load_stock.py'
+# build_data.py сам прогоняет: fetch_data -> fetch_page3 (перемещения/неликвиды) -> fetch_matrix -> fetch_incoming -> fetch_stale
+Step "2/2 Полная сборка данных (продажи, перемещения, неликвиды, матрица, приходы, «не двигается»)" 'python scripts\build_data.py'
 
 Write-Host "`n=== git ===" -ForegroundColor Cyan
 git add docs/stale.json docs/full_data.json
