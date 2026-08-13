@@ -5,6 +5,12 @@ HERE=os.path.dirname(__file__)
 DOCS=os.path.join(HERE,"..","docs","full_data.json")
 
 env=dict(os.environ)
+# 0) СИНХРОНИЗАЦИЯ матрицы: Google-лист -> BigQuery assortment_matrix_full (единый источник категорий/поставщиков).
+#    Если упадёт (нет доступа к Sheets и т.п.) — не рушим всю сборку, используем прежнюю таблицу.
+try:
+    subprocess.run([sys.executable, os.path.join(HERE,"sync_matrix.py")], check=True, env=env)
+except Exception as e:
+    print("sync_matrix пропущен (используется прежняя assortment_matrix_full):", e)
 # 1) основной сбор -> docs/full_data.json
 env["OUT_PATH"]=DOCS
 subprocess.run([sys.executable, os.path.join(HERE,"fetch_data.py")], check=True, env=env)
