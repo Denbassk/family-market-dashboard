@@ -50,6 +50,13 @@ select:focus,input:focus{outline:1px solid var(--acc)}
 .ms-foot{display:flex;gap:8px;margin-top:7px;border-top:1px solid var(--line);padding-top:7px}
 .ms-foot button{flex:1;background:var(--c2);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px;font-size:12px;cursor:pointer}
 .ms-empty{color:var(--muted);font-size:12px;padding:6px 7px}
+/* переключатель-ползунок */
+.sw{position:relative;display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--txt);user-select:none}
+.sw input{display:none}
+.sw i{width:38px;height:21px;background:var(--line2);border-radius:20px;position:relative;flex:0 0 auto;transition:background var(--dur) var(--ease)}
+.sw i::after{content:'';position:absolute;left:2px;top:2px;width:17px;height:17px;background:#fff;border-radius:50%;transition:transform var(--dur) var(--ease)}
+.sw input:checked+i{background:var(--acc)}
+.sw input:checked+i::after{transform:translateX(17px)}
 .btn{background:var(--c2);color:var(--txt);border:1px solid var(--line);border-radius:var(--radius-sm);padding:7px 13px;font-size:12.5px;cursor:pointer}
 .btn:hover{background:var(--line);border-color:var(--line2)}
 .btn:active{transform:translateY(1px)}
@@ -301,6 +308,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
       <div class="ctrl"><label>Категория</label><select id="stCat"><option value="all">Все категории</option></select></div>
       <div class="ctrl" id="cStSup"><label>Поставщик</label><select id="stSup" style="display:none"><option value="all">Все поставщики</option></select><div class="ms" id="msStSup"></div></div>
       <div class="ctrl"><label>Поиск товара</label><input id="stQ" placeholder="название…" autocomplete="off"></div>
+      <div class="ctrl"><label>Точки</label><label class="sw" style="height:33px"><input type="checkbox" id="stRetail" checked><i></i><span id="stRetailLbl">только розница</span></label></div>
       <button class="csvbtn" id="stReset" style="align-self:flex-end">Сбросить</button>
     </div>
     <div class="kpis" id="st_kpis"></div>
@@ -1141,8 +1149,10 @@ function renderStale(){
   const rows=STALE.rows||[];
   const days=+$('stDays').value, st=$('stStore').value, cat=$('stCat').value, q=($('stQ').value||'').toLowerCase().trim();
   const hideTech=S.noOff;
+  const retail=!$('stRetail')||$('stRetail').checked;
   const f=rows.filter(r=>{
     if(days>=999){if(r.d<999)return false;} else if(r.d<days)return false;
+    if(retail&&/^Полевая/.test(r.st||''))return false;
     if(hideTech&&r.t)return false;
     if(st!=='all'&&r.st!==st)return false;
     if(cat!=='all'&&r.c!==cat)return false;
@@ -1207,8 +1217,10 @@ function applyFilterVis(){
 $('nav').addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;S.tab=e.target.dataset.p;syncTabs();render();setTimeout(resizeAll,30);});
 // фильтры инструмента «Товары без движения»
 ['stDays','stStore','stCat','stSup'].forEach(id=>{const el=$(id);if(el)el.addEventListener('change',renderStale);});
+(()=>{const rt=$('stRetail');if(rt)rt.addEventListener('change',()=>{const l=$('stRetailLbl');if(l)l.textContent=rt.checked?'только розница':'все точки (со складом)';renderStale();});})();
 (()=>{const q=$('stQ');if(q){let t;q.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(renderStale,250);});}
   const rb=$('stReset');if(rb)rb.onclick=()=>{$('stDays').value='7';$('stStore').value='all';$('stCat').value='all';$('stSup').value='all';$('stQ').value='';
+if($('stRetail')){$('stRetail').checked=true;const _rl=$('stRetailLbl');if(_rl)_rl.textContent='только розница';}
 ST_SUP=[];const _l=$('msSupL');if(_l){_l.querySelectorAll('input').forEach(cb=>cb.checked=false);}
 const _b=$('msSupBtn');if(_b){_b.textContent='Все поставщики';_b.classList.remove('act');}
 $('cStSup').classList.remove('hasval');renderStale();
@@ -1258,6 +1270,9 @@ document.addEventListener('click',e=>{const t=e.target;if(t.classList&&t.classLi
 async function dataTag(){try{const r=await fetch('full_data.json?_t='+Date.now(),{method:'HEAD',cache:'no-store'});return r.headers.get('etag')||r.headers.get('last-modified')||'';}catch(e){return '';}}
 $('refresh').onclick=async()=>{
   const b=$('refresh');const o=b.textContent;
+  // напоминание: кнопка пересобирает аналитику из ТЕКУЩЕГО снимка остатков, свежий остаток грузится локально из Торгсофта
+  const asof=(D&&D.stock_as_of)||'—';
+  if(!confirm('⚠ Остатки в базе — на '+asof+'.\n\nЭта кнопка пересчитает аналитику из ЭТОГО снимка.\nЕсли сегодня НЕ выгружали свежий остаток из Торгсофта — сначала выгрузите Excel и запустите локальное обновление (файл «Обновить данные.bat»), иначе остатки останутся на '+asof+'.\n\nПродолжить пересборку аналитики из снимка '+asof+'?')) return;
   b.disabled=true;b.textContent='Запуск…';
   const startTag=await dataTag();
   try{const r=await fetch('/api/refresh',{method:'POST'});const j=await r.json().catch(()=>({}));

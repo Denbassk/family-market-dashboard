@@ -12,8 +12,16 @@ function Step($name, $cmd) {
 
 $last = Get-ChildItem "$root\reports_stock\*.xlsx" -EA SilentlyContinue |
         Sort-Object LastWriteTime -Desc | Select-Object -First 1
-if (-not $last) { Write-Host "В reports_stock нет xlsx - выгрузите остатки" -ForegroundColor Red; exit 1 }
-Write-Host "Файл остатков: $($last.Name)" -ForegroundColor Yellow
+if (-not $last) { Write-Host "В reports_stock нет xlsx - выгрузите остатки из Торгсофта" -ForegroundColor Red; exit 1 }
+Write-Host "Файл остатков: $($last.Name) (от $($last.LastWriteTime.ToString('dd.MM.yyyy HH:mm')))" -ForegroundColor Yellow
+# Напоминание: не забыл ли выгрузить свежий остаток?
+if (((Get-Date).Date - $last.LastWriteTime.Date).Days -ge 1) {
+  Write-Host "`n*** ВНИМАНИЕ: файл остатков НЕ сегодняшний! ***" -ForegroundColor Red
+  Write-Host "Похоже, вы забыли выгрузить свежий остаток из Торгсофта в папку reports_stock." -ForegroundColor Red
+  $ans = Read-Host "Продолжить со старым файлом? (д = да / любая клавиша = отмена)"
+  if ($ans -ne 'д' -and $ans -ne 'y' -and $ans -ne 'Y' -and $ans -ne 'д') {
+    Write-Host "Отменено. Выгрузите свежий остаток и запустите снова." -ForegroundColor Yellow; exit 1 }
+}
 
 Step "1/2 Загрузка снимка Торгсофта в stock_matrix" 'python scripts\load_stock.py'
 # build_data.py сам прогоняет: fetch_data -> fetch_page3 (перемещения/неликвиды) -> fetch_matrix -> fetch_incoming -> fetch_stale
