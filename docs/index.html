@@ -173,6 +173,1165 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
   .kpi .v{font-size:15px}
   h1{font-size:15px}
 }
+</style>
+<style>
+/* ===== стили вкладки «Условия поставщиков» (скоуп #p_suppliers) ===== */
+#p_suppliers /* ============================================= */
+/* ПЕРЕМЕННЫЕ ТЕМЫ                               */
+/* ============================================= */
+:root{
+    --transition-speed: 0.3s;
+}
+[data-theme="dark"] #p_suppliers{
+    --bg-primary: #0f1117;
+    --bg-secondary: #1a1d27;
+    --bg-tertiary: #252836;
+    --bg-card: #1e2130;
+    --bg-hover: #2a2d3e;
+    --bg-input: #252836;
+    --bg-table-header: #1a1d27;
+    --bg-table-row-even: #181b25;
+    --bg-table-row-odd: #1e2130;
+    --bg-modal: #1e2130;
+    --bg-overlay: rgba(0,0,0,0.7);
+    --text-primary: #e4e6f0;
+    --text-secondary: #a0a3b5;
+    --text-muted: #6b6e80;
+    --border-color: #2d3044;
+    --border-light: #363950;
+    --accent-blue: #4a7cff;
+    --accent-blue-hover: #6090ff;
+    --accent-green: #2ecc71;
+    --accent-green-bg: rgba(46,204,113,0.12);
+    --accent-yellow: #f1c40f;
+    --accent-yellow-bg: rgba(241,196,15,0.12);
+    --accent-red: #e74c3c;
+    --accent-red-bg: rgba(231,76,60,0.12);
+    --accent-orange: #e67e22;
+    --accent-orange-bg: rgba(230,126,34,0.12);
+    --accent-purple: #9b59b6;
+    --accent-purple-bg: rgba(155,89,182,0.12);
+    --accent-cyan: #00bcd4;
+    --accent-cyan-bg: rgba(0,188,212,0.12);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
+    --badge-green-bg: rgba(46,204,113,0.15);
+    --badge-green-text: #2ecc71;
+    --badge-red-bg: rgba(231,76,60,0.15);
+    --badge-red-text: #e74c3c;
+    --badge-blue-bg: rgba(74,124,255,0.15);
+    --badge-blue-text: #4a7cff;
+    --badge-orange-bg: rgba(230,126,34,0.15);
+    --badge-orange-text: #e67e22;
+    --scrollbar-track: #1a1d27;
+    --scrollbar-thumb: #363950;
+    --scrollbar-thumb-hover: #4a4e66;
+}
+[data-theme="light"] #p_suppliers{
+    --bg-primary: #f0f2f5;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f8f9fa;
+    --bg-card: #ffffff;
+    --bg-hover: #f0f4ff;
+    --bg-input: #f8f9fa;
+    --bg-table-header: #f0f2f5;
+    --bg-table-row-even: #ffffff;
+    --bg-table-row-odd: #f8f9fb;
+    --bg-modal: #ffffff;
+    --bg-overlay: rgba(0,0,0,0.4);
+    --text-primary: #1a1d2e;
+    --text-secondary: #4a4e68;
+    --text-muted: #8b8fa3;
+    --border-color: #e0e3eb;
+    --border-light: #eceef3;
+    --accent-blue: #3366ff;
+    --accent-blue-hover: #4d7aff;
+    --accent-green: #27ae60;
+    --accent-green-bg: rgba(39,174,96,0.08);
+    --accent-yellow: #d4a40a;
+    --accent-yellow-bg: rgba(212,164,10,0.08);
+    --accent-red: #c0392b;
+    --accent-red-bg: rgba(192,57,43,0.08);
+    --accent-orange: #d35400;
+    --accent-orange-bg: rgba(211,84,0,0.08);
+    --accent-purple: #8e44ad;
+    --accent-purple-bg: rgba(142,68,173,0.08);
+    --accent-cyan: #0097a7;
+    --accent-cyan-bg: rgba(0,151,167,0.08);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+    --badge-green-bg: rgba(39,174,96,0.1);
+    --badge-green-text: #27ae60;
+    --badge-red-bg: rgba(192,57,43,0.1);
+    --badge-red-text: #c0392b;
+    --badge-blue-bg: rgba(51,102,255,0.1);
+    --badge-blue-text: #3366ff;
+    --badge-orange-bg: rgba(211,84,0,0.1);
+    --badge-orange-text: #d35400;
+    --scrollbar-track: #f0f2f5;
+    --scrollbar-thumb: #c8ccd8;
+    --scrollbar-thumb-hover: #a0a5b8;
+}
+#p_suppliers /* ============================================= */
+/* СБРОС И БАЗОВЫЕ СТИЛИ                         */
+/* ============================================= */
+*, #p_suppliers *::before, #p_suppliers *::after{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+#p_suppliers{
+    font-size: 14px;
+    scroll-behavior: smooth;
+}
+#p_suppliers{
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.5;
+    min-height: 100vh;
+    transition: background var(--transition-speed), color var(--transition-speed);
+    overflow-x: hidden;
+}
+#p_suppliers /* ============================================= */
+/* ПОЛОСЫ ПРОКРУТКИ                              */
+/* ============================================= */
+::-webkit-scrollbar{
+    width: 10px;
+    height: 10px;
+}
+#p_suppliers ::-webkit-scrollbar-track{
+    background: var(--scrollbar-track);
+    border-radius: 5px;
+}
+#p_suppliers ::-webkit-scrollbar-thumb{
+    background: var(--scrollbar-thumb);
+    border-radius: 5px;
+    border: 2px solid var(--scrollbar-track);
+}
+#p_suppliers ::-webkit-scrollbar-thumb:hover{
+    background: var(--scrollbar-thumb-hover);
+}
+#p_suppliers ::-webkit-scrollbar-corner{
+    background: var(--scrollbar-track);
+}
+#p_suppliers /* ============================================= */
+/* ШАПКА / HEADER                                */
+/* ============================================= */
+.header{
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+    transition: background var(--transition-speed), border-color var(--transition-speed);
+}
+#p_suppliers .header-left{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+#p_suppliers .header-logo{
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: white;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+#p_suppliers .header-title{
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+}
+#p_suppliers .header-subtitle{
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
+#p_suppliers .header-actions{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+#p_suppliers /* ============================================= */
+/* КНОПКИ                                        */
+/* ============================================= */
+.btn{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    user-select: none;
+}
+#p_suppliers .btn:hover{
+    background: var(--bg-hover);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+    box-shadow: var(--shadow-sm);
+}
+#p_suppliers .btn-primary{
+    background: var(--accent-blue);
+    color: #fff;
+    border-color: var(--accent-blue);
+}
+#p_suppliers .btn-primary:hover{
+    background: var(--accent-blue-hover);
+    border-color: var(--accent-blue-hover);
+    color: #fff;
+}
+#p_suppliers .btn-danger{
+    background: var(--accent-red-bg);
+    color: var(--accent-red);
+    border-color: transparent;
+}
+#p_suppliers .btn-danger:hover{
+    background: var(--accent-red);
+    color: #fff;
+}
+#p_suppliers .btn-success{
+    background: var(--accent-green-bg);
+    color: var(--accent-green);
+    border-color: transparent;
+}
+#p_suppliers .btn-success:hover{
+    background: var(--accent-green);
+    color: #fff;
+}
+#p_suppliers .btn-icon{
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 1.1rem;
+}
+#p_suppliers /* ============================================= */
+/* СТАТИСТИКА                                    */
+/* ============================================= */
+.stats-bar{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 16px 16px 6px;
+    background: transparent;
+    max-width: 100%; /* Растягиваем на весь экран */
+    margin: 0;
+}
+#p_suppliers .stat-card{
+    background: var(--bg-card);
+    border: none; /* Убираем рамки */
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: var(--shadow-sm);
+    flex: 1 1 160px; /* Главная фишка: заставляет карточки тянуться и заполнять пустоту */
+    min-width: 160px;
+}
+#p_suppliers .stat-card:hover{
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+#p_suppliers .stat-icon{
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+#p_suppliers /* Мягкие полупрозрачные фоны иконок вместо градиентов */
+.stat-icon.blue{ background: rgba(74,124,255,0.15); color: #4a7cff; }
+#p_suppliers .stat-icon.green{ background: rgba(46,204,113,0.15); color: #2ecc71; }
+#p_suppliers .stat-icon.orange{ background: rgba(230,126,34,0.15); color: #e67e22; }
+#p_suppliers .stat-icon.purple{ background: rgba(155,89,182,0.15); color: #9b59b6; }
+#p_suppliers .stat-icon.red{ background: rgba(231,76,60,0.15); color: #e74c3c; }
+#p_suppliers .stat-icon.cyan{ background: rgba(0,188,212,0.15); color: #00bcd4; }
+#p_suppliers .stat-icon.yellow{ background: rgba(241,196,15,0.15); color: #f1c40f; }
+#p_suppliers .stat-info{
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+#p_suppliers .stat-value{
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+    letter-spacing: -0.5px;
+}
+#p_suppliers .stat-label{
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: none; /* Убрали капс для более современного вида */
+    font-weight: 500;
+    white-space: normal;
+    line-height: 1.2;
+}
+#p_suppliers /* ============================================= */
+/* ПАНЕЛЬ ФИЛЬТРОВ                               */
+/* ============================================= */
+.filters-panel{
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    margin: 0 16px 16px;
+    padding: 16px 20px;
+    box-shadow: var(--shadow-sm);
+    transition: background var(--transition-speed), border-color var(--transition-speed);
+    border-bottom: 2px solid var(--accent-blue);
+}
+#p_suppliers .filters-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+#p_suppliers .filters-title{
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+#p_suppliers .filters-grid{
+    display: flex;
+    flex-wrap: wrap; /* ВАЖНО: разрешает перенос на новую строку */
+    gap: 12px;
+    align-items: flex-end;
+    width: 100%;
+}
+#p_suppliers .filter-group{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 140px;
+}
+#p_suppliers .filter-group.search-group{
+    flex: 2;
+    min-width: 250px;
+}
+#p_suppliers .filter-group label{
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    font-weight: 600;
+}
+#p_suppliers .filter-group input, #p_suppliers .filter-group select{
+    padding: 0 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    height: 36px;
+    outline: none;
+    transition: all 0.2s;
+    width: 100%;
+}
+#p_suppliers .filter-group input:focus, #p_suppliers .filter-group select:focus{
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(74,124,255,0.15);
+}
+#p_suppliers .filter-group select{
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6e80' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 25px;
+}
+#p_suppliers /* Поиск с иконкой */
+.search-wrapper{
+    position: relative;
+    width: 100%;
+}
+#p_suppliers .search-icon{
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: var(--text-muted); font-size: 1rem; pointer-events: none;
+}
+#p_suppliers .search-wrapper input{
+    padding-left: 32px;
+    padding-right: 32px;
+}
+#p_suppliers .search-clear{
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    width: 24px; height: 24px; border: none; background: transparent; color: var(--text-muted);
+    border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: all 0.2s; pointer-events: none;
+}
+#p_suppliers .search-wrapper:hover .search-clear, #p_suppliers .search-wrapper input:focus ~ .search-clear{
+    opacity: 1; pointer-events: auto;
+}
+#p_suppliers .search-clear:hover{
+    background: var(--bg-hover); color: var(--text-primary);
+}
+#p_suppliers .search-clear.hidden{
+    opacity: 0 !important; pointer-events: none !important;
+}
+#p_suppliers /* Кнопка сброса */
+.btn-reset{
+    padding: 0 16px;
+    background: var(--bg-tertiary);
+    color: var(--accent-red);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#p_suppliers .btn-reset:hover{
+    background: var(--accent-red-bg);
+    border-color: var(--accent-red);
+}
+#p_suppliers /* Дополнительные фильтры */
+.filters-advanced{
+    display: none; /* скрыто по умолчанию */
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+    width: 100%;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--border-color);
+    animation: sup-fadeIn 0.3s ease;
+}
+@keyframes sup-fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+#p_suppliers /* ============================================= */
+/* ТАБЛИЦА                                       */
+/* ============================================= */
+.table-wrapper{
+    margin: 0 16px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: auto;
+    max-height: calc(100vh - 280px);
+    background: var(--bg-secondary);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    transition: background var(--transition-speed), border-color var(--transition-speed);
+}
+#p_suppliers table{
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+}
+#p_suppliers /* Фиксированные ширины столбцов */
+thead th:nth-child(1){ width: 32px; }
+#p_suppliers thead th:nth-child(2){ width: 13%; }
+#p_suppliers thead th:nth-child(3){ width: 8%; }
+#p_suppliers thead th:nth-child(4){ width: 7%; }
+#p_suppliers thead th:nth-child(5){ width: 5%; }
+#p_suppliers thead th:nth-child(6){ width: 5%; }
+#p_suppliers thead th:nth-child(7){ width: 7%; }
+#p_suppliers thead th:nth-child(8){ width: 6%; }
+#p_suppliers thead th:nth-child(9){ width: 5%; }
+#p_suppliers thead th:nth-child(10){ width: 5%; }
+#p_suppliers thead th:nth-child(11){ width: 5%; }
+#p_suppliers thead th:nth-child(12){ width: 5%; }
+#p_suppliers thead th:nth-child(13){ width: 5%; }
+#p_suppliers thead th:nth-child(14){ width: 10%; }
+#p_suppliers thead th:nth-child(15){ width: 10%; }
+#p_suppliers /* Закреплённые заголовки */
+thead{
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+#p_suppliers thead th{
+    background: var(--bg-table-header);
+    color: var(--text-primary);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    padding: 10px 4px;
+    text-align: center;
+    border-bottom: 2px solid var(--accent-blue);
+    cursor: pointer;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+    hyphens: none;
+    user-select: none;
+    transition: background 0.2s, color 0.2s;
+    position: relative;
+    line-height: 1.3;
+    min-width: 50px;
+}
+#p_suppliers thead th:hover{
+    color: var(--accent-blue);
+    background: var(--bg-hover);
+}
+#p_suppliers thead th:not(:last-child){
+    border-right: 1px solid var(--border-color);
+}
+#p_suppliers thead th.sorted-asc::after{
+    content: ' ▲';
+    color: var(--accent-blue);
+    font-size: 0.65rem;
+}
+#p_suppliers thead th.sorted-desc::after{
+    content: ' ▼';
+    color: var(--accent-blue);
+    font-size: 0.65rem;
+}
+#p_suppliers /* Первый столбец (#) фиксирован */
+thead th:first-child, #p_suppliers tbody td:first-child{
+    position: sticky;
+    left: 0;
+    z-index: 5;
+}
+#p_suppliers thead th:first-child{
+    z-index: 11;
+}
+#p_suppliers tbody td:first-child{
+    background: inherit;
+}
+#p_suppliers tbody tr{
+    transition: background 0.15s;
+    cursor: pointer;
+}
+#p_suppliers tbody tr:nth-child(even){
+    background: var(--bg-table-row-even);
+}
+#p_suppliers tbody tr:nth-child(odd){
+    background: var(--bg-table-row-odd);
+}
+#p_suppliers tbody tr:hover{
+    background: var(--bg-hover) !important;
+}
+#p_suppliers /* ЦВЕТОВЫЕ МЕТКИ СТРОК */
+tbody tr[data-color="red"]{
+    background: rgba(231,76,60,0.12) !important;
+    border-left: 3px solid var(--accent-red);
+}
+#p_suppliers tbody tr[data-color="red"]:hover{
+    background: rgba(231,76,60,0.2) !important;
+}
+#p_suppliers tbody tr[data-color="yellow"]{
+    background: rgba(241,196,15,0.12) !important;
+    border-left: 3px solid var(--accent-yellow);
+}
+#p_suppliers tbody tr[data-color="yellow"]:hover{
+    background: rgba(241,196,15,0.2) !important;
+}
+#p_suppliers tbody tr[data-color="green"]{
+    background: rgba(46,204,113,0.12) !important;
+    border-left: 3px solid var(--accent-green);
+}
+#p_suppliers tbody tr[data-color="green"]:hover{
+    background: rgba(46,204,113,0.2) !important;
+}
+#p_suppliers tbody tr[data-color="blue"]{
+    background: rgba(74,124,255,0.12) !important;
+    border-left: 3px solid var(--accent-blue);
+}
+#p_suppliers tbody tr[data-color="blue"]:hover{
+    background: rgba(74,124,255,0.2) !important;
+}
+#p_suppliers tbody tr[data-color="orange"]{
+    background: rgba(230,126,34,0.12) !important;
+    border-left: 3px solid var(--accent-orange);
+}
+#p_suppliers tbody tr[data-color="orange"]:hover{
+    background: rgba(230,126,34,0.2) !important;
+}
+#p_suppliers tbody tr[data-color="purple"]{
+    background: rgba(155,89,182,0.12) !important;
+    border-left: 3px solid var(--accent-purple);
+}
+#p_suppliers tbody tr[data-color="purple"]:hover{
+    background: rgba(155,89,182,0.2) !important;
+}
+#p_suppliers .color-dot{
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+#p_suppliers .color-picker-popup{
+    position: fixed;
+    z-index: 3001;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    max-width: 200px;
+}
+#p_suppliers .color-picker-popup .cp-btn{
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+#p_suppliers .color-picker-popup .cp-btn:hover{
+    transform: scale(1.2);
+    border-color: var(--text-primary);
+}
+#p_suppliers .color-picker-popup .cp-btn.active{
+    border-color: var(--text-primary);
+    box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--text-primary);
+}
+#p_suppliers .color-picker-popup .cp-clear{
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px dashed var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: transparent;
+    transition: all 0.15s;
+}
+#p_suppliers .color-picker-popup .cp-clear:hover{
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+}
+#p_suppliers /* Категории-теги */
+.tags-cell{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+#p_suppliers .tag{
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.5;
+}
+#p_suppliers .tag-alcohol{ background: rgba(155,89,182,0.15); color: #9b59b6; }
+#p_suppliers .tag-water{ background: rgba(0,188,212,0.15); color: #00acc1; }
+#p_suppliers .tag-candy{ background: rgba(230,126,34,0.15); color: #e67e22; }
+#p_suppliers .tag-dairy{ background: rgba(74,124,255,0.15); color: #4a7cff; }
+#p_suppliers .tag-meat{ background: rgba(231,76,60,0.15); color: #e74c3c; }
+#p_suppliers .tag-grocery{ background: rgba(46,204,113,0.15); color: #2ecc71; }
+#p_suppliers .tag-snacks{ background: rgba(241,196,15,0.18); color: #b8960c; }
+#p_suppliers .tag-chem{ background: rgba(149,165,166,0.2); color: #7f8c8d; }
+#p_suppliers .tag-tobacco{ background: rgba(127,140,141,0.2); color: #566573; }
+#p_suppliers .tag-pet{ background: rgba(46,204,113,0.15); color: #1e8449; }
+#p_suppliers .tag-bread{ background: rgba(211,84,0,0.12); color: #a04000; }
+#p_suppliers .tag-fish{ background: rgba(0,188,212,0.12); color: #00838f; }
+#p_suppliers .tag-veg{ background: rgba(39,174,96,0.12); color: #1b7a3d; }
+#p_suppliers .tag-frozen{ background: rgba(74,124,255,0.12); color: #2e5bba; }
+#p_suppliers .tag-other{ background: rgba(149,165,166,0.15); color: #7f8c8d; }
+#p_suppliers .tag-juice{ background: rgba(241,196,15,0.15); color: #b7950b; }
+#p_suppliers .tag-beer{ background: rgba(211,84,0,0.15); color: #ba4a00; }
+#p_suppliers .tag-coffee{ background: rgba(121,85,72,0.2); color: #6d4c41; }
+#p_suppliers .tag-sauce{ background: rgba(230,126,34,0.12); color: #af601a; }
+#p_suppliers .tag-pack{ background: rgba(149,165,166,0.12); color: #616a6b; }
+#p_suppliers .tag-hygiene{ background: rgba(155,89,182,0.12); color: #7d3c98; }
+#p_suppliers /* Редактор категорий */
+.category-editor{
+    position: fixed;
+    z-index: 3001;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: var(--shadow-lg);
+    max-width: 320px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+#p_suppliers .category-editor h4{
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+}
+#p_suppliers .cat-option{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+}
+#p_suppliers .cat-option:hover{
+    background: var(--bg-hover);
+}
+#p_suppliers .cat-option input[type="checkbox"]{
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-blue);
+    cursor: pointer;
+}
+#p_suppliers .cat-option label{
+    cursor: pointer;
+    font-size: 0.82rem;
+    flex: 1;
+}
+#p_suppliers .cat-custom-input{
+    width: 100%;
+    margin-top: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    outline: none;
+}
+#p_suppliers .cat-custom-input:focus{
+    border-color: var(--accent-blue);
+}
+#p_suppliers .cat-actions{
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    justify-content: flex-end;
+}
+#p_suppliers /* Сравнение поставщиков */
+.compare-panel{
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-secondary);
+    border-top: 2px solid var(--accent-blue);
+    padding: 10px 20px;
+    z-index: 500;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+    transition: all 0.3s;
+}
+#p_suppliers .compare-panel.active{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+#p_suppliers .compare-selected{
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+#p_suppliers .compare-chip{
+    background: var(--accent-blue);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+#p_suppliers .compare-chip .remove{
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 0.9rem;
+}
+#p_suppliers .compare-chip .remove:hover{
+    opacity: 1;
+}
+#p_suppliers .compare-actions{
+    display: flex;
+    gap: 8px;
+    margin-left: 12px;
+    flex-shrink: 0;
+}
+#p_suppliers tbody td{
+    padding: 6px 6px;
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: top;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4;
+    overflow: hidden;
+}
+#p_suppliers tbody td:nth-child(1){
+    text-align: center;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+#p_suppliers tbody td:nth-child(2){
+    font-weight: 500;
+}
+#p_suppliers tbody td:nth-child(5){
+    text-align: center;
+    font-weight: 600;
+}
+#p_suppliers tbody td:nth-child(14), #p_suppliers tbody td:nth-child(15){
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+}
+#p_suppliers /* ============================================= */
+/* БЕЙДЖИ                                        */
+/* ============================================= */
+.badge{
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+#p_suppliers .badge-green{
+    background: var(--badge-green-bg);
+    color: var(--badge-green-text);
+}
+#p_suppliers .badge-red{
+    background: var(--badge-red-bg);
+    color: var(--badge-red-text);
+}
+#p_suppliers .badge-blue{
+    background: var(--badge-blue-bg);
+    color: var(--badge-blue-text);
+}
+#p_suppliers .badge-orange{
+    background: var(--badge-orange-bg);
+    color: var(--badge-orange-text);
+}
+#p_suppliers /* Подсветка процентов */
+.pct-high{
+    color: var(--accent-green);
+    font-weight: 600;
+}
+#p_suppliers .pct-mid{
+    color: var(--accent-yellow);
+    font-weight: 600;
+}
+#p_suppliers .pct-low{
+    color: var(--text-secondary);
+}
+#p_suppliers /* Подсветка поиска */
+mark{
+    background: rgba(74,124,255,0.25);
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 1px;
+}
+#p_suppliers /* ============================================= */
+/* НЕТ РЕЗУЛЬТАТОВ                               */
+/* ============================================= */
+.no-results{
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+#p_suppliers .no-results .icon{
+    font-size: 3rem;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+#p_suppliers .no-results h3{
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+#p_suppliers .no-results p{
+    font-size: 0.85rem;
+}
+#p_suppliers /* ============================================= */
+/* ФУТЕР                                         */
+/* ============================================= */
+.footer{
+    padding: 12px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    transition: background var(--transition-speed);
+}
+#p_suppliers /* ============================================= */
+/* МОДАЛЬНОЕ ОКНО (просмотр)                     */
+/* ============================================= */
+.modal-overlay{
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg-overlay);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+#p_suppliers .modal-overlay.active{
+    display: flex;
+}
+#p_suppliers .modal{
+    background: var(--bg-modal);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 90vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    animation: sup-modalIn 0.25s ease-out;
+}
+@keyframes sup-modalIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+#p_suppliers .modal-header{
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+#p_suppliers .modal-header h2{
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.3;
+    flex: 1;
+    margin-right: 12px;
+}
+#p_suppliers .modal-close{
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+#p_suppliers .modal-close:hover{
+    background: var(--accent-red-bg);
+    color: var(--accent-red);
+}
+#p_suppliers .modal-body{
+    padding: 20px 24px;
+}
+#p_suppliers .modal-row{
+    display: flex;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+    gap: 12px;
+}
+#p_suppliers .modal-row:last-child{
+    border-bottom: none;
+}
+#p_suppliers .modal-label{
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    min-width: 160px;
+    flex-shrink: 0;
+}
+#p_suppliers .modal-value{
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+    word-break: break-word;
+}
+#p_suppliers .modal-actions{
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+#p_suppliers /* ============================================= */
+/* ФОРМА ДОБАВЛЕНИЯ / РЕДАКТИРОВАНИЯ             */
+/* ============================================= */
+.form-overlay{
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg-overlay);
+    z-index: 1001;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+#p_suppliers .form-overlay.active{
+    display: flex;
+}
+#p_suppliers .form-modal{
+    background: var(--bg-modal);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 650px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    animation: sup-modalIn 0.25s ease-out;
+}
+#p_suppliers .form-modal .modal-header{
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+#p_suppliers .form-modal .modal-header h2{
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+#p_suppliers .form-body{
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+#p_suppliers .form-body .full-width{
+    grid-column: 1 / -1;
+}
+#p_suppliers .form-field{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+#p_suppliers .form-field label{
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+#p_suppliers .form-field input, #p_suppliers .form-field textarea, #p_suppliers .form-field select{
+    padding: 9px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+}
+#p_suppliers .form-field input:focus, #p_suppliers .form-field textarea:focus, #p_suppliers .form-field select:focus{
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(74,124,255,0.15);
+}
+#p_suppliers .form-field textarea{
+    resize: vertical;
+    min-height: 70px;
+}
+#p_suppliers .form-actions{
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+#p_suppliers /* ============================================= */
+/* АДАПТИВ                                       */
+/* ============================================= */
+@media (max-width: 1200px){
+    .filters-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+@media (max-width: 768px) {#p_suppliers .header{
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 16px;
+    }
+#p_suppliers .stats-bar{
+        grid-template-columns: repeat(2, 1fr);
+        padding: 12px 16px;
+    }
+#p_suppliers .filters-panel{
+        margin: 0 16px 12px;
+    }
+#p_suppliers .filters-grid{
+        grid-template-columns: 1fr 1fr;
+    }
+#p_suppliers .table-wrapper{
+        margin: 0 16px 12px;
+        max-height: calc(100vh - 400px);
+    }
+#p_suppliers .form-body{
+        grid-template-columns: 1fr;
+    }
+#p_suppliers .modal-row{
+        flex-direction: column;
+        gap: 4px;
+    }}
+@page { size: landscape; margin: 10mm; }
+#p_suppliers{ margin: 0; padding: 10px; }
+#p_suppliers h1{ font-family: Arial, sans-serif; font-size: 16px; margin-bottom: 10px; }
+#p_suppliers p{ font-family: Arial, sans-serif; font-size: 11px; color: #666; margin-bottom: 10px; }
+#p_suppliers .sup-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+  justify-content:space-between;margin:0 0 14px;padding:12px 14px;
+  background:var(--bg-card,#1a1f2e);border:1px solid var(--border,#2a3142);border-radius:10px}
+#p_suppliers .sup-toolbar-title{font-size:1rem;font-weight:700;color:var(--text-primary,#e8ecf3)}
+#p_suppliers .sup-toolbar-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#p_suppliers .sup-cloud{font-size:.8rem;font-weight:600;padding:5px 10px;border-radius:6px;white-space:nowrap}
+#p_suppliers .sup-cloud-ok{color:#27AE60;background:rgba(39,174,96,.12)}
+#p_suppliers .sup-cloud-wait{color:#D4A40A;background:rgba(212,164,10,.12)}
+#p_suppliers .sup-cloud-err{color:#E05252;background:rgba(224,82,82,.14)}
+@media(max-width:760px){
+  #p_suppliers .sup-toolbar{flex-direction:column;align-items:stretch}
+  #p_suppliers .sup-toolbar-actions{justify-content:flex-start}
+}
+
 </style></head>
 <body><div class="wrap">
 
@@ -192,6 +1351,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
   <button data-p="moves">Перемещения</button>
   <button data-p="culinary">Кулинария и выпечка</button>
   <button data-p="matrix">Матрица</button>
+  <button data-p="suppliers">Условия поставщиков</button>
 </div>
 
 <div class="bar">
@@ -358,6 +1518,233 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
     <div class="scroll" style="max-height:72vh"><table id="mx_tab"></table></div></div>
 </div>
 
+
+<div class="page" id="p_suppliers">
+
+<div class="sup-toolbar">
+  <div class="sup-toolbar-title">Коммерческие условия поставщиков — Харьков 2026</div>
+  <div class="sup-toolbar-actions">
+    <button class="btn btn-primary" onclick="openAddForm()">+ Добавить</button>
+    <button class="btn" onclick="exportExcel()">📥 Экспорт условий</button>
+    <button class="btn" onclick="exportExcelMarkup()" title="Компактно: поставщик + наценка опт/розница">📊 Экспорт наценок</button>
+    <button class="btn" onclick="supReload()" title="Перечитать данные из облака">↻ Обновить</button>
+    <span id="supCloudState" class="sup-cloud">загрузка…</span>
+  </div>
+</div>
+<div class="stats-bar">
+    <div class="stat-card">
+        <div class="stat-icon blue">📊</div>
+        <div class="stat-info"><div class="stat-value" id="statTotal">85</div><div class="stat-label">Всего поставщиков</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon cyan">🚚</div>
+        <div class="stat-info"><div class="stat-value" id="statTT">34</div><div class="stat-label">Доставка ТТ</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple">🏢</div>
+        <div class="stat-info"><div class="stat-value" id="statRC">51</div><div class="stat-label">Доставка РЦ</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon yellow">💰</div>
+        <div class="stat-info"><div class="stat-value" id="statRetro">46</div><div class="stat-label">С ретро</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon red">🏷</div>
+        <div class="stat-info"><div class="stat-value" id="statDiscount">32</div><div class="stat-label">Со скидкой</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green">📈</div>
+        <div class="stat-info"><div class="stat-value" id="statTotalPos">1864</div><div class="stat-label">Всего позиций</div></div>
+    </div>
+</div>
+
+<div class="filters-panel">
+    <div class="filters-header">
+        <div class="filters-title">🔎 Поиск и фильтрация</div>
+        <button class="btn btn-ghost" id="btnToggleFilters" onclick="toggleAdvancedFilters()" style="font-size:0.8rem; background:transparent; border:none; color:var(--text-muted); cursor:pointer;">Скрыть настройки ▴</button>
+    </div>
+
+    <div class="filters-grid">
+        <div class="filter-group search-group">
+            <label>Поиск по тексту</label>
+            <div class="search-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="fSearch" placeholder="Название, условия, заметки..." oninput="applyFilters();toggleSearchClear()">
+                <button class="search-clear hidden" id="searchClear" onclick="clearSearch()" title="Очистить">✕</button>
+            </div>
+        </div>
+        <div class="filter-group">
+            <label>Доставка</label>
+            <select id="fDelivery" onchange="applyFilters()">
+                <option value="">Все типы</option>
+                <option value="ТТ">Только ТТ</option>
+                <option value="РЦ">Только РЦ</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Категория</label>
+            <select id="fCategory" onchange="applyFilters()">
+                <option value="">Все категории</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Метка</label>
+            <select id="fColor" onchange="applyFilters()">
+                <option value="">Все</option>
+                <option value="red">🔴 Красный</option>
+                <option value="yellow">🟡 Жёлтый</option>
+                <option value="green">🟢 Зелёный</option>
+                <option value="blue">🔵 Синий</option>
+                <option value="orange">🟠 Оранжевый</option>
+                <option value="purple">🟣 Фиолетовый</option>
+                <option value="none">⚪ Без метки</option>
+            </select>
+        </div>
+        <button class="btn-reset" onclick="resetFilters()">Сброс</button>
+    </div>
+
+    <div class="filters-advanced" id="advancedFilters" style="display: flex;">
+        <div class="filter-group">
+            <label>Ретро</label>
+            <select id="fRetro" onchange="applyFilters()">
+                <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Скидка</label>
+            <select id="fDiscount" onchange="applyFilters()">
+                <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Возвраты</label>
+            <select id="fReturns" onchange="applyFilters()">
+                <option value="">Все</option><option value="есть">Есть</option><option value="нет">Нет</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Вход SKU</label>
+            <select id="fSku" onchange="applyFilters()">
+                <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Спонсор</label>
+            <select id="fSponsor" onchange="applyFilters()">
+                <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- ================ ТАБЛИЦА ================ -->
+<div class="table-wrapper" id="tableWrapper">
+    <table>
+<thead>
+    <tr>
+        <th onclick="sortTable(0)" data-col="0">№</th>
+        <th onclick="sortTable(1)" data-col="1">Поставщик</th>
+        <th onclick="sortTable(14)" data-col="14">Категории</th>
+        <th onclick="sortTable(2)" data-col="2">Ретро</th>
+        <th onclick="sortTable(3)" data-col="3">Скидка</th>
+        <th onclick="sortTable(4)" data-col="4">Кол-во позиций</th>
+        <th onclick="sortTable(5)" data-col="5">Спонсор. взнос</th>
+        <th onclick="sortTable(6)" data-col="6">Оплата ввода</th>
+        <th onclick="sortTable(7)" data-col="7">Ввод СКЮ</th>
+        <th onclick="sortTable(8)" data-col="8">Возвраты</th>
+        <th onclick="sortTable(9)" data-col="9">Наценка опт</th>
+        <th onclick="sortTable(10)" data-col="10">Наценка розн.</th>
+        <th onclick="sortTable(11)" data-col="11">Доставка</th>
+        <th onclick="sortTable(12)" data-col="12">Доп. условия</th>
+        <th onclick="sortTable(13)" data-col="13">Примечание</th>
+    </tr>
+</thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+    <div class="no-results" id="noResults" style="display: none;">
+        <div class="icon">🔍</div>
+        <h3>Ничего не найдено</h3>
+        <p>Попробуйте изменить параметры фильтров</p>
+    </div>
+</div>
+
+<!-- ================ ФУТЕР ================ -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="modalTitle">#80 — ЧП Рома (хлебо-булочные изделия)</h2>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody"><div class="modal-row">
+            <div class="modal-label">№</div>
+            <div class="modal-value">80</div>
+        </div><div class="modal-row">
+            <div class="modal-label">Поставщик</div>
+            <div class="modal-value">ЧП Рома (хлебо-булочные изделия)</div>
+        </div><div class="modal-row">
+            <div class="modal-label">Ретро условия</div>
+            <div class="modal-value"><span class="pct-high">10%</span></div>
+        </div><div class="modal-row">
+            <div class="modal-label">Скидка</div>
+            <div class="modal-value"><span class="pct-low">нет</span></div>
+        </div><div class="modal-row">
+            <div class="modal-label">Кол-во позиций</div>
+            <div class="modal-value">29</div>
+        </div><div class="modal-row">
+            <div class="modal-label">Спонсор. взнос</div>
+            <div class="modal-value">-</div>
+        </div><div class="modal-row">
+            <div class="modal-label">Оплата за вход</div>
+            <div class="modal-value">нет</div>
+        </div><div class="modal-row">
+            <div class="modal-label">Вход SKU</div>
+            <div class="modal-value">нет</div>
+        </div><div class="modal-row">
+            <div class="modal-label">Возвраты</div>
+            <div class="modal-value"><span class="badge badge-green">Есть</span></div>
+        </div><div class="modal-row">
+            <div class="modal-label">Наценка ОПТ</div>
+            <div class="modal-value"><span class="pct-high">20%</span></div>
+        </div><div class="modal-row">
+            <div class="modal-label">Наценка Розн.</div>
+            <div class="modal-value"><span class="pct-high">20%</span></div>
+        </div><div class="modal-row">
+            <div class="modal-label">Доставка</div>
+            <div class="modal-value"><span class="badge badge-blue">ТТ</span></div>
+        </div><div class="modal-row">
+            <div class="modal-label">Доп. условия</div>
+            <div class="modal-value">Минимальный заказ 350 грн на ТТ
+Проведение акций от 2 топ скю, с минимальной скидкой 10%, один раз в 1-2 месяца</div>
+        </div><div class="modal-row">
+            <div class="modal-label">Примечание</div>
+            <div class="modal-value">Возвраты-физ.обмен</div>
+        </div></div>
+        <div class="modal-actions" id="modalActions">
+        <button class="btn" onclick="closeModal();memoUpload(79)">📎 Прикрепить мемо</button>
+        <button class="btn btn-danger" onclick="deleteFromModal()">🗑 Удалить</button>
+        <button class="btn" onclick="editFromModal()">✎ Редактировать</button>
+        <button class="btn btn-primary" onclick="closeModal()">Закрыть</button>
+    </div>
+    </div>
+</div>
+
+<!-- ================ ФОРМА ДОБАВЛЕНИЯ / РЕДАКТИРОВАНИЯ ================ -->
+<div class="form-overlay" id="formOverlay" onclick="if(event.target===this)closeForm()">
+    <div class="form-modal">
+        <div class="modal-header">
+            <h2 id="formTitle">Добавить поставщика</h2>
+            <button class="modal-close" onclick="closeForm()">✕</button>
+        </div>
+        <div class="form-body" id="formBody"><div class="form-field full-width"><label for="field_name">ПОСТАВЩИК *</label><input type="text" id="field_name" value="" required=""></div><div class="form-field"><label for="field_retro">РЕТРО УСЛОВИЯ</label><input type="text" id="field_retro" value=""></div><div class="form-field"><label for="field_discount">СКИДКА</label><input type="text" id="field_discount" value=""></div><div class="form-field"><label for="field_positions">Кол-во позиций</label><input type="number" id="field_positions" value="" min="0" step="1"></div><div class="form-field"><label for="field_delivery">ДОСТАВКА</label><select id="field_delivery"><option value="">— выберите —</option><option value="ТТ">ТТ</option><option value="РЦ">РЦ</option><option value="ТТ/РЦ">ТТ/РЦ</option></select></div><div class="form-field"><label for="field_sponsor">Спонсорский взнос</label><input type="text" id="field_sponsor" value=""></div><div class="form-field"><label for="field_entryPay">Оплата ввода в магазин</label><input type="text" id="field_entryPay" value=""></div><div class="form-field"><label for="field_skuEntry">ВВОД СКЮ</label><input type="text" id="field_skuEntry" value=""></div><div class="form-field"><label for="field_returns">ВОЗВРАТЫ</label><div style="display:flex;gap:6px;align-items:center;"><select id="field_returns_select" onchange="onSelectCustomChange('returns')" style="flex:1;"><option value="">— выберите —</option><option value="есть">есть</option><option value="нет">нет</option><option value="100%">100%</option><option value="частично">частично</option><option value="потайка">потайка</option><option value="__custom__">✏️ Другое...</option></select><input type="text" id="field_returns_custom" placeholder="Свои условия..." value="" style="flex:1;display:none;" oninput="onCustomInput('returns')"></div><input type="hidden" id="field_returns" value="нет"></div><div class="form-field"><label for="field_markupOpt">НАЦЕНКА ОПТ</label><input type="text" id="field_markupOpt" value=""></div><div class="form-field"><label for="field_markupRetail">НАЦЕНКА РОЗНИЦА</label><input type="text" id="field_markupRetail" value=""></div><div class="form-field full-width"><label for="field_extra">ДОП. УСЛОВИЯ</label><textarea id="field_extra" rows="3"></textarea></div><div class="form-field full-width"><label for="field_note">ПРИМЕЧАНИЕ</label><textarea id="field_note" rows="3"></textarea></div></div>
+        <div class="form-actions" id="formActions">
+        <button class="btn" onclick="closeForm()">Отмена</button>
+        <button class="btn btn-success" onclick="saveNewSupplier()">✓ Добавить</button>
+    </div>
+    </div>
+</div>
+
+
+</div>
 <footer id="foot"></footer>
 </div>
 
@@ -522,6 +1909,7 @@ function render(){ if(!D)return; chips(); applyFilterVis();
   else if(S.tab==='moves'){renderMoves();renderStale();}
   else if(S.tab==='culinary')renderCulinary();
   else if(S.tab==='matrix')renderMatrix();
+  else if(S.tab==='suppliers')supEnter();
 }
 // ============ КУЛИНАРИЯ И ВЫПЕЧКА ============
 function renderCulinary(){
@@ -1492,6 +2880,3185 @@ load().catch(e=>$('upd').textContent='Ошибка загрузки: '+e.message
   else setTimeout(init,600);
   setTimeout(init,2500);
 })();
+</script>
+
+<script>
+/* ===== ВКЛАДКА «УСЛОВИЯ ПОСТАВЩИКОВ» ===== */
+
+let DATA=[];
+const APP_CONFIG = {
+    year: 2026,
+    city: 'Харьков',
+    brand: 'Family Market',
+    title: 'Коммерческие условия поставщиков'
+};
+// ============================================= 
+// УТИЛИТЫ
+// ============================================= 
+
+// Проверка "пустого" значения (УСИЛЕННАЯ)
+function isNone(v) {
+    if (v === null || v === undefined || v === '') return true;
+    const s = String(v).trim().toLowerCase();
+    
+    // Базовые текстовые проверки
+    if (s === 'нет' || s === '0' || s === 'нiт' || s === '-' || s === 'н/д' || s === 'none') return true;
+    
+    // Проверка на нулевые проценты и дроби (например, "0%", "0.0", "0,00")
+    const numStr = s.replace('%', '').replace(',', '.').trim();
+    const num = parseFloat(numStr);
+    if (!isNaN(num) && num === 0) return true; // Если при конвертации получился чистый ноль
+    
+    return false;
+}
+// Парсинг процента из строки
+function parsePercent(v) {
+    if (v === null || v === undefined || v === '') return null;
+    const s = String(v).trim();
+    if (isNone(s)) return 0;
+    // Чистое число вроде 0.15
+    const num = parseFloat(s.replace(',', '.'));
+    if (!isNaN(num) && num >= 0 && num <= 1 && s.indexOf('%') === -1) {
+        return Math.round(num * 100);
+    }
+    // Вроде "15%"
+    const m = s.match(/([\d.,]+)\s*%/);
+    if (m) return parseFloat(m[1].replace(',', '.'));
+    // Диапазон "от 9,5-15%"
+    const range = s.match(/([\d.,]+)\s*[-–]\s*([\d.,]+)\s*%?/);
+    if (range) {
+        const a = parseFloat(range[1].replace(',', '.'));
+        const b = parseFloat(range[2].replace(',', '.'));
+        return (a + b) / 2;
+    }
+    // Просто число > 1 — считаем процентом
+    if (!isNaN(num) && num > 1) return num;
+    return null;
+}
+
+// Форматирование процента для отображения
+function formatPercent(v) {
+    if (v === null || v === undefined || v === '') return '—';
+    const s = String(v).trim();
+
+    if (s === '' || s === '-' || s.toLowerCase() === 'н/д') return '—';
+
+    if (s.toLowerCase() === 'нет' || s.toLowerCase() === 'нiт') {
+        return '<span class="pct-low">нет</span>';
+    }
+
+    // >>> НОВОЕ: диапазон вида "27-29", "10-15", "9,5-15" (с % или без) <<<
+    const rangeMatch = s.match(/^(\d+[.,]?\d*)\s*[-–—]\s*(\d+[.,]?\d*)\s*%?/);
+    if (rangeMatch) {
+        const a = parseFloat(rangeMatch[1].replace(',', '.'));
+        const b = parseFloat(rangeMatch[2].replace(',', '.'));
+        // если оба числа <= 1 (доли), умножаем на 100
+        const na = a <= 1 ? Math.round(a * 100) : a;
+        const nb = b <= 1 ? Math.round(b * 100) : b;
+        return `<span class="pct-high">${na}–${nb}%</span>`;
+    }
+
+    // Если содержит % или длинный текст — показать как есть
+    if (s.indexOf('%') !== -1 || /[а-яА-Яa-zA-Z]{3,}/.test(s)) {
+        return escHtml(s);
+    }
+
+    const num = parseFloat(s.replace(',', '.'));
+    if (isNaN(num)) return escHtml(s);
+
+    if (num === 0) {
+        return '<span class="pct-low">0%</span>';
+    }
+    if (num > 0 && num <= 1) {
+        const pct = Math.round(num * 100);
+        return `<span class="${pct >= 10 ? 'pct-high' : pct >= 5 ? 'pct-mid' : 'pct-low'}">${pct}%</span>`;
+    }
+    if (num > 1) {
+        return `<span class="${num >= 10 ? 'pct-high' : num >= 5 ? 'pct-mid' : 'pct-low'}">${num}%</span>`;
+    }
+
+    return escHtml(s);
+}
+// CSS‑класс для процента
+function percentClass(v) {
+    const p = parsePercent(v);
+    if (p === null || p === 0) return 'pct-low';
+    if (p >= 10) return 'pct-high';
+    if (p >= 5) return 'pct-mid';
+    return 'pct-low';
+}
+
+// Бейдж возвратов
+function returnsBadge(v) {
+    const s = String(v || '').trim().toLowerCase();
+    if (s === 'есть' || s === 'да' || s === 'yes') {
+        return '<span class="badge badge-green">Есть</span>';
+    }
+    if (s === 'нет' || s === 'no' || s === '' || s === '0') {
+        return '<span class="badge badge-red">Нет</span>';
+    }
+    return escHtml(v);
+}
+
+// Бейдж доставки
+function deliveryBadge(v) {
+    const s = String(v || '').trim().toUpperCase();
+    if (s === 'ТТ') {
+        return '<span class="badge badge-blue">ТТ</span>';
+    }
+    if (s === 'РЦ') {
+        return '<span class="badge badge-orange">РЦ</span>';
+    }
+    if (s.indexOf('ТТ') !== -1 && s.indexOf('РЦ') !== -1) {
+        return '<span class="badge badge-blue">ТТ</span> <span class="badge badge-orange">РЦ</span>';
+    }
+    return escHtml(v);
+}
+
+// Экранирование HTML
+function escHtml(str) {
+    if (str === null || str === undefined) return '';
+    const s = String(str);
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(s));
+    return div.innerHTML;
+}
+
+// Обрезка длинного текста
+function truncText(str, max) {
+    if (!str) return '—';
+    const s = String(str).trim();
+    if (s.length === 0) return '—';
+    if (s.length <= max) return escHtml(s);
+    return `<span title="${escHtml(s)}">${escHtml(s.substring(0, max))}…</span>`;
+}
+
+// Подсветка найденного текста
+function highlightText(text, query) {
+    if (!query || !text) return text;
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    return String(text).replace(regex, '<mark>$1</mark>');
+}
+
+// ============================================= 
+// ТЕМА (СВЕТЛАЯ / ТЁМНАЯ)
+// ============================================= 
+
+
+
+// ============================================= 
+// СОСТОЯНИЕ
+// ============================================= 
+let filteredData = [...DATA];
+let sortCol = -1;
+let sortDir = 'asc';
+let editIndex = -1; // индекс редактируемого поставщика в DATA
+let lastDeleted = null;
+let unsavedChanges = 0;
+
+
+// Ключи полей и подписи
+const FIELDS = [
+    { key: 'num',          label: '№' },
+    { key: 'name',         label: 'ПОСТАВЩИК' },
+    { key: '_categories',  label: 'КАТЕГОРИИ' },
+    { key: 'retro',        label: 'РЕТРО УСЛОВИЯ' },
+    { key: 'discount',     label: 'СКИДКА' },
+    { key: 'positions',    label: 'Действующее кол-во позиций' },
+    { key: 'sponsor',      label: 'Спонсорский взнос на открытие магазин' },
+    { key: 'entryPay',     label: 'ОПЛАТА ВВОДА В НОВЫЙ МАГАЗИН' },
+    { key: 'skuEntry',     label: 'ВВОД СКЮ' },
+    { key: 'returns',      label: 'ВОЗВРАТЫ' },
+    { key: 'markupOpt',    label: 'НАЦЕНКА ОПТ' },
+    { key: 'markupRetail', label: 'НАЦЕНКА РОЗНИЦА' },
+    { key: 'delivery',     label: 'ДОСТАВКА' },
+    { key: 'extra',        label: 'ДОП. УСЛОВИЯ' },
+    { key: 'note',         label: 'ПРИМЕЧАНИЕ' }
+];
+// ============================================= 
+// РЕНДЕР ТАБЛИЦЫ
+// ============================================= 
+function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    const noRes = document.getElementById('noResults');
+    const searchVal = (document.getElementById('fSearch').value || '').trim().toLowerCase();
+
+    if (filteredData.length === 0) {
+        tbody.innerHTML = '';
+        noRes.style.display = 'block';
+        updateStats();
+        return;
+    }
+
+    noRes.style.display = 'none';
+    let html = '';
+
+    for (let i = 0; i < filteredData.length; i++) {
+        const d = filteredData[i];
+        const idx = DATA.indexOf(d);
+
+        let nameHtml = escHtml(d.name || '');
+        if (searchVal) nameHtml = highlightText(nameHtml, searchVal);
+
+        let retroHtml = formatPercent(d.retro);
+        let discountHtml = formatPercent(d.discount);
+
+        let posVal = d.positions;
+        let posHtml;
+        if (posVal === '' || posVal === null || posVal === undefined) {
+            posHtml = '—';
+        } else {
+            const posNum = parseInt(posVal);
+            if (!isNaN(posNum)) {
+                let posClass = '';
+                if (posNum >= 50) posClass = 'pct-high';
+                else if (posNum >= 20) posClass = 'pct-mid';
+                posHtml = `<span class="${posClass}">${posNum}</span>`;
+            } else {
+                posHtml = escHtml(posVal);
+            }
+        }
+
+        let sponsorHtml = isNone(d.sponsor) ? '<span class="pct-low">нет</span>' : escHtml(d.sponsor);
+        let entryHtml = isNone(d.entryPay) ? '<span class="pct-low">нет</span>' : escHtml(d.entryPay);
+        let skuHtml = isNone(d.skuEntry) ? '<span class="pct-low">нет</span>' : escHtml(d.skuEntry);
+        let optHtml = formatPercent(d.markupOpt);
+        let retailHtml = formatPercent(d.markupRetail);
+
+        let extraHtml = truncText(d.extra, 80);
+        if (searchVal && d.extra) extraHtml = highlightText(truncText(d.extra, 120), searchVal);
+
+        let noteHtml = truncText(d.note, 80);
+        if (searchVal && d.note) noteHtml = highlightText(truncText(d.note, 120), searchVal);
+
+        // Проверяем есть ли меморандум у поставщика
+        const hasMemo = d.memoFiles && d.memoFiles.length > 0;
+        const memoIcon = hasMemo ? ' <span title="Есть меморандум" style="cursor:pointer;">📋</span>' : '';
+
+        const rowColor = d._color || '';
+        const colorDot = rowColor ? `<span class="color-dot ${rowColor}" onclick="event.stopPropagation();openColorPicker(${idx},event)"></span>` : '';
+
+               const isCompared = compareList.indexOf(idx) !== -1;
+                html += `<tr onclick="onRowClick(${idx})" oncontextmenu="showContextMenu(event,${idx})" ${rowColor ? `data-color="${rowColor}"` : ''} ${isCompared ? 'style="outline:2px solid var(--accent-blue);outline-offset:-2px;"' : ''}>
+            <td>${escHtml(d.num)}</td>
+<td>
+                <div style="display:flex; align-items:center;">
+                    ${rowColor ? `<span class="color-dot" style="background: var(--accent-${rowColor}); cursor: pointer; flex-shrink: 0;" onclick="event.stopPropagation();openColorPicker(${idx},event)" title="Изменить метку"></span>` : ''}
+                    <span style="margin-left:4px;">${nameHtml}${memoIcon}</span>
+                </div>
+            </td>            <td ondblclick="event.stopPropagation();openCategoryEditor(${idx},event)">${getCategoryTags(d)}</td>
+            <td onclick="event.stopPropagation()" ondblclick="startInlineEdit(this,${idx},'retro',event)" title="Двойной клик — изменить">${retroHtml}</td>
+            <td onclick="event.stopPropagation()" ondblclick="startInlineEdit(this,${idx},'discount',event)" title="Двойной клик — изменить">${discountHtml}</td>
+            <td>${posHtml}</td>
+            <td>${sponsorHtml}</td>
+            <td>${entryHtml}</td>
+            <td>${skuHtml}</td>
+            <td>${returnsBadge(d.returns)}</td>
+            <td onclick="event.stopPropagation()" ondblclick="startInlineEdit(this,${idx},'markupOpt',event)" title="Двойной клик — изменить">${optHtml}</td>
+            <td onclick="event.stopPropagation()" ondblclick="startInlineEdit(this,${idx},'markupRetail',event)" title="Двойной клик — изменить">${retailHtml}</td>
+            <td>${deliveryBadge(d.delivery)}</td>
+            <td>${extraHtml}</td>
+            <td>${noteHtml}</td>
+        </tr>`;
+    }
+
+    tbody.innerHTML = html;
+    updateStats();
+}
+// ============================================= 
+// ФИЛЬТРЫ
+// ============================================= 
+function applyFilters() {
+    const search   = (document.getElementById('fSearch').value || '').trim().toLowerCase();
+    const delivery = document.getElementById('fDelivery').value;
+    const retro    = document.getElementById('fRetro').value;
+    const discount = document.getElementById('fDiscount').value;
+    const returns  = document.getElementById('fReturns').value;
+    const sku      = document.getElementById('fSku').value;
+    const sponsor  = document.getElementById('fSponsor').value;
+    const color    = document.getElementById('fColor') ? document.getElementById('fColor').value : '';
+    const category = document.getElementById('fCategory') ? document.getElementById('fCategory').value : '';
+
+    filteredData = DATA.filter(d => {
+        // Поиск по тексту
+        if (search) {
+            const haystack = [
+                d.name, d.retro, d.discount, d.sponsor,
+                d.entryPay, d.skuEntry, d.returns,
+                d.markupOpt, d.markupRetail, d.delivery,
+                d.extra, d.note
+            ].map(x => String(x || '').toLowerCase()).join(' ');
+            if (haystack.indexOf(search) === -1) return false;
+        }
+
+        // Доставка
+        if (delivery) {
+            const dv = String(d.delivery || '').toUpperCase();
+            if (delivery === 'ТТ' && dv.indexOf('ТТ') === -1) return false;
+            if (delivery === 'РЦ' && dv.indexOf('РЦ') === -1) return false;
+        }
+
+        // Ретро
+        if (retro === 'yes' && isNone(d.retro)) return false;
+        if (retro === 'no' && !isNone(d.retro)) return false;
+
+        // Скидка
+        if (discount === 'yes' && isNone(d.discount)) return false;
+        if (discount === 'no' && !isNone(d.discount)) return false;
+
+        // Возвраты
+        if (returns) {
+            const rv = String(d.returns || '').trim().toLowerCase();
+            if (returns === 'есть' && rv !== 'есть') return false;
+            if (returns === 'нет' && rv !== 'нет' && rv !== '' && rv !== '0') return false;
+        }
+
+        // Вход SKU
+        if (sku === 'yes' && isNone(d.skuEntry)) return false;
+        if (sku === 'no' && !isNone(d.skuEntry)) return false;
+
+        // Спонсор
+        if (sponsor === 'yes' && isNone(d.sponsor)) return false;
+        if (sponsor === 'no' && !isNone(d.sponsor)) return false;
+
+        // Цветовая метка
+        if (color === 'none' && d._color) return false;
+        if (color && color !== 'none' && d._color !== color) return false;
+        // Категория
+        if (category) {
+            const cats = d._categories || [];
+            if (cats.indexOf(category) === -1) return false;
+        }
+
+        return true;
+    });
+
+    // Если есть сортировка — применить заново
+    if (sortCol >= 0) {
+        applySortToFiltered();
+    }
+
+    renderTable();
+}
+
+
+// =============================================
+// ПОКАЗ / СКРЫТИЕ ДОПОЛНИТЕЛЬНЫХ ФИЛЬТРОВ
+// =============================================
+function toggleAdvancedFilters() {
+    const adv = document.getElementById('advancedFilters');
+    const btn = document.getElementById('btnToggleFilters');
+    
+    if (adv.style.display === 'flex') {
+        adv.style.display = 'none';
+        btn.innerHTML = 'Дополнительные фильтры &#9662;';
+    } else {
+        adv.style.display = 'flex';
+        btn.innerHTML = 'Скрыть настройки &#9652;';
+    }
+}
+
+function resetFilters() {
+    document.getElementById('fSearch').value = '';
+    document.getElementById('fDelivery').value = '';
+    document.getElementById('fRetro').value = '';
+    document.getElementById('fDiscount').value = '';
+    document.getElementById('fReturns').value = '';
+    document.getElementById('fSku').value = '';
+    document.getElementById('fSponsor').value = '';
+        if (document.getElementById('fColor')) document.getElementById('fColor').value = '';
+        if (document.getElementById('fCategory')) document.getElementById('fCategory').value = '';
+
+
+    sortCol = -1;
+    sortDir = 'asc';
+    clearSortIndicators();
+    filteredData = [...DATA];
+    renderTable();
+}
+
+function clearSearch() {
+    document.getElementById('fSearch').value = '';
+    toggleSearchClear();
+    applyFilters();
+    document.getElementById('fSearch').focus();
+}
+
+function onSelectCustomChange(key) {
+    const select = document.getElementById('field_' + key + '_select');
+    const customInput = document.getElementById('field_' + key + '_custom');
+    const hidden = document.getElementById('field_' + key);
+
+    if (select.value === '__custom__') {
+        customInput.style.display = '';
+        customInput.focus();
+        hidden.value = customInput.value;
+    } else {
+        customInput.style.display = 'none';
+        customInput.value = '';
+        hidden.value = select.value;
+    }
+}
+
+function onCustomInput(key) {
+    const customInput = document.getElementById('field_' + key + '_custom');
+    const hidden = document.getElementById('field_' + key);
+    hidden.value = customInput.value;
+}
+
+function toggleSearchClear() {
+    const btn = document.getElementById('searchClear');
+    const val = document.getElementById('fSearch').value;
+    if (btn) {
+        if (val.length > 0) {
+            btn.classList.remove('hidden');
+        } else {
+            btn.classList.add('hidden');
+        }
+    }
+}
+
+// ============================================= 
+// СОРТИРОВКА
+// ============================================= 
+function sortTable(colIndex) {
+    if (sortCol === colIndex) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortCol = colIndex;
+        sortDir = 'asc';
+    }
+
+    clearSortIndicators();
+    const th = document.querySelector(`thead th[data-col="${colIndex}"]`);
+    if (th) th.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+
+    applySortToFiltered();
+    renderTable();
+}
+
+function applySortToFiltered() {
+    const key = FIELDS[sortCol]?.key;
+    if (!key) return;
+
+    const dir = sortDir === 'asc' ? 1 : -1;
+
+    filteredData.sort((a, b) => {
+        let va = a[key];
+        let vb = b[key];
+
+        // Числовые поля
+        if (key === 'num' || key === 'positions') {
+            const na = parseFloat(va) || 0;
+            const nb = parseFloat(vb) || 0;
+            return (na - nb) * dir;
+        }
+
+        // Процентные поля
+        if (key === 'retro' || key === 'discount' || key === 'markupOpt' || key === 'markupRetail') {
+            const pa = parsePercent(va);
+            const pb = parsePercent(vb);
+            const na = pa !== null ? pa : -1;
+            const nb = pb !== null ? pb : -1;
+            return (na - nb) * dir;
+        }
+
+// Текстовые поля — украинский алфавит
+        const sa = String(va || '');
+        const sb = String(vb || '');
+        return sa.localeCompare(sb, 'uk', { sensitivity: 'base' }) * dir;
+
+
+    });
+}
+
+function clearSortIndicators() {
+    document.querySelectorAll('thead th').forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+    });
+}
+// ============================================= 
+// ОБНОВЛЕНИЕ СТАТИСТИКИ (Динамическое)
+// ============================================= 
+function updateStats() {
+    // Берем filteredData вместо DATA — карточки реагируют на фильтры!
+    const total = filteredData.length;
+    let totalPos = 0;
+    let countTT = 0;
+    let countRC = 0;
+    let countRetro = 0;
+    let countDiscount = 0;
+    let countRetroDiscount = 0;
+
+    for (let i = 0; i < filteredData.length; i++) {
+        const d = filteredData[i];
+
+        // 1. Позиции (суммируем только корректные числа)
+        const p = parseInt(d.positions, 10);
+        if (!isNaN(p) && p > 0) {
+            totalPos += p;
+        }
+
+        // 2. Доставка (ищем упоминания ТТ и РЦ)
+        const dv = String(d.delivery || '').toUpperCase();
+        if (dv.indexOf('ТТ') !== -1) countTT++;
+        if (dv.indexOf('РЦ') !== -1) countRC++;
+
+        // 3. Ретро и Скидки (проверка через улучшенную функцию isNone)
+        const hasRetro = !isNone(d.retro);
+        const hasDiscount = !isNone(d.discount);
+
+        if (hasRetro) countRetro++;
+        if (hasDiscount) countDiscount++;
+        
+        // Считаем КОМБО: если есть и то, и другое
+        if (hasRetro && hasDiscount) countRetroDiscount++; 
+    }
+
+    // Обновляем текст в карточках наверху
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statTT').textContent = countTT;
+    document.getElementById('statRC').textContent = countRC;
+    document.getElementById('statRetro').textContent = countRetro;
+    document.getElementById('statDiscount').textContent = countDiscount;
+    document.getElementById('statTotalPos').textContent = totalPos;
+    
+    const statRD = document.getElementById('statRetroDiscount');
+    if (statRD) statRD.textContent = countRetroDiscount; 
+
+    // Обновляем Футер (чтобы видеть общую картину по всей базе)
+    const footer = document.getElementById('footer');
+    if (footer) {
+        const globalTotal = DATA.length;
+        let globalPos = 0;
+        for (let i = 0; i < DATA.length; i++) {
+            const p = parseInt(DATA[i].positions, 10);
+            if (!isNaN(p) && p > 0) globalPos += p;
+        }
+        
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        
+        footer.innerHTML = `В базе: <strong>${globalTotal}</strong> поставщиков &nbsp;|&nbsp; ` +
+            `Показано на экране: <strong>${total}</strong> &nbsp;|&nbsp; ` +
+            `Позиций (показано): <strong>${totalPos}</strong> / ${globalPos} &nbsp;|&nbsp; ` +
+            `${dateStr}`;
+    }
+}
+// ============================================= 
+// МОДАЛЬНОЕ ОКНО — ПРОСМОТР ПОСТАВЩИКА
+// ============================================= 
+let currentModalIndex = -1;
+
+function openModal(dataIndex) {
+    if (dataIndex < 0 || dataIndex >= DATA.length) return;
+    currentModalIndex = dataIndex;
+    const d = DATA[dataIndex];
+
+    // Заголовок
+    document.getElementById('modalTitle').textContent =
+        `#${d.num} — ${d.name || 'Без названия'}`;
+
+    // Тело
+    const body = document.getElementById('modalBody');
+    let html = '';
+
+    const modalFields = [
+        { label: '№',               value: d.num },
+        { label: 'Поставщик',       value: d.name },
+        { label: 'Ретро условия',   value: d.retro,       format: 'percent' },
+        { label: 'Скидка',          value: d.discount,    format: 'percent' },
+        { label: 'Кол-во позиций',  value: d.positions },
+        { label: 'Спонсор. взнос',  value: d.sponsor },
+        { label: 'Оплата за вход',  value: d.entryPay },
+        { label: 'Вход SKU',        value: d.skuEntry },
+        { label: 'Возвраты',        value: d.returns,     format: 'returns' },
+        { label: 'Наценка ОПТ',     value: d.markupOpt,   format: 'percent' },
+        { label: 'Наценка Розн.',    value: d.markupRetail, format: 'percent' },
+        { label: 'Доставка',        value: d.delivery,    format: 'delivery' },
+        { label: 'Доп. условия',    value: d.extra },
+        { label: 'Примечание',      value: d.note },
+        { label: 'Изменено',        value: formatModified(d._modified) }
+    ];
+
+    for (let i = 0; i < modalFields.length; i++) {
+        const f = modalFields[i];
+        let valueHtml = '';
+
+        if (f.format === 'percent') {
+            valueHtml = formatPercent(f.value);
+        } else if (f.format === 'returns') {
+            valueHtml = returnsBadge(f.value);
+        } else if (f.format === 'delivery') {
+            valueHtml = deliveryBadge(f.value);
+        } else {
+            const v = f.value;
+            if (v === null || v === undefined || String(v).trim() === '') {
+                valueHtml = '<span style="color:var(--text-muted)">—</span>';
+            } else {
+                valueHtml = escHtml(v);
+            }
+        }
+
+        html += `<div class="modal-row">
+            <div class="modal-label">${escHtml(f.label)}</div>
+            <div class="modal-value">${valueHtml}</div>
+        </div>`;
+    }
+
+    body.innerHTML = html;
+
+    // Кнопки действий
+      const actions = document.getElementById('modalActions');
+    actions.innerHTML = `
+        <button class="btn" onclick="closeModal();memoUpload(${dataIndex})">&#128206; Прикрепить мемо</button>
+        <button class="btn btn-danger" onclick="deleteFromModal()">&#128465; Удалить</button>
+        <button class="btn" onclick="editFromModal()">&#9998; Редактировать</button>
+        <button class="btn btn-primary" onclick="closeModal()">Закрыть</button>
+    `;
+    // Показать
+    document.getElementById('modalOverlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('active');
+    document.body.style.overflow = '';
+    currentModalIndex = -1;
+}
+
+// ============================================= 
+// УДАЛЕНИЕ ПОСТАВЩИКА
+// ============================================= 
+function deleteFromModal() {
+    if (currentModalIndex < 0 || currentModalIndex >= DATA.length) return;
+
+    const d = DATA[currentModalIndex];
+    const confirmMsg = `Вы уверены, что хотите удалить поставщика:\n\n` +
+        `#${d.num} — ${d.name}?\n\nЭто действие нельзя отменить.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    // Удалить из DATA
+    lastDeleted = JSON.parse(JSON.stringify(DATA[currentModalIndex]));
+    DATA.splice(currentModalIndex, 1);
+
+    // Пересчитать номера
+    renumberData();
+
+    // Закрыть модалку и обновить
+    closeModal();
+    applyFilters();
+}
+
+// Удаление по индексу (для использования в таблице)
+function deleteSupplier(dataIndex) {
+    if (dataIndex < 0 || dataIndex >= DATA.length) return;
+
+    const d = DATA[dataIndex];
+    const confirmMsg = `Удалить поставщика #${d.num} — ${d.name}?`;
+    if (!confirm(confirmMsg)) return;
+
+    DATA.splice(dataIndex, 1);
+    renumberData();
+    applyFilters();
+}
+function undoDelete() {
+    if (!lastDeleted) {
+        showNotification('Нечего восстанавливать');
+        return;
+    }
+    DATA.push(lastDeleted);
+    lastDeleted = null;
+    sortCol = 1;
+    sortDir = 'asc';
+    applyFilters();
+    renumberData();
+    filteredData = [...DATA];
+    applySortToFiltered();
+    renderTable();
+    showNotification('Поставщик восстановлен');
+}
+// Пересчёт номеров после удаления
+function renumberData() {
+    if (filteredData.length === DATA.length) {
+        DATA.length = 0;
+        for (let i = 0; i < filteredData.length; i++) {
+            DATA.push(filteredData[i]);
+        }
+    }
+    for (let i = 0; i < DATA.length; i++) {
+        DATA[i].num = String(i + 1);
+    }
+}
+
+// ============================================= 
+// ФОРМА — ПОСТРОЕНИЕ ПОЛЕЙ
+// ============================================= 
+function buildFormFields(data) {
+    const formBody = document.getElementById('formBody');
+    let html = '';
+
+    const formFields = [
+        { key: 'name',         label: 'ПОСТАВЩИК',              type: 'text',     full: true, required: true },
+        { key: 'retro',        label: 'РЕТРО УСЛОВИЯ',          type: 'text',     full: false },
+        { key: 'discount',     label: 'СКИДКА',                 type: 'text',     full: false },
+        { key: 'positions',    label: 'Кол-во позиций',         type: 'number',   full: false },
+        { key: 'delivery',     label: 'ДОСТАВКА',               type: 'select',   full: false,
+          options: ['ТТ', 'РЦ', 'ТТ/РЦ'] },
+        { key: 'sponsor',      label: 'Спонсорский взнос',      type: 'text',     full: false },
+        { key: 'entryPay',     label: 'Оплата ввода в магазин',  type: 'text',     full: false },
+        { key: 'skuEntry',     label: 'ВВОД СКЮ',              type: 'text',     full: false },
+        { key: 'returns',      label: 'ВОЗВРАТЫ',               type: 'select-custom', full: false,
+        options: ['есть', 'нет', '100%', 'частично', 'потайка'] },
+        { key: 'markupOpt',    label: 'НАЦЕНКА ОПТ',            type: 'text',     full: false },
+        { key: 'markupRetail', label: 'НАЦЕНКА РОЗНИЦА',        type: 'text',     full: false },
+        { key: 'extra',        label: 'ДОП. УСЛОВИЯ',           type: 'textarea', full: true },
+        { key: 'note',         label: 'ПРИМЕЧАНИЕ',             type: 'textarea', full: true }
+    ];
+
+    for (let i = 0; i < formFields.length; i++) {
+        const f = formFields[i];
+        const val = data ? (data[f.key] !== null && data[f.key] !== undefined ? data[f.key] : '') : '';
+        const fullClass = f.full ? ' full-width' : '';
+        const reqAttr = f.required ? ' required' : '';
+
+        html += `<div class="form-field${fullClass}">`;
+        html += `<label for="field_${f.key}">${escHtml(f.label)}${f.required ? ' *' : ''}</label>`;
+
+        if (f.type === 'textarea') {
+            html += `<textarea id="field_${f.key}" rows="3"${reqAttr}>${escHtml(String(val))}</textarea>`;
+        } else if (f.type === 'select') {
+            html += `<select id="field_${f.key}">`;
+            html += `<option value="">— выберите —</option>`;
+            for (let j = 0; j < f.options.length; j++) {
+                const opt = f.options[j];
+                const sel = (String(val).trim().toUpperCase() === opt.toUpperCase()) ? ' selected' : '';
+                html += `<option value="${escHtml(opt)}"${sel}>${escHtml(opt)}</option>`;
+            }
+            html += `</select>`;
+        } else if (f.type === 'select-custom') {
+            const matchesOption = f.options.some(opt => String(val).trim().toLowerCase() === opt.toLowerCase());
+            const isCustom = val !== '' && !matchesOption;
+
+            html += `<div style="display:flex;gap:6px;align-items:center;">`;
+            html += `<select id="field_${f.key}_select" onchange="onSelectCustomChange('${f.key}')" style="flex:1;">`;
+            html += `<option value="">— выберите —</option>`;
+            for (let j = 0; j < f.options.length; j++) {
+                const opt = f.options[j];
+                const sel = (!isCustom && String(val).trim().toLowerCase() === opt.toLowerCase()) ? ' selected' : '';
+                html += `<option value="${escHtml(opt)}"${sel}>${escHtml(opt)}</option>`;
+            }
+            html += `<option value="__custom__"${isCustom ? ' selected' : ''}>✏️ Другое...</option>`;
+            html += `</select>`;
+            html += `<input type="text" id="field_${f.key}_custom" placeholder="Свои условия..." 
+                value="${isCustom ? escHtml(String(val)) : ''}" 
+                style="flex:1;${isCustom ? '' : 'display:none;'}" 
+                oninput="onCustomInput('${f.key}')">`;
+            html += `</div>`;
+            html += `<input type="hidden" id="field_${f.key}" value="${escHtml(String(val))}">`;
+        } else if (f.type === 'number') {
+            html += `<input type="number" id="field_${f.key}" value="${escHtml(String(val))}" min="0" step="1"${reqAttr}>`;
+        } else {
+            html += `<input type="text" id="field_${f.key}" value="${escHtml(String(val))}"${reqAttr}>`;
+        }
+
+        html += `</div>`;
+    }
+    formBody.innerHTML = html;
+
+    const inputs = formBody.querySelectorAll('input, textarea, select');
+    inputs.forEach(el => {
+        el.addEventListener('keydown', function(e) {
+            e.stopPropagation();
+        });
+        el.addEventListener('keyup', function(e) {
+            e.stopPropagation();
+        });
+        el.addEventListener('keypress', function(e) {
+            e.stopPropagation();
+        });
+    });
+}    
+// Сбор данных из формы
+function collectFormData() {
+    const keys = [
+        'name', 'retro', 'discount', 'positions', 'delivery',
+        'sponsor', 'entryPay', 'skuEntry', 'returns',
+        'markupOpt', 'markupRetail', 'extra', 'note'
+    ];
+
+    const result = {};
+    for (let i = 0; i < keys.length; i++) {
+        const el = document.getElementById('field_' + keys[i]);
+        if (el) {
+            result[keys[i]] = el.value.trim();
+        } else {
+            result[keys[i]] = '';
+        }
+    }
+
+    // Позиции — число
+    if (result.positions !== '') {
+        const p = parseInt(result.positions);
+        result.positions = isNaN(p) ? '' : p;
+    }
+
+    return result;
+}
+
+// Валидация формы
+function validateForm() {
+    const nameEl = document.getElementById('field_name');
+    if (!nameEl || nameEl.value.trim() === '') {
+        alert('Поле "Поставщик" обязательно для заполнения.');
+        if (nameEl) nameEl.focus();
+        return false;
+    }
+    return true;
+}
+
+// ============================================= 
+// ДОБАВЛЕНИЕ ПОСТАВЩИКА
+// ============================================= 
+function openAddForm() {
+    editIndex = -1;
+    document.getElementById('formTitle').textContent = 'Добавить поставщика';
+
+    // Пустая форма
+    buildFormFields(null);
+
+    // Кнопки
+    const actions = document.getElementById('formActions');
+    actions.innerHTML = `
+        <button class="btn" onclick="closeForm()">Отмена</button>
+        <button class="btn btn-success" onclick="saveNewSupplier()">&#10003; Добавить</button>
+    `;
+
+    document.getElementById('formOverlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    // Фокус на первое поле
+    setTimeout(() => {
+        const nameEl = document.getElementById('field_name');
+        if (nameEl) nameEl.focus();
+    }, 200);
+}
+
+function saveNewSupplier() {
+    if (!validateForm()) return;
+
+    const data = collectFormData();
+
+    // Номер = последний + 1
+    let maxNum = 0;
+    for (let i = 0; i < DATA.length; i++) {
+        const n = parseInt(DATA[i].num);
+        if (!isNaN(n) && n > maxNum) maxNum = n;
+    }
+    data.num = String(maxNum + 1);
+    data._id = genId();
+
+    DATA.push(data);
+    closeForm();
+    sortCol = 1;
+    sortDir = 'asc';
+    applyFilters();
+    renumberData();
+    renderTable();
+    renumberData();
+    renderTable();
+
+    // Уведомление
+    showNotification(`Поставщик "${data.name}" добавлен (№${data.num})`);
+}
+
+// ============================================= 
+// РЕДАКТИРОВАНИЕ ПОСТАВЩИКА
+// ============================================= 
+function editFromModal() {
+    if (currentModalIndex < 0 || currentModalIndex >= DATA.length) return;
+
+    editIndex = currentModalIndex;
+    const d = DATA[editIndex];
+
+    closeModal();
+
+    document.getElementById('formTitle').textContent =
+        `Редактировать: #${d.num} — ${d.name}`;
+
+    buildFormFields(d);
+
+    const actions = document.getElementById('formActions');
+    actions.innerHTML = `
+        <button class="btn" onclick="closeForm()">Отмена</button>
+        <button class="btn btn-primary" onclick="saveEditedSupplier()">&#10003; Сохранить</button>
+    `;
+
+    document.getElementById('formOverlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    setTimeout(() => {
+        const nameEl = document.getElementById('field_name');
+        if (nameEl) nameEl.focus();
+    }, 200);
+}
+
+function saveEditedSupplier() {
+    if (!validateForm()) return;
+    if (editIndex < 0 || editIndex >= DATA.length) return;
+
+    const data = collectFormData();
+    data.num = DATA[editIndex].num;    // Сохранить номер
+    data._id = DATA[editIndex]._id;    // Сохранить постоянный id
+    data._categories = DATA[editIndex]._categories; // не терять категории
+    data._color = DATA[editIndex]._color;           // не терять цвет
+    data._modified = new Date().toISOString();       // отметка изменения
+
+    // Обновить все поля
+    const keys = Object.keys(data);
+    for (let i = 0; i < keys.length; i++) {
+        DATA[editIndex][keys[i]] = data[keys[i]];
+    }
+
+    closeForm();
+    sortCol = 1;
+    sortDir = 'asc';
+    applyFilters();
+    renumberData();
+    renderTable();
+
+    showNotification(`Поставщик #${data.num} "${data.name}" обновлён`);
+}
+
+// ============================================= 
+// ЗАКРЫТИЕ ФОРМЫ
+// ============================================= 
+function closeForm() {
+    document.getElementById('formOverlay').classList.remove('active');
+    document.body.style.overflow = '';
+    editIndex = -1;
+}
+
+// ============================================= 
+// УВЕДОМЛЕНИЯ
+// ============================================= 
+function showNotification(message) {
+    // Создаём элемент уведомления
+    const notif = document.createElement('div');
+    notif.style.cssText = `
+        position: fixed;
+        top: 92px;
+        right: 20px;
+        z-index: 4000;
+        background: #27AE60;
+        color: #fff;
+        padding: 14px 22px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        opacity: 0;
+        transform: translateX(100px);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        max-width: 400px;
+        word-break: break-word;
+    `;
+    notif.textContent = message;
+    document.body.appendChild(notif);
+
+    // Анимация появления
+    requestAnimationFrame(() => {
+        notif.style.opacity = '1';
+        notif.style.transform = 'translateX(0)';
+    });
+
+    // Автоудаление через 3 сек
+    setTimeout(() => {
+        notif.style.opacity = '0';
+        notif.style.transform = 'translateX(100px)';
+        setTimeout(() => {
+            if (notif.parentNode) {
+                notif.parentNode.removeChild(notif);
+            }
+        }, 400);
+    }, 3000);
+}
+
+// ============================================= 
+// ЭКСПОРТ CSV
+// ============================================= 
+function exportCSV() {
+    if (filteredData.length === 0) {
+        alert('Нет данных для экспорта. Измените фильтры.');
+        return;
+    }
+
+    const sep = ';';
+    const headers = [
+        '№', 'ПОСТАВЩИК', 'РЕТРО УСЛОВИЯ', 'СКИДКА',
+        'Действующее количество позиций', 'Спонсорский взнос на открытие магазинов',
+        'ОПЛАТА ВВОДА В НОВЫЙ МАГАЗИН', 'ВВОД СКЮ', 'ВОЗВРАТЫ',
+        'НАЦЕНКА ОПТ', 'НАЦЕНКА РОЗНИЦА', 'ДОСТАВКА', 'ДОП. УСЛОВИЯ', 'ПРИМЕЧАНИЕ'
+    ];
+    const keys = [
+        'num', 'name', 'retro', 'discount',
+        'positions', 'sponsor', 'entryPay',
+        'skuEntry', 'returns', 'markupOpt', 'markupRetail',
+        'delivery', 'extra', 'note'
+    ];
+
+    let csv = '\uFEFF';
+    csv += headers.join(sep) + '\n';
+
+    for (let i = 0; i < filteredData.length; i++) {
+        const d = filteredData[i];
+        const row = [];
+        for (let j = 0; j < keys.length; j++) {
+            let val = d[keys[j]];
+            if (val === null || val === undefined) val = '';
+            val = String(val);
+            if (val.indexOf(sep) !== -1 || val.indexOf('"') !== -1 || val.indexOf('\n') !== -1) {
+                val = '"' + val.replace(/"/g, '""') + '"';
+            }
+            row.push(val);
+        }
+        csv += row.join(sep) + '\n';
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const now = new Date();
+    const ts = now.getFullYear() +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        String(now.getDate()).padStart(2, '0') + '_' +
+        String(now.getHours()).padStart(2, '0') +
+        String(now.getMinutes()).padStart(2, '0');
+    link.download = `suppliers_${ts}.csv`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+        if (link.parentNode) link.parentNode.removeChild(link);
+    }, 100);
+    showNotification(`Экспортировано ${filteredData.length} записей в CSV`);
+}
+async function exportExcel() {
+    if (!filteredData.length) { alert('Нет данных для экспорта.'); return; }
+
+    const headers = ['№','ПОСТАВЩИК','КАТЕГОРИИ','РЕТРО УСЛОВИЯ','СКИДКА','КОЛ-ВО ПОЗИЦИЙ',
+        'СПОНСОРСКИЙ ВЗНОС','ОПЛАТА ВВОДА','ВВОД СКЮ','ВОЗВРАТЫ','НАЦЕНКА ОПТ',
+        'НАЦЕНКА РОЗН.','ДОСТАВКА','ДОП. УСЛОВИЯ','ПРИМЕЧАНИЕ'];
+    const keys = ['num','name','_categories','retro','discount','positions',
+        'sponsor','entryPay','skuEntry','returns','markupOpt',
+        'markupRetail','delivery','extra','note'];
+    const pctKeys = ['retro','discount','markupOpt','markupRetail'];
+    const colWidths = [5,48,22,16,16,13,24,24,20,22,14,14,12,44,44];
+
+function formatPctValue(v) {
+        if (v === null || v === undefined || v === '') return '';
+        var s = String(v).trim();
+        if (s === '0' || s === 'нет' || s === '-') return s;
+        // Если строка содержит буквы или диапазон — вернуть как есть
+        if (/[а-яА-Яa-zA-Z]/.test(s)) return s;
+        if (/\d\s*[-–]\s*\d/.test(s)) return s;
+        var n = parseFloat(s.replace('%','').replace(',','.'));
+        if (!isNaN(n)) {
+            if (n > 0 && n < 1) n = n * 100;
+            // округляем до 1 знака, чтобы убрать артефакты float (0.07*100 = 7.000000000000001)
+            var pct = Math.round(n * 10) / 10;
+            return (pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1)) + '%';
+        }
+        return s;
+    }
+
+    function categoriesToString(d) {
+        if (!d._categories || !d._categories.length) return '';
+        return d._categories.map(function(id) {
+            const cat = CATEGORIES.find(function(c) { return c.id === id; });
+            return cat ? cat.name : id;
+        }).join(', ');
+    }
+
+    function estimateRowHeight(texts, widths) {
+        let maxLines = 1;
+        for (let i = 0; i < texts.length; i++) {
+            const t = String(texts[i] || '');
+            if (!t) continue;
+            const charWidth = 1.2;
+            const colChars = Math.max(widths[i] * charWidth, 5);
+            const lines = Math.ceil(t.length / colChars) + (t.split('\n').length - 1);
+            if (lines > maxLines) maxLines = lines;
+        }
+        return Math.min(Math.max(maxLines * 15, 20), 300);
+    }
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Family Market — Харьков 2026';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Поставщики', {
+        views: [{
+            state: 'frozen',
+            xSplit: 2,          // закрепляем колонки A (№) и B (ПОСТАВЩИК)
+            ySplit: 4,          // закрепляем строки 1-4: статистика, титул и ЗАГОЛОВКИ таблицы
+            topLeftCell: 'C5',
+            activeCell: 'C5',
+            showGridLines: false
+        }],
+        properties: { defaultRowHeight: 20 }
+    });
+
+    ws.columns = colWidths.map(function(w) { return { width: w }; });
+
+
+    // =============================================
+    // СТРОКА 2 — СТАТИСТИКА
+    // =============================================
+    let totalPos = 0, countTT = 0, countRC = 0, countRetro = 0, countDiscount = 0;
+    for (let i = 0; i < filteredData.length; i++) {
+        const d = filteredData[i];
+        const p = parseInt(d.positions, 10);
+        if (!isNaN(p) && p > 0) totalPos += p;
+        const dv = String(d.delivery || '').toUpperCase();
+        if (dv.indexOf('ТТ') !== -1) countTT++;
+        if (dv.indexOf('РЦ') !== -1) countRC++;
+        if (!isNone(d.retro)) countRetro++;
+        if (!isNone(d.discount)) countDiscount++;
+    }
+
+    ws.mergeCells('A2:O2');
+    const statsCell = ws.getCell('A2');
+    statsCell.value = '📊 Всего: ' + filteredData.length + ' поставщиков  |  ТТ: ' + countTT + '  |  РЦ: ' + countRC + '  |  Ретро: ' + countRetro + '  |  Скидка: ' + countDiscount + '  |  Позиций: ' + totalPos + '  |  ' + new Date().toLocaleDateString('ru-RU');
+    statsCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF4A5568' } };
+    statsCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F2F5' } };
+    statsCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    statsCell.border = {
+        bottom: { style: 'thin', color: { argb: 'FFD0D4E0' } }
+    };
+    ws.getRow(2).height = 26;
+
+    // =============================================
+    // СТРОКА 3 — ТИТУЛ
+    // =============================================
+    ws.mergeCells('A3:O3');
+    const titleCell = ws.getCell('A3');
+    titleCell.value = 'Коммерческие условия поставщиков — Family Market — Харьков 2026';
+    titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D3044' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(3).height = 30;
+
+    // =============================================
+    // СТРОКА 4 — ЗАГОЛОВКИ
+    // =============================================
+    const headerRow = ws.getRow(4);
+    for (let i = 0; i < headers.length; i++) {
+        const cell = headerRow.getCell(i + 1);
+        cell.value = headers[i];
+        cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4A5568' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = {
+            top:    { style: 'thin', color: { argb: 'FF2D3044' } },
+            bottom: { style: 'medium', color: { argb: 'FF2D3044' } },
+            left:   { style: 'thin', color: { argb: 'FF2D3044' } },
+            right:  { style: 'thin', color: { argb: 'FF2D3044' } }
+        };
+    }
+    headerRow.height = 40;
+    headerRow.commit();
+    ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: headers.length } };
+
+    // =============================================
+    // СТИЛИ
+    // =============================================
+    const thinBorder = {
+        top:    { style: 'thin', color: { argb: 'FFD0D4E0' } },
+        bottom: { style: 'thin', color: { argb: 'FFD0D4E0' } },
+        left:   { style: 'thin', color: { argb: 'FFD0D4E0' } },
+        right:  { style: 'thin', color: { argb: 'FFD0D4E0' } }
+    };
+    const evenBg = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F2F5' } };
+    const oddBg  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+    const colorBgs = {
+        red:    { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE8E8' } },
+        yellow: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9E6' } },
+        green:  { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F8EE' } },
+        blue:   { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF0FF' } },
+        orange: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF0E5' } },
+        purple: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3ECF8' } }
+    };
+
+    // =============================================
+    // ДАННЫЕ (строки 5+)
+    // =============================================
+    for (let i = 0; i < filteredData.length; i++) {
+        const d = filteredData[i];
+        const rowData = [];
+        for (let j = 0; j < keys.length; j++) {
+            const k = keys[j];
+            let v = d[k];
+            if (k === '_categories') { v = categoriesToString(d); }
+            else if (k === 'num' || k === 'positions') { const n = parseInt(v, 10); v = isNaN(n) ? (v || '') : n; }
+            else if (pctKeys.indexOf(k) !== -1) { v = formatPctValue(v); }
+            else { v = (v === null || v === undefined) ? '' : v; }
+            rowData.push(v);
+        }
+
+        const row = ws.addRow(rowData);
+        row.height = estimateRowHeight(rowData.map(String), colWidths);
+
+        let rowBg = (i % 2 === 0) ? oddBg : evenBg;
+        if (d._color && colorBgs[d._color]) rowBg = colorBgs[d._color];
+
+        row.eachCell({ includeEmpty: true }, function(cell, colNumber) {
+            const key = keys[colNumber - 1];
+            cell.border = thinBorder;
+            cell.fill = rowBg;
+            cell.font = { name: 'Calibri', size: 10 };
+            cell.alignment = { vertical: 'top', wrapText: true };
+
+            if (key === 'num') {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF6B7280' } };
+            }
+            if (key === 'name') {
+                cell.font = { name: 'Calibri', size: 10, bold: true };
+            }
+            if (key === '_categories') {
+                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                const s = String(cell.value || '').trim();
+                if (s) {
+                    cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FF7C3AED' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3ECF8' } };
+                }
+            }
+            if (key === 'retro' || key === 'discount') {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                const s = String(cell.value || '').trim();
+                if (s && s !== 'нет' && s !== '0' && s !== '-') {
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF27AE60' } };
+                } else {
+                    cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF999999' } };
+                }
+            }
+            if (key === 'positions') {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                const n = parseInt(cell.value, 10);
+                if (!isNaN(n) && n >= 50) {
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF27AE60' } };
+                } else if (!isNaN(n) && n >= 20) {
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFD4A40A' } };
+                }
+            }
+            if (key === 'sponsor' || key === 'entryPay' || key === 'skuEntry') {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                const s = String(cell.value || '').trim();
+                if (!s || s === 'нет' || s === '-' || s === '0') {
+                    cell.font = { name: 'Calibri', size: 10, color: { argb: 'FFAAAAAA' } };
+                }
+            }
+            if (key === 'returns') {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                const rv = String(cell.value || '').toLowerCase();
+                if (rv === 'есть' || rv === '100%') {
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF27AE60' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F8EE' } };
+                } else if (rv === 'частично') {
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFD4A40A' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9E6' } };
+                } else if (rv === 'нет') {
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFC0392B' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE8E8' } };
+                }
+            }
+            if (key === 'markupOpt' || key === 'markupRetail') {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                const s = String(cell.value || '').trim();
+                if (s && s !== '-' && s !== '0') {
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF2563EB' } };
+                }
+            }
+            if (key === 'delivery') {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                const dv = String(cell.value || '').toUpperCase();
+                if (dv === 'ТТ') {
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF3366FF' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF0FF' } };
+                } else if (dv === 'РЦ') {
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFE67E22' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF0E5' } };
+                }
+            }
+            if (key === 'extra' || key === 'note') {
+                cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF444444' } };
+                cell.alignment = { vertical: 'top', wrapText: true };
+            }
+        });
+    }
+
+
+    // =============================================
+    // ИТОГОВАЯ СТРОКА
+    // =============================================
+    ws.addRow([]);
+    const summaryData = [
+        '', 'ИТОГО: ' + filteredData.length + ' поставщиков', '',
+        'Ретро: ' + countRetro, 'Скидка: ' + countDiscount, totalPos,
+        '', '', '', '', '', '',
+        'ТТ: ' + countTT + ' / РЦ: ' + countRC, '',
+        'Дата: ' + new Date().toLocaleDateString('ru-RU')
+    ];
+    const summaryRow = ws.addRow(summaryData);
+    summaryRow.height = 28;
+    summaryRow.eachCell({ includeEmpty: true }, function(c) {
+        c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF2D3044' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E5ED' } };
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+        c.border = {
+            top:    { style: 'medium', color: { argb: 'FF2D3044' } },
+            bottom: { style: 'medium', color: { argb: 'FF2D3044' } },
+            left:   { style: 'thin', color: { argb: 'FFD0D4E0' } },
+            right:  { style: 'thin', color: { argb: 'FFD0D4E0' } }
+        };
+    });
+
+    // =============================================
+    // СОХРАНЕНИЕ
+    // =============================================
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const now = new Date();
+    const ts = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+    link.download = 'Коммерческие_условия_' + ts + '.xlsx';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(function() {
+        URL.revokeObjectURL(url);
+        if (link.parentNode) link.parentNode.removeChild(link);
+    }, 100);
+    showNotification('Экспортировано ' + filteredData.length + ' записей в Excel');
+}
+
+// =============================================
+// КОМПАКТНЫЙ ЭКСПОРТ: ПОСТАВЩИК + НАЦЕНКИ ОПТ/РОЗН.
+// =============================================
+async function exportExcelMarkup() {
+    if (!filteredData.length) { alert('Нет данных для экспорта.'); return; }
+
+    function fmtPct(v) {
+        if (v === null || v === undefined || v === '') return '';
+        var s = String(v).trim();
+        if (s === '0' || s === 'нет' || s === '-') return s;
+        if (/[а-яА-Яa-zA-Z]/.test(s)) return s;
+        if (/\d\s*[-–]\s*\d/.test(s)) return s;
+        var n = parseFloat(s.replace('%', '').replace(',', '.'));
+        if (!isNaN(n)) {
+            if (n > 0 && n < 1) n = n * 100;
+            var p = Math.round(n * 10) / 10;
+            return (p % 1 === 0 ? p.toFixed(0) : p.toFixed(1)) + '%';
+        }
+        return s;
+    }
+    function pctNum(v) {
+        if (v === null || v === undefined || v === '') return NaN;
+        var s = String(v).trim();
+        if (/[а-яА-Яa-zA-Z]/.test(s)) return NaN;
+        var m = s.replace('%', '').replace(',', '.').match(/-?\d+(\.\d+)?/);
+        if (!m) return NaN;
+        var n = parseFloat(m[0]);
+        if (isNaN(n)) return NaN;
+        return (n > 0 && n < 1) ? n * 100 : n;
+    }
+
+    const headers = ['№', 'ПОСТАВЩИК', 'НАЦЕНКА ОПТ', 'НАЦЕНКА РОЗН.'];
+    const colWidths = [6, 46, 16, 16];
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Family Market — Харьков 2026';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Наценки', {
+        views: [{
+            state: 'frozen',
+            xSplit: 2,          // закреплены № и ПОСТАВЩИК
+            ySplit: 4,          // закреплены шапка и ЗАГОЛОВКИ таблицы
+            topLeftCell: 'C5',
+            activeCell: 'C5',
+            showGridLines: false
+        }],
+        properties: { defaultRowHeight: 18 }
+    });
+    ws.columns = colWidths.map(function (w) { return { width: w }; });
+
+    // --- статистика по наценкам
+    let sumOpt = 0, cntOpt = 0, sumRet = 0, cntRet = 0;
+    for (let i = 0; i < filteredData.length; i++) {
+        const o = pctNum(filteredData[i].markupOpt);
+        const r = pctNum(filteredData[i].markupRetail);
+        if (!isNaN(o) && o > 0) { sumOpt += o; cntOpt++; }
+        if (!isNaN(r) && r > 0) { sumRet += r; cntRet++; }
+    }
+    const avgOpt = cntOpt ? (sumOpt / cntOpt) : 0;
+    const avgRet = cntRet ? (sumRet / cntRet) : 0;
+
+    // --- СТРОКА 2: статистика
+    ws.mergeCells('A2:D2');
+    const statsCell = ws.getCell('A2');
+    statsCell.value = '📊 Поставщиков: ' + filteredData.length +
+        '  |  Ср. опт: ' + avgOpt.toFixed(1) + '%' +
+        '  |  Ср. розница: ' + avgRet.toFixed(1) + '%' +
+        '  |  ' + new Date().toLocaleDateString('ru-RU');
+    statsCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF4A5568' } };
+    statsCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F2F5' } };
+    statsCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    statsCell.border = { bottom: { style: 'thin', color: { argb: 'FFD0D4E0' } } };
+    ws.getRow(2).height = 24;
+
+    // --- СТРОКА 3: титул
+    ws.mergeCells('A3:D3');
+    const titleCell = ws.getCell('A3');
+    titleCell.value = 'Наценки поставщиков — Family Market — Харьков 2026';
+    titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D3044' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(3).height = 28;
+
+    // --- СТРОКА 4: заголовки
+    const headerRow = ws.getRow(4);
+    for (let i = 0; i < headers.length; i++) {
+        const c = headerRow.getCell(i + 1);
+        c.value = headers[i];
+        c.font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4A5568' } };
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        c.border = {
+            top: { style: 'thin', color: { argb: 'FF2D3044' } },
+            bottom: { style: 'medium', color: { argb: 'FF2D3044' } },
+            left: { style: 'thin', color: { argb: 'FF2D3044' } },
+            right: { style: 'thin', color: { argb: 'FF2D3044' } }
+        };
+    }
+    headerRow.height = 30;
+    headerRow.commit();
+    ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: headers.length } };
+
+    // --- СТИЛИ
+    const thinBorder = {
+        top: { style: 'thin', color: { argb: 'FFD0D4E0' } },
+        bottom: { style: 'thin', color: { argb: 'FFD0D4E0' } },
+        left: { style: 'thin', color: { argb: 'FFD0D4E0' } },
+        right: { style: 'thin', color: { argb: 'FFD0D4E0' } }
+    };
+    const evenBg = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F2F5' } };
+    const oddBg = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+    const colorBgs = {
+        red: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE8E8' } },
+        yellow: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9E6' } },
+        green: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F8EE' } },
+        blue: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF0FF' } },
+        orange: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF0E5' } },
+        purple: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3ECF8' } }
+    };
+
+    // --- ДАННЫЕ (со строки 5)
+    for (let i = 0; i < filteredData.length; i++) {
+        const d = filteredData[i];
+        const n = parseInt(d.num, 10);
+        const row = ws.addRow([
+            isNaN(n) ? (d.num || i + 1) : n,
+            d.name || '',
+            fmtPct(d.markupOpt),
+            fmtPct(d.markupRetail)
+        ]);
+        row.height = 20;
+
+        let rowBg = (i % 2 === 0) ? oddBg : evenBg;
+        if (d._color && colorBgs[d._color]) rowBg = colorBgs[d._color];
+
+        row.eachCell({ includeEmpty: true }, function (cell, colNumber) {
+            cell.border = thinBorder;
+            cell.fill = rowBg;
+            cell.font = { name: 'Calibri', size: 10 };
+            cell.alignment = { vertical: 'middle' };
+
+            if (colNumber === 1) {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF6B7280' } };
+            }
+            if (colNumber === 2) {
+                cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+                cell.font = { name: 'Calibri', size: 10, bold: true };
+            }
+            if (colNumber === 3 || colNumber === 4) {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                const s = String(cell.value || '').trim();
+                if (s && s !== '-' && s !== '0' && s !== 'нет') {
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF2563EB' } };
+                } else {
+                    cell.font = { name: 'Calibri', size: 10, color: { argb: 'FFAAAAAA' } };
+                }
+            }
+        });
+    }
+
+    // --- ИТОГО
+    const summaryRow = ws.addRow([
+        '',
+        'ИТОГО: ' + filteredData.length + ' поставщиков',
+        'Ср. ' + avgOpt.toFixed(1) + '%',
+        'Ср. ' + avgRet.toFixed(1) + '%'
+    ]);
+    summaryRow.height = 26;
+    summaryRow.eachCell({ includeEmpty: true }, function (c) {
+        c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF2D3044' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E5ED' } };
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+        c.border = {
+            top: { style: 'medium', color: { argb: 'FF2D3044' } },
+            bottom: { style: 'medium', color: { argb: 'FF2D3044' } },
+            left: { style: 'thin', color: { argb: 'FFD0D4E0' } },
+            right: { style: 'thin', color: { argb: 'FFD0D4E0' } }
+        };
+    });
+
+    // --- печать: шапка повторяется на каждой странице
+    ws.pageSetup = { fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 } };
+    ws.headerFooter = { differentFirst: false };
+    ws.pageSetup.printTitlesRow = '4:4';
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const now = new Date();
+    const ts = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+    link.download = 'Наценки_поставщиков_' + ts + '.xlsx';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(function () {
+        URL.revokeObjectURL(url);
+        if (link.parentNode) link.parentNode.removeChild(link);
+    }, 100);
+    showNotification('Экспортировано ' + filteredData.length + ' записей (наценки) в Excel');
+}
+
+// =============================================
+// ЭКСПОРТ JSON (дополнительно)
+// =============================================
+function exportJSON() {
+    if (filteredData.length === 0) {
+        alert('Нет данных для экспорта.');
+        return;
+    }
+
+    const json = JSON.stringify(filteredData, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+
+    const now = new Date();
+    const ts = now.getFullYear() +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        String(now.getDate()).padStart(2, '0');
+    link.download = `suppliers_${ts}.json`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+        if (link.parentNode) link.parentNode.removeChild(link);
+    }, 100);
+
+    showNotification(`Экспортировано ${filteredData.length} записей в JSON`);
+}
+
+// ============================================= 
+// ДУБЛИРОВАНИЕ ПОСТАВЩИКА
+// ============================================= 
+function duplicateSupplier(dataIndex) {
+    if (dataIndex < 0 || dataIndex >= DATA.length) return;
+
+    const original = DATA[dataIndex];
+    const copy = {};
+
+    // Копировать все поля
+    const keys = Object.keys(original);
+    for (let i = 0; i < keys.length; i++) {
+        copy[keys[i]] = original[keys[i]];
+    }
+
+    // Новый номер
+    let maxNum = 0;
+    for (let i = 0; i < DATA.length; i++) {
+        const n = parseInt(DATA[i].num);
+        if (!isNaN(n) && n > maxNum) maxNum = n;
+    }
+    copy.num = String(maxNum + 1);
+    copy._id = genId();   // копия — это отдельный поставщик, свой id
+    copy.name = original.name + ' (копия)';
+
+    // Вставить после оригинала
+    DATA.splice(dataIndex + 1, 0, copy);
+    renumberData();
+    applyFilters();
+
+    showNotification(`Создана копия: "${copy.name}"`);
+}
+
+// ============================================= 
+// ПЕЧАТЬ ТАБЛИЦЫ
+// ============================================= 
+function printTable() {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('Не удалось открыть окно печати. Разрешите всплывающие окна.');
+        return;
+    }
+
+    let tableHtml = '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:11px;width:100%;">';
+    tableHtml += '<thead><tr style="background:#2d3044;color:#fff;">';
+
+    const headers = ['№', 'Поставщик', 'Ретро', 'Скидка', 'Позиций',
+        'Спонсор', 'Оплата вход', 'Вход SKU', 'Возвраты',
+        'Нац. ОПТ', 'Нац. Розн.', 'Доставка', 'Доп. условия', 'Примечание'];
+    const keys = ['num', 'name', 'retro', 'discount', 'positions',
+        'sponsor', 'entryPay', 'skuEntry', 'returns',
+        'markupOpt', 'markupRetail', 'delivery', 'extra', 'note'];
+
+    for (let i = 0; i < headers.length; i++) {
+        tableHtml += `<th style="padding:8px 6px;text-align:left;">${headers[i]}</th>`;
+    }
+    tableHtml += '</tr></thead><tbody>';
+
+    for (let i = 0; i < filteredData.length; i++) {
+        const d = filteredData[i];
+        const bgColor = i % 2 === 0 ? '#ffffff' : '#f5f5f5';
+        tableHtml += `<tr style="background:${bgColor};">`;
+        for (let j = 0; j < keys.length; j++) {
+            let val = d[keys[j]];
+            if (val === null || val === undefined) val = '';
+            tableHtml += `<td style="padding:5px 6px;border:1px solid #ccc;vertical-align:top;">${String(val)}</td>`;
+        }
+        tableHtml += '</tr>';
+    }
+
+    tableHtml += '</tbody></table>';
+
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Поставщики — Печать</title>
+        <style>
+            @page { size: landscape; margin: 10mm; }
+            body { margin: 0; padding: 10px; }
+            h1 { font-family: Arial, sans-serif; font-size: 16px; margin-bottom: 10px; }
+            p { font-family: Arial, sans-serif; font-size: 11px; color: #666; margin-bottom: 10px; }
+        </style>
+    </head><body>
+        <h1>Коммерческие условия поставщиков — Харьков 2026</h1>
+        <p>Дата печати: ${new Date().toLocaleDateString('ru-RU')} | Записей: ${filteredData.length}</p>
+        ${tableHtml}
+    </body></html>`);
+
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); }, 500);
+}
+
+// ============================================= 
+// ИМПОРТ ДАННЫХ ИЗ JSON
+// ============================================= 
+function importJSON() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.style.display = 'none';
+
+    input.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                const imported = JSON.parse(ev.target.result);
+                if (!Array.isArray(imported)) {
+                    alert('Файл должен содержать массив объектов.');
+                    return;
+                }
+
+                const confirmMsg = `Импортировать ${imported.length} записей?\n\n` +
+                    `Выберите действие:\n` +
+                    `OK — заменить все данные\n` +
+                    `Отмена — добавить к существующим`;
+
+                if (confirm(confirmMsg)) {
+                    // Заменить
+                    DATA.length = 0;
+                    for (let i = 0; i < imported.length; i++) {
+                        DATA.push(imported[i]);
+                    }
+                } else {
+                    // Добавить
+                    for (let i = 0; i < imported.length; i++) {
+                        DATA.push(imported[i]);
+                    }
+                }
+
+                renumberData();
+                applyFilters();
+                showNotification(`Импортировано ${imported.length} записей`);
+            } catch (err) {
+                alert('Ошибка чтения файла: ' + err.message);
+            }
+        };
+        reader.readAsText(file, 'utf-8');
+    });
+
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => {
+        if (input.parentNode) input.parentNode.removeChild(input);
+    }, 5000);
+}
+
+// ============================================= 
+// СОХРАНЕНИЕ ДАННЫХ В LOCALSTORAGE
+// ============================================= 
+
+
+
+// ============================================= 
+// БЫСТРЫЙ СКРОЛЛ НАВЕРХ
+// ============================================= 
+function scrollToTop() {
+    const wrapper = document.getElementById('tableWrapper');
+    if (wrapper) {
+        wrapper.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ============================================= 
+// ГОРЯЧИЕ КЛАВИШИ
+// ============================================= 
+document.addEventListener('keydown', function(e) {
+    // НЕ перехватывать если фокус в поле ввода
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    const isInput = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+
+    // Escape — закрыть модалки (работает всегда)
+    if (e.key === 'Escape') {
+        const formOverlay = document.getElementById('formOverlay');
+        const modalOverlay = document.getElementById('modalOverlay');
+
+        if (formOverlay && formOverlay.classList.contains('active')) {
+            closeForm();
+        } else if (modalOverlay && modalOverlay.classList.contains('active')) {
+            closeModal();
+        }
+        return;
+    }
+
+    // Остальные горячие клавиши — только если НЕ в поле ввода
+    if (isInput) return;
+
+    // Ctrl+F — фокус на поиск
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        const search = document.getElementById('fSearch');
+        if (search) { search.focus(); search.select(); }
+        return;
+    }
+
+    // Ctrl+N — добавить поставщика
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        openAddForm();
+        return;
+    }
+
+// Ctrl+E — экспорт CSV
+    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        e.preventDefault();
+        exportCSV();
+        return;
+    }
+
+    // Ctrl+P — печать
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        printTable();
+        return;
+    }
+
+    // Home — скролл наверх
+    if (e.key === 'Home') {
+        scrollToTop();
+    }
+});
+// ============================================= 
+// КОНТЕКСТНОЕ МЕНЮ (правый клик по строке)
+// ============================================= 
+let contextMenu = null;
+
+function createContextMenu() {
+    if (contextMenu) return;
+    contextMenu = document.createElement('div');
+    contextMenu.id = 'contextMenu';
+    contextMenu.style.cssText = `
+        display: none;
+        position: fixed;
+        z-index: 3000;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 6px 0;
+        min-width: 200px;
+        box-shadow: var(--shadow-lg);
+        font-size: 0.85rem;
+    `;
+    document.body.appendChild(contextMenu);
+
+    // Закрыть при клике вне
+    document.addEventListener('click', function() {
+        if (contextMenu) contextMenu.style.display = 'none';
+    });
+}
+
+function showContextMenu(e, dataIndex) {
+    e.preventDefault();
+    const hasMemo = !!(DATA[dataIndex] && DATA[dataIndex].memoFiles && DATA[dataIndex].memoFiles.length > 0);
+    if (!contextMenu) createContextMenu();
+    const d = DATA[dataIndex];
+    if (!d) return;
+
+    // Вот здесь возвращены ВСЕ пункты меню (Просмотр, Редактировать, Цвета, Категории, Удалить)
+    contextMenu.innerHTML = `
+        <div style="padding:8px 16px;color:var(--text-muted);font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
+            #${escHtml(d.num)} — ${escHtml(String(d.name || '').substring(0, 30))}
+        </div>
+        <div style="height:1px;background:var(--border-color);margin:4px 0;"></div>
+        <div class="ctx-item" onclick="openModal(${dataIndex})" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;">
+            &#128065; Просмотр
+        </div>
+        <div class="ctx-item" onclick="currentModalIndex=${dataIndex};editFromModal()" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;">
+            &#9998; Редактировать
+        </div>
+        <div class="ctx-item" onclick="duplicateSupplier(${dataIndex})" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;">
+            &#128203; Дублировать
+        </div>
+        <div style="height:1px;background:var(--border-color);margin:4px 0;"></div>
+        <div class="ctx-item" onclick="memoUpload(${dataIndex})" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;">
+            &#128206; Прикрепить меморандум
+        </div>
+        ${hasMemo ? `
+        <div class="ctx-item" onclick="openMemoViewer(${dataIndex})" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;color:var(--accent-blue);">
+            &#128203; Открыть меморандум (${d.memoFiles.length})
+        </div>
+        ` : ''}
+        <div style="height:1px;background:var(--border-color);margin:4px 0;"></div>
+        <div class="ctx-item" onclick="event.stopPropagation();openColorPicker(${dataIndex},event)" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;">
+            &#127912; Цветовая метка
+        </div>
+        <div class="ctx-item" onclick="event.stopPropagation();openCategoryEditor(${dataIndex},event)" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;">
+            &#127991; Категории
+        </div>
+        <div class="ctx-item" onclick="toggleCompare(${dataIndex},event)" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;color:var(--accent-blue);">
+            ${compareList.indexOf(dataIndex) !== -1 ? '☑ Убрать из сравнения' : '⚖ Добавить к сравнению'}
+        </div>
+        <div style="height:1px;background:var(--border-color);margin:4px 0;"></div>
+                <div class="ctx-item" onclick="clearAllColors()" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;color:var(--accent-yellow);">
+            ◎ Снять все цветовые метки
+        </div>
+
+        <div class="ctx-item" onclick="deleteSupplier(${dataIndex})" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;color:var(--accent-red);">
+            &#128465; Удалить
+        </div>
+    `;
+
+    let x = e.clientX;
+    let y = e.clientY;
+    contextMenu.style.display = 'block';
+
+    const rect = contextMenu.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth) x = window.innerWidth - rect.width - 10;
+    if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 10;
+
+    contextMenu.style.left = x + 'px';
+    contextMenu.style.top = y + 'px';
+
+    const items = contextMenu.querySelectorAll('.ctx-item');
+    items.forEach(item => {
+        item.addEventListener('mouseenter', function() {
+            this.style.background = 'var(--bg-hover)';
+        });
+        item.addEventListener('mouseleave', function() {
+            this.style.background = 'transparent';
+        });
+    });
+}
+
+// ============================================= 
+// ИНИЦИАЛИЗАЦИЯ КОНТЕКСТНОГО МЕНЮ
+// ============================================= 
+// createContextMenu() — вызывается из supBoot()
+
+// ============================================= 
+// АВТОСОХРАНЕНИЕ ПРИ ИЗМЕНЕНИЯХ (опционально)
+// ============================================= 
+
+
+// автосохранение включено — предупреждение при закрытии не нужно
+
+// Обёртки для отслеживания изменений
+const _origSaveNew = saveNewSupplier;
+saveNewSupplier = function() {
+    _origSaveNew();
+    supTouch();
+};
+
+const _origSaveEdit = saveEditedSupplier;
+saveEditedSupplier = function() {
+    _origSaveEdit();
+    supTouch();
+};
+
+const _origDelete = deleteFromModal;
+deleteFromModal = function() {
+    _origDelete();
+    supTouch();
+};
+
+// ============================================= 
+// ПРОВЕРКА АВТОСОХРАНЕНИЯ ПРИ СТАРТЕ
+// ============================================= 
+
+// ============================================= 
+// ИНФОРМАЦИЯ О ГОРЯЧИХ КЛАВИШАХ
+// ============================================= 
+function showHotkeys() {
+    const html = `
+        <div style="padding:20px;font-size:0.9rem;line-height:1.8;">
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 20px;">
+                <kbd style="background:var(--bg-tertiary);padding:3px 8px;border-radius:4px;font-family:monospace;font-size:0.8rem;border:1px solid var(--border-color);">Ctrl+F</kbd>
+                <span>Фокус на поиск</span>
+                <kbd style="background:var(--bg-tertiary);padding:3px 8px;border-radius:4px;font-family:monospace;font-size:0.8rem;border:1px solid var(--border-color);">Ctrl+N</kbd>
+                <span>Добавить поставщика</span>
+                <kbd style="background:var(--bg-tertiary);padding:3px 8px;border-radius:4px;font-family:monospace;font-size:0.8rem;border:1px solid var(--border-color);">Ctrl+S</kbd>
+                <span>Сохранить в браузере</span>
+                <kbd style="background:var(--bg-tertiary);padding:3px 8px;border-radius:4px;font-family:monospace;font-size:0.8rem;border:1px solid var(--border-color);">Ctrl+E</kbd>
+                <span>Экспорт CSV</span>
+                <kbd style="background:var(--bg-tertiary);padding:3px 8px;border-radius:4px;font-family:monospace;font-size:0.8rem;border:1px solid var(--border-color);">Ctrl+P</kbd>
+                <span>Печать таблицы</span>
+                <kbd style="background:var(--bg-tertiary);padding:3px 8px;border-radius:4px;font-family:monospace;font-size:0.8rem;border:1px solid var(--border-color);">Escape</kbd>
+                <span>Закрыть окно/форму</span>
+                <kbd style="background:var(--bg-tertiary);padding:3px 8px;border-radius:4px;font-family:monospace;font-size:0.8rem;border:1px solid var(--border-color);">Home</kbd>
+                <span>Скролл наверх</span>
+            </div>
+            <div style="margin-top:16px;color:var(--text-muted);font-size:0.8rem;">
+                Правый клик по строке — контекстное меню
+            </div>
+        </div>
+    `;
+
+    document.getElementById('modalTitle').textContent = 'Горячие клавиши';
+    document.getElementById('modalBody').innerHTML = html;
+    document.getElementById('modalActions').innerHTML =
+        '<button class="btn btn-primary" onclick="closeModal()">Закрыть</button>';
+    document.getElementById('modalOverlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+// ============================================= 
+// МЕМОРАНДУМЫ — ПРОСМОТР СКАНОВ
+// ============================================= 
+
+// Хранилище меморандумов в IndexedDB
+const MEMO_DB_NAME = 'SupplierMemosDB';
+const MEMO_DB_VERSION = 1;
+const MEMO_STORE = 'memos';
+let memoDB = null;
+
+function initMemoDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(MEMO_DB_NAME, MEMO_DB_VERSION);
+        request.onerror = () => reject(request.error);
+        request.onupgradeneeded = (e) => {
+            const database = e.target.result;
+            if (!database.objectStoreNames.contains(MEMO_STORE)) {
+                const store = database.createObjectStore(MEMO_STORE, { keyPath: 'id', autoIncrement: true });
+                store.createIndex('supplierNum', 'supplierNum', { unique: false });
+            }
+        };
+        request.onsuccess = (e) => {
+            memoDB = e.target.result;
+            resolve(memoDB);
+        };
+    });
+}
+
+function saveMemoToDB(supplierNum, fileName, fileType, fileData, fileSize) {
+    return new Promise((resolve, reject) => {
+        if (!memoDB) { reject('MemoDB not initialized'); return; }
+        const tx = memoDB.transaction(MEMO_STORE, 'readwrite');
+        const store = tx.objectStore(MEMO_STORE);
+        const record = {
+            supplierNum: String(supplierNum),
+            name: fileName,
+            type: fileType,
+            data: fileData,
+            size: fileSize,
+            addedAt: new Date().toISOString()
+        };
+        const req = store.add(record);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+function getMemosFromDB(supplierNum) {
+    return new Promise((resolve, reject) => {
+        if (!memoDB) { resolve([]); return; }
+        const tx = memoDB.transaction(MEMO_STORE, 'readonly');
+        const store = tx.objectStore(MEMO_STORE);
+        const index = store.index('supplierNum');
+        const req = index.getAll(String(supplierNum));
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+function deleteMemoFromDB(memoId) {
+    return new Promise((resolve, reject) => {
+        if (!memoDB) { reject('MemoDB not initialized'); return; }
+        const tx = memoDB.transaction(MEMO_STORE, 'readwrite');
+        const store = tx.objectStore(MEMO_STORE);
+        const req = store.delete(memoId);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
+}
+
+// Обработчик клика по строке
+async function onRowClick(dataIndex) {
+    if (dataIndex < 0 || dataIndex >= DATA.length) return;
+    const d = DATA[dataIndex];
+
+    // Проверяем наличие меморандумов
+    let memos = [];
+    try {
+        memos = await getMemosFromDB(d._id);
+    } catch (e) {
+        console.warn('Ошибка чтения мемо:', e);
+    }
+
+    if (memos.length > 0) {
+        // Есть меморандумы — спрашиваем
+        showMemoPrompt(dataIndex, memos);
+    } else {
+        // Нет меморандумов — открываем обычную модалку
+        openModal(dataIndex);
+    }
+}
+
+// Диалог "Хотите просмотреть меморандум?"
+function showMemoPrompt(dataIndex, memos) {
+    const d = DATA[dataIndex];
+    const overlay = document.getElementById('modalOverlay');
+    const modal = overlay.querySelector('.modal');
+
+    document.getElementById('modalTitle').textContent =
+        `#${d.num} — ${d.name}`;
+
+    const body = document.getElementById('modalBody');
+    body.innerHTML = `
+        <div style="text-align:center;padding:30px 10px;">
+            <div style="font-size:3rem;margin-bottom:16px;">📋</div>
+            <h3 style="margin-bottom:8px;color:var(--text-primary);font-size:1.1rem;">
+                У этого поставщика есть меморандум
+            </h3>
+            <p style="color:var(--text-secondary);margin-bottom:6px;">
+                ${memos.length} файл(ов) прикреплено
+            </p>
+            <p style="color:var(--text-muted);font-size:0.82rem;">
+                Хотите просмотреть меморандум?
+            </p>
+        </div>
+    `;
+
+    const actions = document.getElementById('modalActions');
+    actions.innerHTML = `
+        <button class="btn" onclick="closeModal();openModal(${dataIndex})">📄 Карточка поставщика</button>
+        <button class="btn btn-primary" onclick="closeModal();openMemoViewer(${dataIndex})">📋 Да, открыть меморандум</button>
+    `;
+
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+// Просмотр меморандума — галерея
+async function openMemoViewer(dataIndex) {
+    if (dataIndex < 0 || dataIndex >= DATA.length) return;
+    const d = DATA[dataIndex];
+
+    let memos = [];
+    try {
+        memos = await getMemosFromDB(d._id);
+    } catch (e) {
+        alert('Ошибка загрузки файлов');
+        return;
+    }
+
+    if (memos.length === 0) {
+        alert('Нет прикреплённых файлов');
+        return;
+    }
+
+    // Создаём просмотрщик
+    let viewer = document.getElementById('memoViewer');
+    if (!viewer) {
+        viewer = document.createElement('div');
+        viewer.id = 'memoViewer';
+        viewer.style.cssText = `
+            display:none;position:fixed;inset:0;z-index:2000;
+            background:rgba(0,0,0,0.92);flex-direction:column;
+        `;
+        document.body.appendChild(viewer);
+    }
+
+    let currentMemoIdx = 0;
+
+    function renderViewer() {
+        const memo = memos[currentMemoIdx];
+        const isPdf = memo.type === 'pdf' || memo.name.toLowerCase().endsWith('.pdf');
+        const isImage = memo.type === 'image' || /\.(jpg|jpeg|png|gif|bmp|webp|tif|tiff)$/i.test(memo.name);
+
+        let contentHtml = '';
+        if (isImage) {
+            contentHtml = `<img src="${memo.data}" 
+                style="max-width:90vw;max-height:calc(100vh - 120px);object-fit:contain;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);"
+                alt="${escHtml(memo.name)}">`;
+        } else if (isPdf) {
+            contentHtml = `<iframe src="${memo.data}" 
+                style="width:90vw;height:calc(100vh - 120px);border:none;border-radius:8px;background:#fff;"></iframe>`;
+        } else {
+            contentHtml = `<div style="color:#fff;font-size:1.2rem;text-align:center;">
+                <div style="font-size:3rem;margin-bottom:12px;">📄</div>
+                <p>${escHtml(memo.name)}</p>
+                <a href="${memo.data}" download="${escHtml(memo.name)}" 
+                   style="color:var(--accent-blue);margin-top:12px;display:inline-block;">⬇ Скачать файл</a>
+            </div>`;
+        }
+
+        viewer.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;flex-shrink:0;">
+                <div style="color:#fff;font-size:0.9rem;">
+                    <strong>#${escHtml(d.num)} ${escHtml(d.name)}</strong>
+                    <span style="color:#888;margin-left:10px;">${currentMemoIdx + 1} / ${memos.length}</span>
+                    <span style="color:#666;margin-left:10px;">${escHtml(memo.name)}</span>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="memoUpload(${dataIndex})" 
+                        style="padding:6px 14px;border:1px solid #555;border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:0.82rem;">
+                        + Добавить файл
+                    </button>
+                    <button onclick="deleteMemo(${memos[currentMemoIdx].id},${dataIndex})" 
+                        style="padding:6px 14px;border:1px solid #555;border-radius:6px;background:transparent;color:#e74c3c;cursor:pointer;font-size:0.82rem;">
+                        🗑 Удалить
+                    </button>
+                    <button onclick="closeMemoViewer()" 
+                        style="padding:6px 14px;border:1px solid #555;border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:1.1rem;">
+                        ✕
+                    </button>
+                </div>
+            </div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:auto;">
+                ${memos.length > 1 ? `
+                    <button onclick="memoNav(-1)" 
+                        style="position:absolute;left:16px;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;border:1px solid #555;background:rgba(0,0,0,0.6);color:#fff;font-size:1.5rem;cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;">
+                        ‹
+                    </button>
+                ` : ''}
+                ${contentHtml}
+                ${memos.length > 1 ? `
+                    <button onclick="memoNav(1)" 
+                        style="position:absolute;right:16px;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;border:1px solid #555;background:rgba(0,0,0,0.6);color:#fff;font-size:1.5rem;cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;">
+                        ›
+                    </button>
+                ` : ''}
+            </div>
+            ${memos.length > 1 ? `
+                <div style="display:flex;justify-content:center;gap:6px;padding:10px;flex-shrink:0;">
+                    ${memos.map((m, i) => `
+                        <div onclick="memoGoTo(${i})" 
+                            style="width:${i === currentMemoIdx ? '24px' : '8px'};height:8px;border-radius:4px;
+                            background:${i === currentMemoIdx ? 'var(--accent-blue)' : '#555'};
+                            cursor:pointer;transition:all 0.2s;"></div>
+                    `).join('')}
+                </div>
+            ` : ''}
+        `;
+
+        viewer.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    // Навигация
+    window.memoNav = function(dir) {
+        currentMemoIdx = (currentMemoIdx + dir + memos.length) % memos.length;
+        renderViewer();
+    };
+
+    window.memoGoTo = function(idx) {
+        currentMemoIdx = idx;
+        renderViewer();
+    };
+
+    renderViewer();
+
+    // Клавиши навигации
+    window._memoKeyHandler = function(e) {
+        if (e.key === 'Escape') closeMemoViewer();
+        if (e.key === 'ArrowLeft') window.memoNav(-1);
+        if (e.key === 'ArrowRight') window.memoNav(1);
+    };
+    document.addEventListener('keydown', window._memoKeyHandler);
+}
+
+function closeMemoViewer() {
+    const viewer = document.getElementById('memoViewer');
+    if (viewer) viewer.style.display = 'none';
+    document.body.style.overflow = '';
+    if (window._memoKeyHandler) {
+        document.removeEventListener('keydown', window._memoKeyHandler);
+    }
+}
+
+// Загрузка меморандума
+function memoUpload(dataIndex) {
+    const d = DATA[dataIndex];
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,.tif,.tiff';
+    input.style.display = 'none';
+
+    input.addEventListener('change', async function(e) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        let saved = 0;
+        for (const file of files) {
+            if (file.size > 50 * 1024 * 1024) {
+                alert(`Файл "${file.name}" > 50 МБ, пропущен.`);
+                continue;
+            }
+            try {
+                const data = await readFileAsBase64(file);
+                const ext = file.name.split('.').pop().toLowerCase();
+                const type = ext === 'pdf' ? 'pdf' : 'image';
+                await saveMemoToDB(d._id, file.name, type, data, file.size);
+                saved++;
+            } catch (err) {
+                console.error('Ошибка:', err);
+            }
+        }
+
+        if (saved > 0) {
+            showNotification(`Загружено ${saved} файл(ов) для "${d.name}"`);
+            closeMemoViewer();
+            openMemoViewer(dataIndex);
+        }
+
+        if (input.parentNode) input.parentNode.removeChild(input);
+    });
+
+    document.body.appendChild(input);
+    input.click();
+}
+
+// Чтение файла в base64
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+    });
+}
+
+// Удалить конкретный файл меморандума
+async function deleteMemo(memoId, dataIndex) {
+    if (!confirm('Удалить этот файл меморандума?')) return;
+    try {
+        await deleteMemoFromDB(memoId);
+        showNotification('Файл удалён');
+        closeMemoViewer();
+        // Проверяем остались ли ещё файлы
+        const remaining = await getMemosFromDB(DATA[dataIndex]._id);
+        if (remaining.length > 0) {
+            openMemoViewer(dataIndex);
+        }
+    } catch (e) {
+        alert('Ошибка удаления: ' + e.message);
+    }
+}
+
+// Управление меморандумами из карточки поставщика
+function manageMemos(dataIndex) {
+    closeMemoViewer();
+    memoUpload(dataIndex);
+}
+
+// Кнопка "Прикрепить меморандум" — добавить в шапку или контекстное меню
+async function attachMemoToSupplier(dataIndex) {
+    memoUpload(dataIndex);
+}
+// ============================================= 
+// ЦВЕТОВЫЕ МЕТКИ
+// ============================================= 
+const COLORS = [
+    { id: 'red',    hex: '#e74c3c', name: 'Красный — не откорректирован' },
+    { id: 'yellow', hex: '#f1c40f', name: 'Жёлтый — в процессе' },
+    { id: 'green',  hex: '#2ecc71', name: 'Зелёный — согласовано' },
+    { id: 'blue',   hex: '#4a7cff', name: 'Синий — новый поставщик' },
+    { id: 'orange', hex: '#e67e22', name: 'Оранжевый — требует внимания' },
+    { id: 'purple', hex: '#9b59b6', name: 'Фиолетовый — особые условия' }
+];
+
+let colorPickerEl = null;
+
+function openColorPicker(dataIndex, event) {
+    event.stopPropagation();
+
+    if (colorPickerEl) {
+        colorPickerEl.remove();
+        colorPickerEl = null;
+    }
+
+    const d = DATA[dataIndex];
+    const currentColor = d._color || '';
+
+    colorPickerEl = document.createElement('div');
+    colorPickerEl.className = 'color-picker-popup';
+
+    let html = '';
+    for (let i = 0; i < COLORS.length; i++) {
+        const c = COLORS[i];
+        const activeClass = currentColor === c.id ? ' active' : '';
+        html += `<div class="cp-btn${activeClass}" 
+            style="background:${c.hex};" 
+            title="${c.name}" 
+            onclick="setSupplierColor(${dataIndex},'${c.id}')"></div>`;
+    }
+    html += `<div class="cp-clear" title="Убрать метку" onclick="setSupplierColor(${dataIndex},'')">✕</div>`;
+
+    colorPickerEl.innerHTML = html;
+    document.body.appendChild(colorPickerEl);
+
+    let x = event.clientX;
+    let y = event.clientY;
+
+    const rect = colorPickerEl.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth) x = window.innerWidth - rect.width - 10;
+    if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 10;
+
+    colorPickerEl.style.left = x + 'px';
+    colorPickerEl.style.top = y + 'px';
+
+    setTimeout(() => {
+        document.addEventListener('click', closeColorPicker, { once: true });
+    }, 10);
+}
+
+function closeColorPicker() {
+    if (colorPickerEl) {
+        colorPickerEl.remove();
+        colorPickerEl = null;
+    }
+}
+
+function setSupplierColor(dataIndex, colorId) {
+    if (dataIndex < 0 || dataIndex >= DATA.length) return;
+    DATA[dataIndex]._color = colorId;
+    closeColorPicker();
+    renderTable();
+    saveColorsToStorage();
+    supTouch();
+}
+
+function clearAllColors() {
+    if (!confirm('Убрать цветовые метки у ВСЕХ поставщиков?')) return;
+    for (var i = 0; i < DATA.length; i++) {
+        DATA[i]._color = '';
+    }
+    saveColorsToStorage();
+    supTouch();
+    if (contextMenu) contextMenu.style.display = 'none';
+    filteredData = [...DATA];
+    sortCol = 1;
+    sortDir = 'asc';
+    applySortToFiltered();
+    renderTable();
+    showNotification('Все цветовые метки сняты');
+}
+
+
+function saveColorsToStorage() {
+    // Цвета хранятся в поставщике и сохраняются вместе с данными.
+}
+
+function loadColorsFromStorage() {
+    // Отключено: цвета приходят вместе с данными из suppliersData.
+}
+
+// =============================================
+// КАТЕГОРИИ ПОСТАВЩИКОВ
+// =============================================
+const CATEGORIES = [
+    { id: 'alcohol',  name: 'Алкоголь',       css: 'tag-alcohol' },
+    { id: 'beer',     name: 'Пиво/Сидр',      css: 'tag-beer' },
+    { id: 'water',    name: 'Вода/Напитки',    css: 'tag-water' },
+    { id: 'juice',    name: 'Соки',            css: 'tag-juice' },
+    { id: 'coffee',   name: 'Кофе/Чай',        css: 'tag-coffee' },
+    { id: 'dairy',    name: 'Молочка',         css: 'tag-dairy' },
+    { id: 'meat',     name: 'Мясо/Колбаса',    css: 'tag-meat' },
+    { id: 'fish',     name: 'Рыба',            css: 'tag-fish' },
+    { id: 'bread',    name: 'Хлеб/Выпечка',    css: 'tag-bread' },
+    { id: 'candy',    name: 'Кондитерка',      css: 'tag-candy' },
+    { id: 'snacks',   name: 'Снеки/Чипсы',     css: 'tag-snacks' },
+    { id: 'grocery',  name: 'Бакалея/Крупы',    css: 'tag-grocery' },
+    { id: 'sauce',    name: 'Соусы/Консервы',   css: 'tag-sauce' },
+    { id: 'frozen',   name: 'Заморозка',       css: 'tag-frozen' },
+    { id: 'veg',      name: 'Овощи/Фрукты',    css: 'tag-veg' },
+    { id: 'chem',     name: 'Бытовая химия',    css: 'tag-chem' },
+    { id: 'hygiene',  name: 'Гигиена',         css: 'tag-hygiene' },
+    { id: 'pet',      name: 'Зоотовары',       css: 'tag-pet' },
+    { id: 'tobacco',  name: 'Табак',           css: 'tag-tobacco' },
+    { id: 'pack',     name: 'Упаковка/Посуда',  css: 'tag-pack' },
+    { id: 'saNapitki',name: 'С/А напитки',      css: 'tag-juice' },
+    { id: 'fastfood', name: 'Фастфуд',          css: 'tag-candy' },
+    { id: 'instant',  name: 'Быстрое приготовл.', css: 'tag-grocery' },
+    { id: 'waterbulk',name: 'Вода разлив',      css: 'tag-water' },
+    { id: 'nuts',     name: 'Орехи/Сухофрукты',  css: 'tag-snacks' },
+    { id: 'preserv',  name: 'Пресервы',         css: 'tag-fish' },
+    { id: 'household',name: 'Хозтовары',        css: 'tag-chem' },
+    { id: 'eggs',     name: 'Яйца',             css: 'tag-dairy' },
+    { id: 'pickles',  name: 'Соления',          css: 'tag-veg' },
+    { id: 'other',    name: 'Другое',          css: 'tag-other' }
+];
+
+let categoryEditorEl = null;
+
+function getCategoryTags(d) {
+    const cats = d._categories || [];
+    if (cats.length === 0) return '<span style="color:var(--text-muted);font-size:0.7rem;">—</span>';
+    let html = '<div class="tags-cell">';
+    for (let i = 0; i < cats.length; i++) {
+        const cat = CATEGORIES.find(c => c.id === cats[i]);
+        if (cat) {
+            html += `<span class="tag ${cat.css}">${escHtml(cat.name)}</span>`;
+        } else {
+            html += `<span class="tag tag-other">${escHtml(cats[i])}</span>`;
+        }
+    }
+    html += '</div>';
+    return html;
+}
+
+function openCategoryEditor(dataIndex, event) {
+    event.stopPropagation();
+    closeCategoryEditor();
+
+    const d = DATA[dataIndex];
+    const current = d._categories || [];
+
+    categoryEditorEl = document.createElement('div');
+    categoryEditorEl.className = 'category-editor';
+
+    let html = `<h4>Категории: ${escHtml(String(d.name).substring(0, 25))}</h4>`;
+
+    for (let i = 0; i < CATEGORIES.length; i++) {
+        const c = CATEGORIES[i];
+        const checked = current.indexOf(c.id) !== -1 ? ' checked' : '';
+        html += `<div class="cat-option">
+            <input type="checkbox" id="cat_${c.id}" value="${c.id}"${checked}>
+            <span class="tag ${c.css}">${escHtml(c.name)}</span>
+        </div>`;
+    }
+
+    html += `<input type="text" class="cat-custom-input" placeholder="Своя категория..." id="catCustomInput">`;
+    html += `<div class="cat-actions">
+        <button class="btn" onclick="closeCategoryEditor()" style="padding:4px 12px;font-size:0.8rem;">Отмена</button>
+        <button class="btn btn-primary" onclick="saveCategoryEditor(${dataIndex})" style="padding:4px 12px;font-size:0.8rem;">Сохранить</button>
+    </div>`;
+
+    categoryEditorEl.innerHTML = html;
+    document.body.appendChild(categoryEditorEl);
+
+    let x = event.clientX;
+    let y = event.clientY;
+    const rect = categoryEditorEl.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth) x = window.innerWidth - rect.width - 10;
+    if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 10;
+    categoryEditorEl.style.left = x + 'px';
+    categoryEditorEl.style.top = y + 'px';
+
+    // Предотвращаем закрытие при клике внутри
+    categoryEditorEl.addEventListener('click', e => e.stopPropagation());
+
+    setTimeout(() => {
+        document.addEventListener('click', closeCategoryEditor, { once: true });
+    }, 50);
+}
+
+function closeCategoryEditor() {
+    if (categoryEditorEl) {
+        categoryEditorEl.remove();
+        categoryEditorEl = null;
+    }
+}
+
+function saveCategoryEditor(dataIndex) {
+    const checkboxes = categoryEditorEl.querySelectorAll('input[type="checkbox"]:checked');
+    const cats = [];
+    checkboxes.forEach(cb => cats.push(cb.value));
+
+    const customInput = document.getElementById('catCustomInput');
+    if (customInput && customInput.value.trim()) {
+        const custom = customInput.value.trim();
+        if (cats.indexOf(custom) === -1) cats.push(custom);
+    }
+
+    DATA[dataIndex]._categories = cats;
+    closeCategoryEditor();
+    saveCategoriesToStorage();
+    supTouch();
+    applyFilters();
+}
+
+function saveCategoriesToStorage() {
+    // Категории теперь хранятся прямо в поставщике и сохраняются
+    // вместе со всеми данными через scheduleAutoSave — отдельное
+    // хранилище по номеру отключено, оно портило привязку.
+}
+
+function loadCategoriesFromStorage() {
+    // Отключено: категории приходят вместе с данными из suppliersData.
+}
+
+// =============================================
+// СРАВНЕНИЕ ПОСТАВЩИКОВ
+// =============================================
+let compareList = [];
+
+function toggleCompare(dataIndex, event) {
+    event.stopPropagation();
+    const idx = compareList.indexOf(dataIndex);
+    if (idx !== -1) {
+        compareList.splice(idx, 1);
+    } else {
+        if (compareList.length >= 5) {
+            showNotification('Максимум 5 поставщиков для сравнения');
+            return;
+        }
+        compareList.push(dataIndex);
+    }
+    updateComparePanel();
+    renderTable();
+}
+
+function removeFromCompare(dataIndex) {
+    const idx = compareList.indexOf(dataIndex);
+    if (idx !== -1) compareList.splice(idx, 1);
+    updateComparePanel();
+    renderTable();
+}
+
+function clearCompare() {
+    compareList = [];
+    updateComparePanel();
+    renderTable();
+}
+
+function updateComparePanel() {
+    let panel = document.getElementById('comparePanel');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'comparePanel';
+        panel.className = 'compare-panel';
+        document.body.appendChild(panel);
+    }
+
+    if (compareList.length === 0) {
+        panel.classList.remove('active');
+        return;
+    }
+
+    panel.classList.add('active');
+    let chipsHtml = '<div class="compare-selected">';
+    for (let i = 0; i < compareList.length; i++) {
+        const d = DATA[compareList[i]];
+        if (!d) continue;
+        chipsHtml += `<div class="compare-chip">
+            ${escHtml(String(d.name).substring(0, 25))}
+            <span class="remove" onclick="removeFromCompare(${compareList[i]})">&times;</span>
+        </div>`;
+    }
+    chipsHtml += '</div>';
+
+    panel.innerHTML = chipsHtml + `
+        <div class="compare-actions">
+            <span style="color:var(--text-muted);font-size:0.8rem;">${compareList.length}/5</span>
+            <button class="btn btn-primary" onclick="openCompareModal()" style="padding:6px 14px;font-size:0.82rem;">
+                ⚖ Сравнить
+            </button>
+            <button class="btn" onclick="clearCompare()" style="padding:6px 14px;font-size:0.82rem;">
+                ✕ Очистить
+            </button>
+        </div>
+    `;
+}
+
+function openCompareModal() {
+    if (compareList.length < 2) {
+        showNotification('Выберите минимум 2 поставщика');
+        return;
+    }
+
+    const suppliers = compareList.map(idx => DATA[idx]).filter(Boolean);
+
+    const compareFields = [
+        { key: 'retro',        label: 'Ретро условия' },
+        { key: 'discount',     label: 'Скидка' },
+        { key: 'positions',    label: 'Кол-во позиций' },
+        { key: 'sponsor',      label: 'Спонсорский взнос' },
+        { key: 'entryPay',     label: 'Оплата ввода' },
+        { key: 'skuEntry',     label: 'Ввод СКЮ' },
+        { key: 'returns',      label: 'Возвраты' },
+        { key: 'markupOpt',    label: 'Наценка ОПТ' },
+        { key: 'markupRetail', label: 'Наценка Розн.' },
+        { key: 'delivery',     label: 'Доставка' },
+        { key: 'extra',        label: 'Доп. условия' }
+    ];
+
+    const colWidth = suppliers.length <= 2 ? '250px' : suppliers.length <= 3 ? '200px' : '170px';
+    let html = '<div style="overflow-x:auto;">';
+    html += `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;table-layout:fixed;">`;
+
+
+
+    // Шапка с именами
+    html += `<thead><tr><th style="padding:10px;text-align:left;border-bottom:2px solid var(--border-color);width:130px;color:var(--text-muted);font-size:0.75rem;">ПАРАМЕТР</th>`;
+    for (let i = 0; i < suppliers.length; i++) {
+        html += `<th style="padding:10px;text-align:center;border-bottom:2px solid var(--border-color);width:${colWidth};font-size:0.82rem;color:var(--text-primary);word-wrap:break-word;white-space:normal;line-height:1.3;">
+            ${escHtml(suppliers[i].name)}
+        </th>`;
+    }
+    html += '</tr></thead><tbody>';
+
+    // Строки параметров
+    for (let f = 0; f < compareFields.length; f++) {
+        const field = compareFields[f];
+        const bgColor = f % 2 === 0 ? 'transparent' : 'var(--bg-tertiary)';
+
+        html += `<tr style="background:${bgColor};">`;
+        html += `<td style="padding:8px 10px;font-weight:600;color:var(--text-secondary);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.3px;">${escHtml(field.label)}</td>`;
+
+        // Собираем значения для подсветки лучшего
+        const values = suppliers.map(s => s[field.key]);
+        const numValues = values.map(v => {
+            const p = parsePercent(v);
+            if (p !== null) return p;
+            const n = parseFloat(v);
+            return isNaN(n) ? null : n;
+        });
+
+        for (let i = 0; i < suppliers.length; i++) {
+            const val = values[i];
+            let cellHtml = '';
+
+            if (field.key === 'returns') {
+                cellHtml = returnsBadge(val);
+            } else if (field.key === 'delivery') {
+                cellHtml = deliveryBadge(val);
+            } else if (field.key === 'retro' || field.key === 'discount' || field.key === 'markupOpt' || field.key === 'markupRetail') {
+                cellHtml = formatPercent(val);
+            } else {
+                cellHtml = isNone(val) ? '<span style="color:var(--text-muted);">—</span>' : escHtml(val);
+            }
+
+            // Подсветка лучшего значения
+            let bestStyle = '';
+            if (field.key === 'retro' || field.key === 'discount') {
+                const max = Math.max(...numValues.filter(n => n !== null && n > 0));
+                if (numValues[i] !== null && numValues[i] === max && max > 0) {
+                    bestStyle = 'background:rgba(46,204,113,0.12);border-radius:4px;padding:2px 6px;';
+                }
+            }
+            if (field.key === 'positions') {
+                const max = Math.max(...numValues.filter(n => n !== null));
+                if (numValues[i] !== null && numValues[i] === max && max > 0) {
+                    bestStyle = 'background:rgba(46,204,113,0.12);border-radius:4px;padding:2px 6px;';
+                }
+            }
+
+            html += `<td style="padding:8px 10px;text-align:center;">
+                <span style="${bestStyle}">${cellHtml}</span>
+            </td>`;
+        }
+        html += '</tr>';
+    }
+
+    // Категории
+    html += `<tr style="background:var(--bg-tertiary);"><td style="padding:8px 10px;font-weight:600;color:var(--text-secondary);font-size:0.78rem;">КАТЕГОРИИ</td>`;
+    for (let i = 0; i < suppliers.length; i++) {
+        html += `<td style="padding:8px 10px;text-align:center;">${getCategoryTags(suppliers[i])}</td>`;
+    }
+    html += '</tr>';
+
+    html += '</tbody></table></div>';
+
+    document.getElementById('modalTitle').textContent = `Сравнение поставщиков (${suppliers.length})`;
+    document.getElementById('modalBody').innerHTML = html;
+    document.getElementById('modalActions').innerHTML = `
+        <button class="btn" onclick="clearCompare();closeModal();">Очистить выбор</button>
+        <button class="btn btn-primary" onclick="closeModal()">Закрыть</button>
+    `;
+    document.getElementById('modalOverlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+// =============================================
+// ЭКСПОРТ HTML С ТЕКУЩИМИ ДАННЫМИ (БЕЗОПАСНЫЙ)
+// =============================================
+// ============================================= 
+// АВТОМАТИЧЕСКИЙ БЭКАП ПРИ ОТКРЫТИИ
+// ============================================= 
+
+
+// Показать список бэкапов и восстановить выбранный
+
+// ============================================= 
+// СКАЧИВАНИЕ HTML-БЭКАПА НА ДИСК
+// ============================================= 
+// Собирает актуальный HTML страницы (с текущими данными), не трогая интерфейс.
+// Используется и для бэкапа на диск, и для автосохранения в сам файл.
+
+
+// =============================================
+// АВТОСОХРАНЕНИЕ ПРЯМО В HTML-ФАЙЛ НА ДИСКЕ
+// (File System Access API — Chrome / Edge)
+// =============================================
+
+
+
+// --- хранение handle между сессиями ---
+
+
+
+
+// --- индикатор состояния в шапке ---
+
+// --- подключение / отключение файла ---
+
+
+// --- восстановление подключения при открытии страницы ---
+
+// --- собственно запись ---
+
+
+// Дописываем на диск сразу, если вкладку сворачивают/закрывают
+
+
+// Напоминание о еженедельном бэкапе при открытии
+// ============================================= 
+// ПОСТОЯННЫЙ ID ПОСТАВЩИКА
+// ============================================= 
+function genId() {
+    return 'sup_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+// Присвоить id всем, у кого его ещё нет (одноразово при загрузке)
+function ensureIds() {
+    let added = 0;
+    for (let i = 0; i < DATA.length; i++) {
+        if (!DATA[i]._id) {
+            DATA[i]._id = genId();
+            added++;
+        }
+    }
+    if (added > 0) {
+        try { localStorage.setItem('suppliersData', JSON.stringify(DATA)); } catch (e) {}
+        console.log('Присвоено id новым записям:', added);
+    }
+}
+// ============================================= 
+// ДАТА ПОСЛЕДНЕГО ИЗМЕНЕНИЯ
+// ============================================= 
+function touchSupplier(dataIndex) {
+    if (dataIndex < 0 || dataIndex >= DATA.length) return;
+    DATA[dataIndex]._modified = new Date().toISOString();
+}
+
+function formatModified(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d)) return '—';
+    return d.toLocaleDateString('ru-RU') + ' ' +
+        String(d.getHours()).padStart(2, '0') + ':' +
+        String(d.getMinutes()).padStart(2, '0');
+}
+// ============================================= 
+// БЫСТРОЕ РЕДАКТИРОВАНИЕ ЯЧЕЙКИ (двойной клик)
+// ============================================= 
+let inlineEditing = false;
+
+function startInlineEdit(cell, dataIndex, fieldKey, event) {
+    event.stopPropagation();
+    if (inlineEditing) return;
+    inlineEditing = true;
+
+    const d = DATA[dataIndex];
+    const oldValue = d[fieldKey] != null ? String(d[fieldKey]) : '';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = oldValue;
+    input.style.cssText = 'width:100%;box-sizing:border-box;padding:2px 4px;font-size:0.78rem;' +
+        'border:1px solid var(--accent-blue);border-radius:4px;background:var(--bg-input);' +
+        'color:var(--text-primary);outline:none;';
+
+    cell.innerHTML = '';
+    cell.appendChild(input);
+    input.focus();
+    input.select();
+
+    function finish(save) {
+        if (!inlineEditing) return;
+        inlineEditing = false;
+        if (save) {
+            const newValue = input.value.trim();
+            if (newValue !== oldValue) {
+                d[fieldKey] = newValue;
+                touchSupplier(dataIndex);
+                supTouch();
+                showNotification('«' + d.name + '»: обновлено');
+            }
+        }
+        // Перерисуем таблицу, чтобы вернуть форматирование
+        applyFilters();
+    }
+
+    input.addEventListener('keydown', function(e) {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', function() { finish(true); });
+}
+
+// ============================================= 
+// ИНИЦИАЛИЗАЦИЯ
+// ============================================= 
+
+
+// Асинхронная проверка кто имеет прикреплённые мемо
+async function updateMemoMarkers() {
+    if (!memoDB) return;
+    for (let i = 0; i < DATA.length; i++) {
+        try {
+            const memos = await getMemosFromDB(DATA[i]._id);
+            DATA[i].memoFiles = memos;
+        } catch (e) {
+            DATA[i].memoFiles = [];
+        }
+    }
+    // Перерисовать таблицу с иконками 📋
+    renderTable();
+}
+/* =============================================================
+   ОБЛАЧНОЕ ХРАНИЛИЩЕ ВКЛАДКИ «УСЛОВИЯ ПОСТАВЩИКОВ»
+   Заменяет локальные механизмы панели (localStorage / запись в файл):
+   данные живут в Cloudflare KV, доступ — через /api/suppliers.
+   ============================================================= */
+
+const SUP_API = '/api/suppliers';
+const SUP_SAVE_DELAY = 1200;          // мс тишины перед отправкой
+
+let supLoaded = false;
+let supVersion = 0;
+let supSaveTimer = null;
+let supSaving = false;
+let supPendingSave = false;
+let supDirty = false;
+let supLastError = '';
+let supReadOnly = false;      // облако недоступно: показываем данные, но не сохраняем
+
+function supSetState(kind, text, title) {
+    const el = document.getElementById('supCloudState');
+    if (!el) return;
+    el.textContent = text;
+    el.title = title || '';
+    el.className = 'sup-cloud sup-cloud-' + kind;
+}
+
+/* ---------- вход на вкладку ---------- */
+function supEnter() {
+    if (supLoaded) return;
+    supLoad();
+}
+
+/* Глобальная панель фильтров дашборда на этой вкладке не нужна:
+   у вкладки свои фильтры, а подсказка «Отчёт настраивается…» вводит в заблуждение. */
+function supSyncChrome() {
+    const active = (typeof S !== 'undefined') && S.tab === 'suppliers';
+    document.querySelectorAll('.wrap > .bar').forEach(function (el) {
+        el.style.display = active ? 'none' : '';
+    });
+    const chips = document.getElementById('chips');
+    if (chips) chips.style.display = active ? 'none' : '';
+    if (active) supEnter();
+}
+
+/* Вкладка не должна зависеть от загрузки full_data.json (7 МБ):
+   если основные данные дашборда не пришли, render() выходит раньше времени,
+   поэтому вешаемся напрямую на переключение вкладок. */
+(function () {
+    function hook() {
+        const nav = document.getElementById('nav');
+        if (nav) nav.addEventListener('click', function (e) {
+            if (e.target.tagName === 'BUTTON') setTimeout(supSyncChrome, 0);
+        });
+        supSyncChrome();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hook);
+    else hook();
+})();
+
+async function supLoad(silent) {
+    supSetState('wait', 'загрузка…');
+    try {
+        const r = await fetch(SUP_API + '?_t=' + Date.now(), { cache: 'no-store' });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+
+        const list = Array.isArray(j) ? j : (j.suppliers || []);
+        supVersion = typeof j.version === 'number' ? j.version : 0;
+
+        DATA.length = 0;
+        for (let i = 0; i < list.length; i++) DATA.push(list[i]);
+
+        supLoaded = true;
+        supDirty = false;
+        supBoot();
+        const when = j.updated_at ? new Date(j.updated_at).toLocaleString('ru-RU') : null;
+        supSetState('ok',
+            j.seeded ? '☁ стартовый снимок' : ('☁ сохранено' + (when ? ' · ' + when : '')),
+            j.seeded ? 'В облаке пока пусто — показан стартовый снимок из suppliers.json. Первая же правка создаст облачную версию.'
+                     : 'Версия ' + supVersion);
+        if (!silent) showNotification('Загружено ' + DATA.length + ' поставщиков из облака');
+    } catch (e) {
+        supLastError = e.message;
+        // Облако недоступно (файл открыт локально, KV не привязан, нет сети).
+        // Пробуем показать статический снимок — но ТОЛЬКО для чтения, иначе
+        // правки поверх устаревших данных потом затрут облако.
+        const ok = await supLoadSeedReadOnly();
+        if (ok) return;
+        supSetState('err', '⚠ нет связи', 'Не удалось загрузить: ' + e.message);
+        if (!supLoaded) {
+            const tb = document.getElementById('tableBody');
+            if (tb) tb.innerHTML = '<tr><td colspan="16" style="padding:24px;text-align:center;color:var(--text-muted)">' +
+                'Не удалось загрузить условия поставщиков: ' + escHtml(e.message) +
+                '<br><br><button class="btn" onclick="supReload()">Повторить</button></td></tr>';
+        }
+    }
+}
+
+/* Запасной режим: читаем docs/suppliers.json напрямую.
+   Правки при этом заблокированы — снимок может быть устаревшим. */
+async function supLoadSeedReadOnly() {
+    try {
+        const r = await fetch('suppliers.json?_t=' + Date.now(), { cache: 'no-store' });
+        if (!r.ok) return false;
+        const j = await r.json();
+        const list = Array.isArray(j) ? j : (j.suppliers || []);
+        if (!list.length) return false;
+
+        DATA.length = 0;
+        for (let i = 0; i < list.length; i++) DATA.push(list[i]);
+        supLoaded = true;
+        supReadOnly = true;
+        supDirty = false;
+        supBoot();
+        supSetState('err', '👁 просмотр без сохранения',
+            'Облако недоступно — показан снимок из suppliers.json. Правки не сохранятся. ' +
+            'Так бывает, если файл открыт локально или не привязано KV-хранилище (docs/SUPPLIERS_SETUP.md).');
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function supReload() {
+    if (supDirty && !confirm('Есть несохранённые правки. Перечитать из облака и потерять их?')) return;
+    supLoaded = false;
+    supLoad();
+}
+
+/* Довод панели до рабочего состояния после загрузки данных
+   (замена самозапускавшегося init() исходной панели). */
+function supBoot() {
+    ensureIds();
+
+    const catSelect = document.getElementById('fCategory');
+    if (catSelect) {
+        while (catSelect.options.length > 1) catSelect.remove(1);
+        for (let i = 0; i < CATEGORIES.length; i++) {
+            const opt = document.createElement('option');
+            opt.value = CATEGORIES[i].id;
+            opt.textContent = CATEGORIES[i].name;
+            catSelect.appendChild(opt);
+        }
+    }
+
+    if (typeof createContextMenu === 'function' && !window.__supCtxReady) {
+        createContextMenu();
+        window.__supCtxReady = true;
+    }
+
+    filteredData = DATA.slice();
+    sortCol = 1;
+    sortDir = 'asc';
+    applySortToFiltered();
+    renumberData();
+    renderTable();
+
+    if (typeof initMemoDB === 'function' && !window.__supMemoReady) {
+        window.__supMemoReady = true;
+        initMemoDB().then(function () {
+            if (typeof updateMemoMarkers === 'function') updateMemoMarkers();
+        }).catch(function (e) { console.warn('Вложения недоступны:', e); });
+    }
+}
+
+/* ---------- сохранение ---------- */
+// Вызывается отовсюду, где панель меняет DATA (бывший scheduleAutoSave).
+function supTouch() {
+    if (!supLoaded) return;          // не сохраняем, пока не загрузились
+    if (supReadOnly) {               // облако недоступно — правки никуда не уедут
+        supSetState('err', '👁 просмотр без сохранения',
+            'Правка сделана только на экране и будет потеряна при обновлении страницы.');
+        if (!window.__supRoWarned) {
+            window.__supRoWarned = true;
+            alert('Облако недоступно, вкладка открыта в режиме просмотра.\n\n' +
+                  'Правка останется только на экране и НЕ сохранится.\n\n' +
+                  'Обычные причины: файл открыт локально с диска, либо не привязано ' +
+                  'KV-хранилище (см. docs/SUPPLIERS_SETUP.md).');
+        }
+        return;
+    }
+    supDirty = true;
+    supSetState('wait', '● есть правки', 'Сохранение через секунду');
+    if (supSaveTimer) clearTimeout(supSaveTimer);
+    supSaveTimer = setTimeout(function () { supSave(false); }, SUP_SAVE_DELAY);
+}
+
+async function supSave(force) {
+    if (!supLoaded) return false;
+    if (supSaving) { supPendingSave = true; return false; }
+    supSaving = true;
+    supSetState('wait', '⟳ сохранение…');
+    try {
+        const payload = {
+            baseVersion: supVersion,
+            suppliers: DATA.map(function (d) {
+                const c = Object.assign({}, d);
+                delete c.memoFiles;      // вложения живут отдельно, в облако не шлём
+                return c;
+            })
+        };
+        const r = await fetch(SUP_API, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const j = await r.json().catch(function () { return {}; });
+
+        if (r.status === 409 && j.error === 'conflict') {
+            supSetState('err', '⚠ конфликт версий', j.message || '');
+            const keep = confirm(
+                'Данные изменились в другой вкладке или на другом устройстве.\n\n' +
+                'OK — записать ВАШУ версию поверх облачной.\n' +
+                'Отмена — перечитать облачную и потерять ваши правки.');
+            if (keep) {
+                supVersion = typeof j.serverVersion === 'number' ? j.serverVersion : supVersion;
+                supSaving = false;
+                return supSave(true);
+            }
+            supSaving = false;
+            supLoaded = false;
+            supLoad();
+            return false;
+        }
+        if (!r.ok || !j.ok) throw new Error(j.error || j.message || ('HTTP ' + r.status));
+
+        supVersion = j.version;
+        supDirty = false;
+        supLastError = '';
+        supSetState('ok', '☁ сохранено · ' + new Date().toLocaleTimeString('ru-RU'),
+                    'Версия ' + supVersion + ', записей: ' + j.count);
+        return true;
+    } catch (e) {
+        supLastError = e.message;
+        supSetState('err', '⚠ не сохранено', 'Ошибка: ' + e.message + '. Правки не потеряны — нажмите «Сохранить».');
+        if (force) alert('Не удалось сохранить: ' + e.message + '\n\nПравки остались на экране, попробуйте ещё раз.');
+        // сеть могла моргнуть — пробуем ещё раз через 15 секунд
+        if (supSaveTimer) clearTimeout(supSaveTimer);
+        supSaveTimer = setTimeout(function () { supSave(false); }, 15000);
+        return false;
+    } finally {
+        supSaving = false;
+        if (supPendingSave) {
+            supPendingSave = false;
+            setTimeout(function () { supSave(false); }, 100);
+        }
+    }
+}
+
+/* Ctrl+S на вкладке — сохранить немедленно */
+document.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey) || e.key !== 's') return;
+    if (typeof S === 'undefined' || S.tab !== 'suppliers') return;
+    e.preventDefault();
+    if (supSaveTimer) { clearTimeout(supSaveTimer); supSaveTimer = null; }
+    supSave(true).then(function (ok) { if (ok) showNotification('Сохранено в облако'); });
+}, true);
+
+/* Уходя со страницы с несохранёнными правками — предупредить */
+window.addEventListener('beforeunload', function (e) {
+    if (!supDirty) return;
+    e.preventDefault();
+    e.returnValue = '';
+});
+
+/* Свернули вкладку браузера — дописываем сразу, не ждём дебаунс */
+document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden' && supDirty && supLoaded) {
+        if (supSaveTimer) { clearTimeout(supSaveTimer); supSaveTimer = null; }
+        supSave(false);
+    }
+});
+
 </script>
 </body>
 </html>
