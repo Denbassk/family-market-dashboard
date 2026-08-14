@@ -231,11 +231,9 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 #p_suppliers /* ============================================= */
 /* СБРОС И БАЗОВЫЕ СТИЛИ                         */
 /* ============================================= */
-*, #p_suppliers *::before, #p_suppliers *::after{
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+*, #p_suppliers *,#p_suppliers *::before,#p_suppliers *::after{box-sizing:border-box}
+#p_suppliers h1,#p_suppliers h2,#p_suppliers h3,#p_suppliers h4,#p_suppliers h5,#p_suppliers p,#p_suppliers ul,#p_suppliers ol,#p_suppliers li,#p_suppliers figure,#p_suppliers blockquote,#p_suppliers dl,#p_suppliers dd,#p_suppliers fieldset{margin:0;padding:0}
+
 #p_suppliers{
     font-size: 14px;
     scroll-behavior: smooth;
@@ -1272,8 +1270,41 @@ mark{
 #p_suppliers{ margin: 0; padding: 10px; }
 #p_suppliers h1{ font-family: Arial, sans-serif; font-size: 16px; margin-bottom: 10px; }
 #p_suppliers p{ font-family: Arial, sans-serif; font-size: 11px; color: #666; margin-bottom: 10px; }
+/* Родные элементы дашборда внутри вкладки: задаём размеры явно, чтобы
+   они не зависели от порядка правил и от сброса выше. */
+#p_suppliers .bar{padding:12px 14px;gap:10px;align-items:flex-end;row-gap:12px}
+#p_suppliers .ctrl{display:flex;flex-direction:column;gap:4px}
+#p_suppliers .ctrl label{font-size:10px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.03em;line-height:1.2}
+#p_suppliers .bar select,#p_suppliers .bar input[type=text]{background:var(--c2);color:var(--txt);
+  border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;
+  height:34px;font-family:inherit}
+#p_suppliers .bar select:focus,#p_suppliers .bar input[type=text]:focus{outline:none;
+  border-color:var(--acc);box-shadow:0 0 0 3px var(--accsoft)}
+#p_suppliers .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:10px;margin:12px 0}
+#p_suppliers .kpi{padding:13px 16px;display:flex;flex-direction:column;justify-content:center;
+  min-height:72px}
+#p_suppliers .kpi .v{font-size:24px;font-weight:700;color:#fff;line-height:1.05;
+  letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+#p_suppliers .kpi .t{font-size:10.5px;color:var(--muted);margin-top:6px;text-transform:uppercase;
+  letter-spacing:.04em;line-height:1.2}
+#p_suppliers .card{padding:15px}
+#p_suppliers .card h3{font-size:13.5px;margin-bottom:6px;display:flex;align-items:baseline;gap:6px}
+#p_suppliers .card h3 span{color:var(--faint);font-weight:400;font-size:11px}
+#p_suppliers .note{font-size:11.5px;color:var(--muted);line-height:1.5}
+#p_suppliers .csvbtn{background:var(--c2);border:1px solid var(--line);color:var(--txt);
+  border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-weight:600;height:34px}
+#p_suppliers .csvbtn:hover{border-color:var(--line2)}
+
+/* вторая строка панели: действия слева, состояние облака справа */
+#p_suppliers .sup-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  width:100%;padding-top:10px;border-top:1px solid var(--line)}
+#p_suppliers .sup-actions .sup-spacer{margin-left:auto}
+
 /* индикатор облака */
-#p_suppliers .sup-cloud{font-size:11px;font-weight:600;padding:4px 9px;border-radius:6px;white-space:nowrap}
+#p_suppliers .sup-cloud{font-size:11.5px;font-weight:600;padding:7px 11px;border-radius:8px;
+  white-space:nowrap;height:34px;display:inline-flex;align-items:center}
 #p_suppliers .sup-cloud-ok{color:#4ade80;background:rgba(34,197,94,.15)}
 #p_suppliers .sup-cloud-wait{color:#facc15;background:rgba(234,179,8,.15)}
 #p_suppliers .sup-cloud-err{color:#f87171;background:rgba(239,68,68,.16)}
@@ -1320,7 +1351,28 @@ mark{
 
 /* модальное окно — карточка поставщика: две колонки вместо простыни */
 #p_suppliers .modal-overlay,#p_suppliers .form-overlay{padding:24px;background:rgba(4,8,14,.72)}
-#p_suppliers .modal{max-width:900px;border-radius:12px;background:var(--card);
+/* всплывающие окна панели: список категорий длинный — даём ему прокрутку,
+   а заголовок и кнопки держим на месте */
+#p_suppliers .category-editor{max-height:72vh;overflow:auto;min-width:270px;padding:0;
+  background:var(--card);border:1px solid var(--line2);border-radius:12px;
+  box-shadow:0 24px 60px rgba(0,0,0,.55)}
+#p_suppliers .category-editor h4{position:sticky;top:0;z-index:2;margin:0;
+  padding:12px 14px 9px;background:var(--card);border-bottom:1px solid var(--line);
+  font-size:12.5px}
+#p_suppliers .category-editor .cat-option{padding:3px 14px;display:flex;align-items:center;gap:8px}
+#p_suppliers .category-editor .cat-custom-input{margin:8px 14px;width:calc(100% - 28px);
+  background:var(--c2);color:var(--txt);border:1px solid var(--line);
+  border-radius:8px;padding:7px 10px;font-size:12px}
+#p_suppliers .category-editor .cat-actions{position:sticky;bottom:0;z-index:2;
+  display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;
+  background:var(--card);border-top:1px solid var(--line)}
+#p_suppliers .color-picker-popup{background:var(--card);border:1px solid var(--line2);
+  border-radius:10px;padding:10px;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+#p_suppliers #contextMenu{background:var(--card);border:1px solid var(--line2);
+  border-radius:10px;box-shadow:0 20px 50px rgba(0,0,0,.5);overflow:hidden;
+  max-height:80vh;overflow-y:auto}
+
+#p_suppliers .modal{max-width:1080px;border-radius:12px;background:var(--card);
   border:1px solid var(--line2);box-shadow:0 24px 60px rgba(0,0,0,.55)}
 #p_suppliers .modal-header{padding:14px 18px;border-bottom:1px solid var(--line);
   position:sticky;top:0;background:var(--card);z-index:2}
@@ -1338,7 +1390,7 @@ mark{
   position:sticky;bottom:0;background:var(--card)}
 
 /* форма добавления/правки — три колонки */
-#p_suppliers .form-modal{max-width:1040px;border-radius:12px;background:var(--card);
+#p_suppliers .form-modal{max-width:1220px;border-radius:12px;background:var(--card);
   border:1px solid var(--line2);box-shadow:0 24px 60px rgba(0,0,0,.55)}
 #p_suppliers .form-body{padding:14px 18px;display:grid;
   grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px 16px}
@@ -1555,7 +1607,7 @@ mark{
 <div class="page" id="p_suppliers">
 
 <div class="bar" style="margin-bottom:10px">
-  <div class="ctrl" style="flex:1 1 260px"><label>Поиск</label>
+  <div class="ctrl" style="flex:1 1 340px;min-width:280px"><label>Поиск</label>
     <input type="text" id="fSearch" placeholder="Название, условия, заметки…"
            oninput="applyFilters();toggleSearchClear()"></div>
   <div class="ctrl"><label>Доставка</label>
@@ -1586,13 +1638,17 @@ mark{
       <option value="orange">🟠 Оранжевый</option><option value="purple">🟣 Фиолетовый</option>
       <option value="none">⚪ Без метки</option></select></div>
   <button class="btn" onclick="resetFilters()" style="align-self:flex-end">Сбросить</button>
-  <button class="btn btn-primary" onclick="openAddForm()" style="align-self:flex-end">+ Добавить</button>
-  <button class="csvbtn" onclick="exportExcel()" style="align-self:flex-end">⬇ Excel: условия</button>
-  <button class="csvbtn" onclick="exportExcelMarkup()" style="align-self:flex-end">⬇ Excel: наценки</button>
-  <button class="csvbtn" onclick="supImportOpen()" style="align-self:flex-end"
-          title="Загрузить список из файла панели или JSON">⤓ Импорт</button>
-  <button class="csvbtn" onclick="supReload()" style="align-self:flex-end" title="Перечитать из облака">↻</button>
-  <span id="supCloudState" class="sup-cloud" style="align-self:flex-end">загрузка…</span>
+
+  <div class="sup-actions">
+    <button class="btn btn-primary" onclick="openAddForm()">+ Добавить поставщика</button>
+    <button class="csvbtn" onclick="exportExcel()">⬇ Excel: условия</button>
+    <button class="csvbtn" onclick="exportExcelMarkup()">⬇ Excel: наценки</button>
+    <button class="csvbtn" onclick="supImportOpen()"
+            title="Загрузить список из файла панели или JSON">⤓ Импорт из файла</button>
+    <button class="csvbtn" onclick="supReload()" title="Перечитать из облака">↻ Обновить</button>
+    <span class="sup-spacer"></span>
+    <span id="supCloudState" class="sup-cloud">загрузка…</span>
+  </div>
   <input type="file" id="supImportFile" accept=".json,.html,.htm" style="display:none"
          onchange="supImportFile(this)">
 </div>
@@ -3483,6 +3539,7 @@ function openModal(dataIndex) {
     // Кнопки действий
       const actions = document.getElementById('modalActions');
     actions.innerHTML = `
+        <button class="btn" title="Файл сохранится только в этом браузере и не попадёт в облако" onclick="closeModal();memoUpload(${dataIndex})">&#128206; Вложение (локально)</button>
         <button class="btn btn-danger" onclick="deleteFromModal()">&#128465; Удалить</button>
         <button class="btn" onclick="editFromModal()">&#9998; Редактировать</button>
         <button class="btn btn-primary" onclick="closeModal()">Закрыть</button>
@@ -3819,10 +3876,10 @@ function showNotification(message) {
     const notif = document.createElement('div');
     notif.style.cssText = `
         position: fixed;
-        top: 92px;
-        right: 20px;
+        bottom: 24px;
+        right: 24px;
         z-index: 4000;
-        background: #27AE60;
+        background: #16a34a;
         color: #fff;
         padding: 14px 22px;
         border-radius: 10px;
@@ -4696,7 +4753,7 @@ function createContextMenu() {
         box-shadow: var(--shadow-lg);
         font-size: 0.85rem;
     `;
-    document.body.appendChild(contextMenu);
+    supMount(contextMenu);
 
     // Закрыть при клике вне
     document.addEventListener('click', function() {
@@ -4731,7 +4788,7 @@ function showContextMenu(e, dataIndex) {
             &#128206; Прикрепить меморандум
         </div>
         ${hasMemo ? `
-        <div class="ctx-item" onclick="openMemoViewer(${dataIndex})" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;color:var(--accent-blue);">
+        <div class="ctx-item" title="Вложения хранятся только в этом браузере" onclick="openMemoViewer(${dataIndex})" style="padding:8px 16px;cursor:pointer;transition:background 0.15s;color:var(--accent-blue);">
             &#128203; Открыть меморандум (${d.memoFiles.length})
         </div>
         ` : ''}
@@ -5002,7 +5059,7 @@ async function openMemoViewer(dataIndex) {
             display:none;position:fixed;inset:0;z-index:2000;
             background:rgba(0,0,0,0.92);flex-direction:column;
         `;
-        document.body.appendChild(viewer);
+        supMount(viewer);
     }
 
     let currentMemoIdx = 0;
@@ -5233,7 +5290,7 @@ function openColorPicker(dataIndex, event) {
     html += `<div class="cp-clear" title="Убрать метку" onclick="setSupplierColor(${dataIndex},'')">✕</div>`;
 
     colorPickerEl.innerHTML = html;
-    document.body.appendChild(colorPickerEl);
+    supMount(colorPickerEl);
 
     let x = event.clientX;
     let y = event.clientY;
@@ -5373,7 +5430,7 @@ function openCategoryEditor(dataIndex, event) {
     </div>`;
 
     categoryEditorEl.innerHTML = html;
-    document.body.appendChild(categoryEditorEl);
+    supMount(categoryEditorEl);
 
     let x = event.clientX;
     let y = event.clientY;
@@ -5466,7 +5523,7 @@ function updateComparePanel() {
         panel = document.createElement('div');
         panel.id = 'comparePanel';
         panel.className = 'compare-panel';
-        document.body.appendChild(panel);
+        supMount(panel);
     }
 
     if (compareList.length === 0) {
@@ -5780,6 +5837,15 @@ function supSetState(kind, text, title) {
     el.textContent = text;
     el.title = title || '';
     el.className = 'sup-cloud sup-cloud-' + kind;
+}
+
+/* Всплывающие окна панели монтируем внутрь #p_suppliers, а не в body:
+   все стили и переменные темы вкладки скоупированы на этот контейнер,
+   снаружи они не действуют и окно получается прозрачным. */
+function supMount(el) {
+    const host = document.getElementById('p_suppliers');
+    (host || document.body).appendChild(el);
+    return el;
 }
 
 /* ---------- вход на вкладку ---------- */
