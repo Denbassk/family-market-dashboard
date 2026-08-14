@@ -182,7 +182,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
 :root{
     --transition-speed: 0.3s;
 }
-[data-theme="dark"] #p_suppliers{
+#p_suppliers{
     --bg-primary: #0f1117;
     --bg-secondary: #1a1d27;
     --bg-tertiary: #252836;
@@ -227,52 +227,6 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
     --scrollbar-track: #1a1d27;
     --scrollbar-thumb: #363950;
     --scrollbar-thumb-hover: #4a4e66;
-}
-[data-theme="light"] #p_suppliers{
-    --bg-primary: #f0f2f5;
-    --bg-secondary: #ffffff;
-    --bg-tertiary: #f8f9fa;
-    --bg-card: #ffffff;
-    --bg-hover: #f0f4ff;
-    --bg-input: #f8f9fa;
-    --bg-table-header: #f0f2f5;
-    --bg-table-row-even: #ffffff;
-    --bg-table-row-odd: #f8f9fb;
-    --bg-modal: #ffffff;
-    --bg-overlay: rgba(0,0,0,0.4);
-    --text-primary: #1a1d2e;
-    --text-secondary: #4a4e68;
-    --text-muted: #8b8fa3;
-    --border-color: #e0e3eb;
-    --border-light: #eceef3;
-    --accent-blue: #3366ff;
-    --accent-blue-hover: #4d7aff;
-    --accent-green: #27ae60;
-    --accent-green-bg: rgba(39,174,96,0.08);
-    --accent-yellow: #d4a40a;
-    --accent-yellow-bg: rgba(212,164,10,0.08);
-    --accent-red: #c0392b;
-    --accent-red-bg: rgba(192,57,43,0.08);
-    --accent-orange: #d35400;
-    --accent-orange-bg: rgba(211,84,0,0.08);
-    --accent-purple: #8e44ad;
-    --accent-purple-bg: rgba(142,68,173,0.08);
-    --accent-cyan: #0097a7;
-    --accent-cyan-bg: rgba(0,151,167,0.08);
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
-    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
-    --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
-    --badge-green-bg: rgba(39,174,96,0.1);
-    --badge-green-text: #27ae60;
-    --badge-red-bg: rgba(192,57,43,0.1);
-    --badge-red-text: #c0392b;
-    --badge-blue-bg: rgba(51,102,255,0.1);
-    --badge-blue-text: #3366ff;
-    --badge-orange-bg: rgba(211,84,0,0.1);
-    --badge-orange-text: #d35400;
-    --scrollbar-track: #f0f2f5;
-    --scrollbar-thumb: #c8ccd8;
-    --scrollbar-thumb-hover: #a0a5b8;
 }
 #p_suppliers /* ============================================= */
 /* СБРОС И БАЗОВЫЕ СТИЛИ                         */
@@ -1318,18 +1272,97 @@ mark{
 #p_suppliers{ margin: 0; padding: 10px; }
 #p_suppliers h1{ font-family: Arial, sans-serif; font-size: 16px; margin-bottom: 10px; }
 #p_suppliers p{ font-family: Arial, sans-serif; font-size: 11px; color: #666; margin-bottom: 10px; }
-#p_suppliers .sup-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;
-  justify-content:space-between;margin:0 0 14px;padding:12px 14px;
-  background:var(--bg-card,#1a1f2e);border:1px solid var(--border,#2a3142);border-radius:10px}
-#p_suppliers .sup-toolbar-title{font-size:1rem;font-weight:700;color:var(--text-primary,#e8ecf3)}
-#p_suppliers .sup-toolbar-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-#p_suppliers .sup-cloud{font-size:.8rem;font-weight:600;padding:5px 10px;border-radius:6px;white-space:nowrap}
-#p_suppliers .sup-cloud-ok{color:#27AE60;background:rgba(39,174,96,.12)}
-#p_suppliers .sup-cloud-wait{color:#D4A40A;background:rgba(212,164,10,.12)}
-#p_suppliers .sup-cloud-err{color:#E05252;background:rgba(224,82,82,.14)}
-@media(max-width:760px){
-  #p_suppliers .sup-toolbar{flex-direction:column;align-items:stretch}
-  #p_suppliers .sup-toolbar-actions{justify-content:flex-start}
+/* индикатор облака */
+#p_suppliers .sup-cloud{font-size:11px;font-weight:600;padding:4px 9px;border-radius:6px;white-space:nowrap}
+#p_suppliers .sup-cloud-ok{color:#4ade80;background:rgba(34,197,94,.15)}
+#p_suppliers .sup-cloud-wait{color:#facc15;background:rgba(234,179,8,.15)}
+#p_suppliers .sup-cloud-err{color:#f87171;background:rgba(239,68,68,.16)}
+
+/* таблица — плотность как на «Матрице» */
+#p_suppliers .table-wrapper{background:none;border:0;border-radius:0;box-shadow:none;
+  padding:0;margin:0;max-height:66vh;overflow:auto}
+#p_suppliers table{width:100%;border-collapse:collapse;font-size:12px;min-width:1500px}
+#p_suppliers thead th{padding:7px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--muted);background:var(--card);position:sticky;top:0;z-index:2;
+  border-bottom:1px solid var(--line);cursor:pointer;font-weight:700;
+  white-space:normal;line-height:1.2}
+
+/* фильтры вкладки должны уместиться в одну строку */
+#p_suppliers .bar .ctrl select{min-width:0;width:100%;font-size:12px;padding:6px 8px}
+#p_suppliers .bar .ctrl{flex:0 1 auto;min-width:96px}
+#p_suppliers .bar input[type=text]{min-width:0}
+#p_suppliers tbody td{padding:5px 9px;border-bottom:1px solid var(--line);vertical-align:middle;
+  font-size:12px;line-height:1.4}
+#p_suppliers tbody tr{transition:background .12s}
+#p_suppliers tbody tr:hover{background:var(--c2)}
+/* выравнивание по смыслу колонки: текст влево, числа по центру.
+   Без этого работает глобальное правило дашборда th,td{text-align:right}
+   и названия поставщиков прижимаются к правому краю. */
+#p_suppliers thead th,#p_suppliers tbody td{text-align:center}
+#p_suppliers thead th:nth-child(2),#p_suppliers tbody td:nth-child(2),
+#p_suppliers thead th:nth-child(14),#p_suppliers tbody td:nth-child(14),
+#p_suppliers thead th:nth-child(15),#p_suppliers tbody td:nth-child(15){text-align:left}
+
+/* название поставщика — в две строки максимум */
+#p_suppliers tbody td:nth-child(2){max-width:250px;white-space:normal;font-weight:600;
+  line-height:1.3}
+
+/* «Доп. условия» и «Примечание» бывают на десять строк и растягивают всю
+   таблицу — показываем две строки, полный текст открывается в карточке */
+#p_suppliers tbody td:nth-child(14),#p_suppliers tbody td:nth-child(15){
+  max-width:260px;white-space:normal;font-size:11px;color:var(--muted);
+  line-height:1.35}
+#p_suppliers tbody td:nth-child(14) .sup-clip,
+#p_suppliers tbody td:nth-child(15) .sup-clip{display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical;overflow:hidden}
+#p_suppliers tbody tr{height:38px}
+#p_suppliers .tag,#p_suppliers [class^="tag-"],#p_suppliers [class*=" tag-"]{font-size:9.5px;padding:1px 6px;border-radius:5px}
+
+/* модальное окно — карточка поставщика: две колонки вместо простыни */
+#p_suppliers .modal-overlay,#p_suppliers .form-overlay{padding:24px;background:rgba(4,8,14,.72)}
+#p_suppliers .modal{max-width:900px;border-radius:12px;background:var(--card);
+  border:1px solid var(--line2);box-shadow:0 24px 60px rgba(0,0,0,.55)}
+#p_suppliers .modal-header{padding:14px 18px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;background:var(--card);z-index:2}
+#p_suppliers .modal-header h2{font-size:15px;line-height:1.3}
+#p_suppliers .modal-body{padding:14px 18px;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0 22px}
+#p_suppliers .modal-row{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:baseline;
+  padding:6px 0;border-bottom:1px solid var(--line)}
+#p_suppliers .modal-label{font-size:10px;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--muted);font-weight:700}
+#p_suppliers .modal-value{font-size:12.5px;word-break:break-word;line-height:1.45}
+/* длинные условия занимают всю ширину окна */
+#p_suppliers .modal-row.wide{grid-column:1/-1}
+#p_suppliers .modal-footer{padding:12px 18px;border-top:1px solid var(--line);
+  position:sticky;bottom:0;background:var(--card)}
+
+/* форма добавления/правки — три колонки */
+#p_suppliers .form-modal{max-width:1040px;border-radius:12px;background:var(--card);
+  border:1px solid var(--line2);box-shadow:0 24px 60px rgba(0,0,0,.55)}
+#p_suppliers .form-body{padding:14px 18px;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px 16px}
+#p_suppliers .form-field label{font-size:10px;letter-spacing:.03em;color:var(--muted);font-weight:700}
+#p_suppliers .form-field input,#p_suppliers .form-field select,#p_suppliers .form-field textarea{
+  background:var(--c2);color:var(--txt);border:1px solid var(--line);border-radius:8px;
+  padding:7px 10px;font-size:12.5px;font-family:inherit}
+#p_suppliers .form-field textarea{min-height:64px;resize:vertical}
+#p_suppliers .form-field input:focus,#p_suppliers .form-field select:focus,
+#p_suppliers .form-field textarea:focus{outline:none;border-color:var(--acc);
+  box-shadow:0 0 0 3px var(--accsoft)}
+#p_suppliers .form-footer{padding:12px 18px;border-top:1px solid var(--line);
+  position:sticky;bottom:0;background:var(--card)}
+
+/* кнопки внутри вкладки — в стиле дашборда */
+#p_suppliers .btn{background:var(--c2);color:var(--txt);border:1px solid var(--line);
+  border-radius:8px;padding:7px 13px;font-size:12.5px;cursor:pointer;font-weight:600}
+#p_suppliers .btn:hover{border-color:var(--line2)}
+#p_suppliers .btn-primary{background:var(--acc);border-color:transparent;color:#04121f}
+#p_suppliers .btn-danger{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.4);color:#f87171}
+
+@media(max-width:900px){
+  #p_suppliers .modal-body,#p_suppliers .form-body{grid-template-columns:1fr}
+  #p_suppliers .modal-row{grid-template-columns:1fr;gap:2px}
 }
 
 </style></head>
@@ -1521,124 +1554,58 @@ mark{
 
 <div class="page" id="p_suppliers">
 
-<div class="sup-toolbar">
-  <div class="sup-toolbar-title">Коммерческие условия поставщиков — Харьков 2026</div>
-  <div class="sup-toolbar-actions">
-    <button class="btn btn-primary" onclick="openAddForm()">+ Добавить</button>
-    <button class="btn" onclick="exportExcel()">📥 Экспорт условий</button>
-    <button class="btn" onclick="exportExcelMarkup()" title="Компактно: поставщик + наценка опт/розница">📊 Экспорт наценок</button>
-    <button class="btn" onclick="supReload()" title="Перечитать данные из облака">↻ Обновить</button>
-    <span id="supCloudState" class="sup-cloud">загрузка…</span>
-  </div>
-</div>
-<div class="stats-bar">
-    <div class="stat-card">
-        <div class="stat-icon blue">📊</div>
-        <div class="stat-info"><div class="stat-value" id="statTotal">85</div><div class="stat-label">Всего поставщиков</div></div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon cyan">🚚</div>
-        <div class="stat-info"><div class="stat-value" id="statTT">34</div><div class="stat-label">Доставка ТТ</div></div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon purple">🏢</div>
-        <div class="stat-info"><div class="stat-value" id="statRC">51</div><div class="stat-label">Доставка РЦ</div></div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon yellow">💰</div>
-        <div class="stat-info"><div class="stat-value" id="statRetro">46</div><div class="stat-label">С ретро</div></div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon red">🏷</div>
-        <div class="stat-info"><div class="stat-value" id="statDiscount">32</div><div class="stat-label">Со скидкой</div></div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon green">📈</div>
-        <div class="stat-info"><div class="stat-value" id="statTotalPos">1864</div><div class="stat-label">Всего позиций</div></div>
-    </div>
-</div>
-
-<div class="filters-panel">
-    <div class="filters-header">
-        <div class="filters-title">🔎 Поиск и фильтрация</div>
-        <button class="btn btn-ghost" id="btnToggleFilters" onclick="toggleAdvancedFilters()" style="font-size:0.8rem; background:transparent; border:none; color:var(--text-muted); cursor:pointer;">Скрыть настройки ▴</button>
-    </div>
-
-    <div class="filters-grid">
-        <div class="filter-group search-group">
-            <label>Поиск по тексту</label>
-            <div class="search-wrapper">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="fSearch" placeholder="Название, условия, заметки..." oninput="applyFilters();toggleSearchClear()">
-                <button class="search-clear hidden" id="searchClear" onclick="clearSearch()" title="Очистить">✕</button>
-            </div>
-        </div>
-        <div class="filter-group">
-            <label>Доставка</label>
-            <select id="fDelivery" onchange="applyFilters()">
-                <option value="">Все типы</option>
-                <option value="ТТ">Только ТТ</option>
-                <option value="РЦ">Только РЦ</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label>Категория</label>
-            <select id="fCategory" onchange="applyFilters()">
-                <option value="">Все категории</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label>Метка</label>
-            <select id="fColor" onchange="applyFilters()">
-                <option value="">Все</option>
-                <option value="red">🔴 Красный</option>
-                <option value="yellow">🟡 Жёлтый</option>
-                <option value="green">🟢 Зелёный</option>
-                <option value="blue">🔵 Синий</option>
-                <option value="orange">🟠 Оранжевый</option>
-                <option value="purple">🟣 Фиолетовый</option>
-                <option value="none">⚪ Без метки</option>
-            </select>
-        </div>
-        <button class="btn-reset" onclick="resetFilters()">Сброс</button>
-    </div>
-
-    <div class="filters-advanced" id="advancedFilters" style="display: flex;">
-        <div class="filter-group">
-            <label>Ретро</label>
-            <select id="fRetro" onchange="applyFilters()">
-                <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label>Скидка</label>
-            <select id="fDiscount" onchange="applyFilters()">
-                <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label>Возвраты</label>
-            <select id="fReturns" onchange="applyFilters()">
-                <option value="">Все</option><option value="есть">Есть</option><option value="нет">Нет</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label>Вход SKU</label>
-            <select id="fSku" onchange="applyFilters()">
-                <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label>Спонсор</label>
-            <select id="fSponsor" onchange="applyFilters()">
-                <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option>
-            </select>
-        </div>
-    </div>
+<div class="bar" style="margin-bottom:10px">
+  <div class="ctrl" style="flex:1 1 260px"><label>Поиск</label>
+    <input type="text" id="fSearch" placeholder="Название, условия, заметки…"
+           oninput="applyFilters();toggleSearchClear()"></div>
+  <div class="ctrl"><label>Доставка</label>
+    <select id="fDelivery" onchange="applyFilters()">
+      <option value="">Все типы</option><option value="ТТ">Только ТТ</option><option value="РЦ">Только РЦ</option>
+    </select></div>
+  <div class="ctrl"><label>Категория</label>
+    <select id="fCategory" onchange="applyFilters()"><option value="">Все категории</option></select></div>
+  <div class="ctrl"><label>Ретро</label>
+    <select id="fRetro" onchange="applyFilters()">
+      <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option></select></div>
+  <div class="ctrl"><label>Скидка</label>
+    <select id="fDiscount" onchange="applyFilters()">
+      <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option></select></div>
+  <div class="ctrl"><label>Возвраты</label>
+    <select id="fReturns" onchange="applyFilters()">
+      <option value="">Все</option><option value="есть">Есть</option><option value="нет">Нет</option></select></div>
+  <div class="ctrl"><label>Ввод SKU</label>
+    <select id="fSku" onchange="applyFilters()">
+      <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option></select></div>
+  <div class="ctrl"><label>Спонсор</label>
+    <select id="fSponsor" onchange="applyFilters()">
+      <option value="">Все</option><option value="yes">Есть</option><option value="no">Нет</option></select></div>
+  <div class="ctrl"><label>Метка</label>
+    <select id="fColor" onchange="applyFilters()">
+      <option value="">Все</option><option value="red">🔴 Красный</option><option value="yellow">🟡 Жёлтый</option>
+      <option value="green">🟢 Зелёный</option><option value="blue">🔵 Синий</option>
+      <option value="orange">🟠 Оранжевый</option><option value="purple">🟣 Фиолетовый</option>
+      <option value="none">⚪ Без метки</option></select></div>
+  <button class="btn" onclick="resetFilters()" style="align-self:flex-end">Сбросить</button>
+  <button class="btn btn-primary" onclick="openAddForm()" style="align-self:flex-end">+ Добавить</button>
+  <button class="csvbtn" onclick="exportExcel()" style="align-self:flex-end">⬇ Excel: условия</button>
+  <button class="csvbtn" onclick="exportExcelMarkup()" style="align-self:flex-end">⬇ Excel: наценки</button>
+  <button class="csvbtn" onclick="supImportOpen()" style="align-self:flex-end"
+          title="Загрузить список из файла панели или JSON">⤓ Импорт</button>
+  <button class="csvbtn" onclick="supReload()" style="align-self:flex-end" title="Перечитать из облака">↻</button>
+  <span id="supCloudState" class="sup-cloud" style="align-self:flex-end">загрузка…</span>
+  <input type="file" id="supImportFile" accept=".json,.html,.htm" style="display:none"
+         onchange="supImportFile(this)">
 </div>
 
-<!-- ================ ТАБЛИЦА ================ -->
-<div class="table-wrapper" id="tableWrapper">
+<div class="kpis" id="sup_kpis">
+  <div class="kpi"><div class="v" id="statTotal">—</div><div class="t">Всего поставщиков</div></div>
+  <div class="kpi"><div class="v" id="statTT">—</div><div class="t">Доставка ТТ</div></div>
+  <div class="kpi"><div class="v" id="statRC">—</div><div class="t">Доставка РЦ</div></div>
+  <div class="kpi"><div class="v" id="statRetro">—</div><div class="t">С ретро</div></div>
+  <div class="kpi"><div class="v" id="statDiscount">—</div><div class="t">Со скидкой</div></div>
+  <div class="kpi"><div class="v" id="statTotalPos">—</div><div class="t">Всего позиций</div></div>
+</div>
+<div class="card full"><h3>Коммерческие условия <span id="supCount"></span></h3><div class="note" style="margin:0 0 8px">Клик по строке — карточка поставщика. Сортировка — клик по заголовку. Правый клик по строке — цветная метка и категории.</div><div class="table-wrapper" id="tableWrapper">
     <table>
 <thead>
     <tr>
@@ -1669,7 +1636,7 @@ mark{
 </div>
 
 <!-- ================ ФУТЕР ================ -->
-<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+</div><div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
     <div class="modal">
         <div class="modal-header">
             <h2 id="modalTitle">#80 — ЧП Рома (хлебо-булочные изделия)</h2>
@@ -3158,8 +3125,8 @@ function renderTable() {
             <td onclick="event.stopPropagation()" ondblclick="startInlineEdit(this,${idx},'markupOpt',event)" title="Двойной клик — изменить">${optHtml}</td>
             <td onclick="event.stopPropagation()" ondblclick="startInlineEdit(this,${idx},'markupRetail',event)" title="Двойной клик — изменить">${retailHtml}</td>
             <td>${deliveryBadge(d.delivery)}</td>
-            <td>${extraHtml}</td>
-            <td>${noteHtml}</td>
+            <td><div class="sup-clip">${extraHtml}</div></td>
+            <td><div class="sup-clip">${noteHtml}</div></td>
         </tr>`;
     }
 
@@ -3249,6 +3216,7 @@ function applyFilters() {
 function toggleAdvancedFilters() {
     const adv = document.getElementById('advancedFilters');
     const btn = document.getElementById('btnToggleFilters');
+    if (!adv || !btn) return;   // компактная вёрстка: все фильтры уже видны
     
     if (adv.style.display === 'flex') {
         adv.style.display = 'none';
@@ -3501,7 +3469,10 @@ function openModal(dataIndex) {
             }
         }
 
-        html += `<div class="modal-row">
+        const WIDE = ['Поставщик', 'Доп. условия', 'Примечание', 'Категории'];
+        const wide = WIDE.indexOf(f.label) !== -1 ||
+                     String(f.value == null ? '' : f.value).length > 90;
+        html += `<div class="modal-row${wide ? ' wide' : ''}">
             <div class="modal-label">${escHtml(f.label)}</div>
             <div class="modal-value">${valueHtml}</div>
         </div>`;
@@ -3512,7 +3483,6 @@ function openModal(dataIndex) {
     // Кнопки действий
       const actions = document.getElementById('modalActions');
     actions.innerHTML = `
-        <button class="btn" onclick="closeModal();memoUpload(${dataIndex})">&#128206; Прикрепить мемо</button>
         <button class="btn btn-danger" onclick="deleteFromModal()">&#128465; Удалить</button>
         <button class="btn" onclick="editFromModal()">&#9998; Редактировать</button>
         <button class="btn btn-primary" onclick="closeModal()">Закрыть</button>
@@ -5942,6 +5912,7 @@ function supBoot() {
     applySortToFiltered();
     renumberData();
     renderTable();
+    supCount();
 
     if (typeof initMemoDB === 'function' && !window.__supMemoReady) {
         window.__supMemoReady = true;
@@ -5950,6 +5921,28 @@ function supBoot() {
         }).catch(function (e) { console.warn('Вложения недоступны:', e); });
     }
 }
+
+/* Счётчик в заголовке карточки: «показано N из M» */
+function supCount() {
+    const el = document.getElementById('supCount');
+    if (!el) return;
+    const shown = (typeof filteredData !== 'undefined' && filteredData) ? filteredData.length : 0;
+    el.textContent = shown === DATA.length
+        ? '· ' + DATA.length + ' поставщиков'
+        : '· показано ' + shown + ' из ' + DATA.length;
+}
+
+/* renderTable вызывается панелью после каждого фильтра/сортировки —
+   подцепляем к нему обновление счётчика, не трогая саму функцию. */
+(function () {
+    if (typeof renderTable !== 'function') return;
+    const orig = renderTable;
+    renderTable = function () {
+        const r = orig.apply(this, arguments);
+        try { supCount(); } catch (e) {}
+        return r;
+    };
+})();
 
 /* ---------- сохранение ---------- */
 // Вызывается отовсюду, где панель меняет DATA (бывший scheduleAutoSave).
@@ -6033,6 +6026,94 @@ async function supSave(force) {
             setTimeout(function () { supSave(false); }, 100);
         }
     }
+}
+
+/* ---------- импорт из файла панели / JSON ---------- */
+function supImportOpen() {
+    if (supReadOnly) { alert('Облако недоступно — импорт сейчас невозможен.'); return; }
+    const el = document.getElementById('supImportFile');
+    if (el) { el.value = ''; el.click(); }
+}
+
+function supImportFile(input) {
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+        try {
+            supImportApply(String(reader.result), file.name);
+        } catch (e) {
+            alert('Не удалось прочитать файл: ' + e.message);
+        }
+    };
+    reader.onerror = function () { alert('Не удалось прочитать файл.'); };
+    reader.readAsText(file, 'utf-8');
+}
+
+function supImportApply(text, fileName) {
+    let list = null;
+    const t = text.replace(/^﻿/, '').trim();
+
+    if (t.charAt(0) === '[' || t.charAt(0) === '{') {
+        const j = JSON.parse(t);
+        list = Array.isArray(j) ? j : (j.suppliers || null);
+    } else {
+        // HTML-файл панели: достаём литерал const DATA=[...]
+        const m = t.match(/const\s+DATA\s*=\s*(\[[\s\S]*?\n\])\s*;/);
+        if (m) list = JSON.parse(m[1]);
+    }
+    if (!Array.isArray(list) || !list.length) {
+        alert('В файле «' + fileName + '» не нашёлся список поставщиков.\n\n' +
+              'Подойдёт HTML-файл панели или JSON — массив либо объект с полем suppliers.');
+        return;
+    }
+
+    // сверяем по названию: оно устойчивее номера, который плывёт при вставках
+    const key = function (d) { return String(d && d.name || '').trim().toLowerCase(); };
+    const cur = new Map();
+    DATA.forEach(function (d) { cur.set(key(d), d); });
+
+    const added = [], changed = [];
+    list.forEach(function (d) {
+        const k = key(d);
+        if (!k) return;
+        const old = cur.get(k);
+        if (!old) { added.push(d.name); return; }
+        const fields = ['retro', 'discount', 'positions', 'sponsor', 'entryPay', 'skuEntry',
+                        'returns', 'markupOpt', 'markupRetail', 'delivery', 'extra', 'note'];
+        if (fields.some(function (f) {
+                return String(old[f] == null ? '' : old[f]) !== String(d[f] == null ? '' : d[f]);
+            })) changed.push(d.name);
+    });
+    const incoming = new Set(list.map(key));
+    const removed = DATA.filter(function (d) { return !incoming.has(key(d)); }).map(function (d) { return d.name; });
+
+    const preview = function (arr, n) {
+        return arr.slice(0, n).map(function (x) { return '  • ' + x; }).join('\n') +
+               (arr.length > n ? '\n  … и ещё ' + (arr.length - n) : '');
+    };
+    let msg = 'Импорт из «' + fileName + '»: ' + list.length + ' записей.\n\n' +
+              'Новых: ' + added.length + '\n' +
+              (added.length ? preview(added, 6) + '\n' : '') +
+              'Изменится условий: ' + changed.length + '\n' +
+              (changed.length ? preview(changed, 6) + '\n' : '') +
+              'Пропадёт из облака: ' + removed.length + '\n' +
+              (removed.length ? preview(removed, 6) + '\n' : '') +
+              '\nЗаменить облачные данные содержимым файла?';
+    if (!confirm(msg)) return;
+
+    DATA.length = 0;
+    list.forEach(function (d) {
+        const c = Object.assign({}, d);
+        delete c.memoFiles;
+        DATA.push(c);
+    });
+
+    ensureIds();
+    renumberData();
+    applyFilters();
+    supTouch();
+    showNotification('Импортировано ' + DATA.length + ' поставщиков');
 }
 
 /* Ctrl+S на вкладке — сохранить немедленно */
