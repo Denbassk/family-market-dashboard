@@ -1484,7 +1484,7 @@ mark{
   <div class="grid">
     <div class="card full"><h3>Динамика выручки и прибыли по месяцам <span id="ov_dyn_s"></span></h3><div id="ov_dyn" class="chart"></div></div>
     <div class="card"><h3>Категории по выручке <span>цвет — маржа % · клик = фильтр</span></h3><div id="ov_cat" class="chart tall"></div></div>
-    <div class="card"><h3>Магазины по выручке <span>клик = фильтр</span></h3><div id="ov_store" class="chart tall"></div></div>
+    <div class="card"><h3>Магазины по выручке <span id="ov_store_s">клик = фильтр</span></h3><div id="ov_store" class="chart tall"></div></div>
     <div class="card full" id="ov_ret_card" style="display:none"><h3>Возвраты поставщикам <span id="ov_ret_s"></span><button class="csvbtn" data-t="ov_ret">⬇ Excel</button></h3><div class="scroll"><table id="ov_ret"></table></div><div class="muted" id="ov_ret_note" style="font-size:11.5px;margin-top:7px"></div></div>
     <div class="card full"><h3>Сводка по категориям <span id="ov_tab_s"></span><button class="csvbtn" data-t="ov_tab">⬇ Excel</button></h3><div class="scroll"><table id="ov_tab"></table></div></div>
   </div>
@@ -1819,19 +1819,85 @@ const allSel=s=>!s||!s.length;
 const inSel=(v,s)=>!s||!s.length||s.includes(v);
 
 // ---------- рабочий набор позиций под текущий фильтр ----------
+// АДДИТИВНОСТЬ РАЗРЕЗОВ (важно для всех агрегатов ниже):
+//   магазины   — выручка/прибыль/единицы/ЧЕКИ складываются (чек принадлежит одному магазину),
+//                а SKU нет: один товар продаётся в нескольких точках;
+//   категории  } выручка/прибыль/единицы/SKU складываются (товар лежит в одной категории
+//   поставщики } и у одного поставщика), а ЧЕКИ нет: один чек содержит несколько категорий.
+//
+// Точный срез по магазинам даёт куб `D.prod_store` — [индекс товара, индекс магазина, выручка,
+// прибыль, кол-во], индексы ссылаются на D.products и D.stores. До него «Позиции» при одном
+// магазине строились на ТОП-30 из store_top_products (~26% выручки точки), а при двух и более
+// фильтр магазина молча терялся и показывалась вся сеть.
+// Единственный неточный случай — МЕСЯЦ и МАГАЗИН одновременно: помесячного куба по точкам нет
+// (398 тыс строк — слишком тяжело), поэтому месячная выручка позиции распределяется по точкам
+// пропорционально их годовой доле. Такой срез помечается WP_EXACT=false и подписью «≈ оценка».
+let WP_EXACT=true;
+let WP_CACHE={key:null,val:null,exact:true};
+function wpKey(){return [S.month,S.store.join(''),S.cat.join(''),S.sup.join(''),S.abc,S.noOff?1:0,S.q].join('');}
+function wpReset(){WP_CACHE={key:null,val:null,exact:true};}
+// маска выбранных магазинов по индексам D.stores
+function storeMask(){
+  const st=D.stores||[], on=new Uint8Array(st.length);
+  for(let i=0;i<st.length;i++) on[i]=inSel(st[i],S.store)?1:0;
+  return on;
+}
+// точная агрегация позиций по выбранным магазинам (весь период)
+function productsByStore(){
+  const P=D.products||[], on=storeMask(), n=P.length;
+  const rev=new Float64Array(n), gp=new Float64Array(n), qty=new Float64Array(n), pts=new Int32Array(n);
+  const seen=new Uint8Array(n);
+  for(const r of (D.prod_store||[])){
+    if(!on[r[1]])continue;
+    const i=r[0]; if(i>=n)continue;
+    rev[i]+=r[2]; gp[i]+=r[3]; qty[i]+=r[4]; if(r[2]||r[4])pts[i]++;
+    seen[i]=1;
+  }
+  const out=[];
+  for(let i=0;i<n;i++){
+    if(!seen[i])continue;
+    const d=P[i];
+    out.push({p:d.p,c:d.c,s:d.s,rev:rev[i],gp:gp[i],qty:qty[i],st:pts[i],
+      mrg:rev[i]?+(gp[i]/rev[i]*100).toFixed(1):0,abc:d.abc,xyz:d.xyz});
+  }
+  return out;
+}
 function workProducts(){
-  let base;
+  const key=wpKey();
+  if(WP_CACHE.key===key){WP_EXACT=WP_CACHE.exact;return WP_CACHE.val;}
+  const storeSel=!allSel(S.store), hasCube=!!(D.prod_store&&D.products&&D.stores);
+  let base, exact=true;
   if(monthSel()){
     const m=monthN(), meta={};(D.products||[]).forEach(p=>meta[p.p]=p);
     base=(D.prod_month||[]).filter(r=>r.mo===m).map(r=>{const d=meta[r.p]||{};return {p:r.p,c:d.c||'Прочее (нет в матрице)',s:d.s||'(нет в матрице)',rev:r.rev,gp:r.gp,qty:r.qty,st:d.st,mrg:r.rev?+(r.gp/r.rev*100).toFixed(1):0,abc:d.abc,xyz:d.xyz};});
+    if(storeSel){
+      if(hasCube){
+        // доля выбранных точек в годовой выручке позиции -> раскладываем её месячную выручку
+        const share={}; const byStore=productsByStore();
+        byStore.forEach(x=>{const tot=(meta[x.p]&&meta[x.p].rev)||0;share[x.p]=tot?x.rev/tot:0;});
+        base=base.filter(r=>share[r.p]>0).map(r=>{const k=share[r.p];
+          return {...r,rev:Math.round(r.rev*k),gp:Math.round(r.gp*k),qty:Math.round(r.qty*k),st:undefined};});
+        exact=false;
+      } else {
+        base=base.filter(r=>false); // куба нет — честнее показать пусто, чем выручку всей сети
+        exact=false;
+      }
+    }
+  } else if(storeSel && hasCube){
+    base=productsByStore();
+  } else if(storeSel){
+    // фолбэк для старого full_data.json без куба: ТОП-30 на точку, только при одном магазине
+    base=(S.store.length===1)?(D.store_top_products||[]).filter(r=>r.store===S.store[0]):[];
+    exact=false;
   } else {
-    base = (S.store.length===1) ? (D.store_top_products||[]).filter(r=>r.store===S.store[0]) : D.products;
+    base=D.products||[];
   }
   if(!allSel(S.cat)) base=base.filter(r=>inSel(r.c,S.cat));
   if(!allSel(S.sup)) base=base.filter(r=>inSel(r.s,S.sup));
   if(S.abc&&S.abc!=='all') base=base.filter(r=>(r.abc||'')===S.abc);
   if(S.noOff) base=base.filter(r=>!isTech(r.p));
   if(S.q) base=base.filter(r=>r.p.toLowerCase().includes(S.q.toLowerCase()));
+  WP_CACHE={key,val:base,exact}; WP_EXACT=exact;
   return base;
 }
 // «Технические» товары — расходники собств. производства (зеркало scripts/fetch_stale.py: is_tech)
@@ -1914,15 +1980,37 @@ document.addEventListener('click',e=>{if(!e.target.closest('.ms'))document.query
 // точные KPI для одиночного фильтра, иначе — из позиций (приближённо)
 function kpiNow(){
   const m=monthSel()?monthN():null;
-  const one=a=>a.length===1?a[0]:null;
   const nf=[S.store,S.cat,S.sup].filter(a=>a.length).length;
   const mk=r=>({revenue:(r&&r.revenue)||0,gp:(r&&r.gp)||0,margin:(r&&r.revenue)?+((r.gp/r.revenue)*100).toFixed(1):0,qty:r?(r.qty!=null?r.qty:r.units):undefined,receipts:r?r.receipts:undefined,skus:r?r.skus:undefined,exact:true});
-  if(!S.q&&nf<=1){
+  // суммирование готовых помесячных/итоговых массивов по МУЛЬТИвыбору одного измерения.
+  // keepReceipts/keepSkus — см. правило аддитивности над workProducts().
+  const roll=(rows,keepReceipts,keepSkus)=>{
+    if(!rows.length)return null;
+    let revenue=0,gp=0,qty=0,receipts=0,skus=0;
+    for(const r of rows){revenue+=r.revenue||0;gp+=r.gp||0;qty+=(r.qty!=null?r.qty:r.units)||0;
+      receipts+=r.receipts||0;skus+=r.skus||0;}
+    return {revenue,gp,margin:revenue?+(gp/revenue*100).toFixed(1):0,qty,
+      receipts:keepReceipts?receipts:undefined, skus:keepSkus?skus:undefined, exact:true};
+  };
+  if(!S.q&&nf<=1&&(S.abc==='all'||!S.abc)&&!S.noOff){
     if(nf===0){ if(m)return mk((D.monthly||[]).find(x=>x.mo===m)); return {...D.kpi,exact:true}; }
-    const st=one(S.store),ct=one(S.cat),sp=one(S.sup);
-    if(st!==null){ if(m)return mk((D.store_month||[]).find(x=>x.store===st&&x.mo===m)); const r=D.by_store.find(x=>x.store===st);if(r)return {...r,exact:true}; }
-    if(ct!==null){ if(m)return mk((D.cat_month||[]).find(x=>x.category===ct&&x.mo===m)); const r=D.by_category.find(x=>x.category===ct);if(r)return {...r,exact:true}; }
-    if(sp!==null){ if(m)return mk((D.supplier_month||[]).find(x=>x.supplier===sp&&x.mo===m)); const r=D.by_supplier.find(x=>x.supplier===sp);if(r)return {...r,exact:true}; }
+    if(!allSel(S.store)){
+      const src=m?(D.store_month||[]).filter(x=>x.mo===m):(D.by_store||[]);
+      // чеки складываются, SKU — нет (один товар в нескольких точках)
+      const r=roll(src.filter(x=>inSel(x.store,S.store)),true,false);
+      if(r){ if(D.prod_store&&D.products)r.skus=workProducts().length; return r; }
+    }
+    if(!allSel(S.cat)){
+      const src=m?(D.cat_month||[]).filter(x=>x.mo===m):(D.by_category||[]);
+      const rows=src.filter(x=>inSel(x.category,S.cat));
+      // чеки складывать нельзя — один чек содержит несколько категорий
+      const r=roll(rows,rows.length===1,true); if(r)return r;
+    }
+    if(!allSel(S.sup)){
+      const src=m?(D.supplier_month||[]).filter(x=>x.mo===m):(D.by_supplier||[]);
+      const rows=src.filter(x=>inSel(x.supplier,S.sup));
+      const r=roll(rows,rows.length===1,true); if(r)return r;
+    }
   }
   const w=workProducts();
   const rev=sum(w,x=>x.rev),gp=sum(w,x=>x.gp),qty=sum(w,x=>x.qty);
@@ -1933,7 +2021,9 @@ function kpiNow(){
     const src=monthSel()?(D.store_month||[]).filter(r=>r.mo===monthN()):(D.by_store||[]);
     receipts=src.filter(r=>inSel(r.store,S.store)).reduce((a,r)=>a+(r.receipts||0),0);
   }
-  return {revenue:rev,gp:gp,margin:rev?+(gp/rev*100).toFixed(1):0,qty:qty,skus:w.length,receipts:receipts,exact:false};
+  // срез точен, если куб позиция×магазин покрыл фильтр целиком (WP_EXACT выставляет workProducts)
+  return {revenue:rev,gp:gp,margin:rev?+(gp/rev*100).toFixed(1):0,qty:qty,skus:w.length,receipts:receipts,
+    exact:WP_EXACT&&!S.q};
 }
 
 // ---------- ECharts helper ----------
@@ -1949,6 +2039,7 @@ function mColor(m){m=+m||0; if(m<=8)return '#ef4444'; if(m<=14)return '#fb923c';
 // ============ загрузка ============
 async function load(){
   const r=await fetch('full_data.json?t='+Date.now()); D=await r.json();
+  wpReset();
   const per=D.period?('период: <b>'+fmtD(D.period.start)+' — '+fmtD(D.period.end)+'</b> ('+D.period.days+' дн.)'):'';
   $('upd').innerHTML='обновлено: <b>'+(D.updated_at||'—')+'</b><br>'+(D.year||'')+' год · '+D.kpi.stores+' магазинов · '+fmtF(D.kpi.skus)+' SKU<br>'+per;
   $('foot').textContent='Family Market · период '+(D.period?fmtD(D.period.start)+'–'+fmtD(D.period.end):D.year)+' · обновлено '+D.updated_at+' · категории из матрицы · Полевая — опт/склад (помечена) · внематричные ≈'+fmt(D.kpi.offmatrix_rev)+' ₴';
@@ -2256,6 +2347,7 @@ function renderOverview(){
   chart('ov_cat').off('click');chart('ov_cat').on('click',p=>setFilter('cat',p.name));
   // магазины
   const st=storeAgg().slice(0,20).reverse();
+  {const el=$('ov_store_s');if(el)el.textContent=(STORE_AGG_EXACT?'':'≈ оценка · ')+'клик = фильтр';}
   chart('ov_store').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'axis',axisPointer:{type:'shadow'},valueFormatter:v=>fmtF(v)+' ₴'}),
     xAxis:axV(),yAxis:axCat(st.map(s=>s.store)),
     series:[{type:'bar',data:st.map(s=>s.revenue),itemStyle:{color:'#2dd4bf',borderRadius:[0,4,4,0]},barMaxWidth:20}]},true);
@@ -2308,20 +2400,61 @@ function catAgg(){
       .map(r=>({category:r.category,revenue:r.revenue,gp:r.gp,margin:r.revenue?+(r.gp/r.revenue*100).toFixed(1):0})).sort((a,b)=>b.revenue-a.revenue);
   }
   if(!monthSel()&&allSel(S.store)&&allSel(S.sup)&&!S.q) return D.by_category.filter(c=>allSel(S.cat)||inSel(c.category,S.cat));
-  const g=groupSum(workProducts(),'c',['rev','gp','qty']);
-  return Object.entries(g).map(([category,v])=>({category,revenue:v.rev,gp:v.gp,qty:v.qty,margin:v.rev?+(v.gp/v.rev*100).toFixed(1):0,
-    skus:workProducts().filter(x=>x.c===category).length})).sort((a,b)=>b.revenue-a.revenue);
+  // общий случай — из рабочего набора позиций (по магазинам он точен благодаря кубу).
+  // SKU считаем в том же проходе: раньше на каждую категорию заново фильтровался весь список.
+  const g={};
+  for(const x of workProducts()){
+    const a=g[x.c]||(g[x.c]={category:x.c,revenue:0,gp:0,qty:0,skus:0});
+    a.revenue+=(+x.rev||0); a.gp+=(+x.gp||0); a.qty+=(+x.qty||0); a.skus++;
+  }
+  return Object.values(g).map(a=>({...a,margin:a.revenue?+(a.gp/a.revenue*100).toFixed(1):0}))
+    .sort((x,y)=>y.revenue-x.revenue);
 }
-// агрегат магазинов под фильтр
+// агрегат магазинов под фильтр.
+// STORE_AGG_EXACT говорит, можно ли доверять срезу как точному (подпись на карточке «Магазины»).
+let STORE_AGG_EXACT=true;
 function storeAgg(){
-  // поставщик выбран → разрез поставщик×магазин (если данные есть)
-  if(!allSel(S.sup)&&D.sup_store){const m={};D.sup_store.filter(r=>inSel(r.supplier,S.sup)).forEach(r=>m[r.store]=(m[r.store]||0)+r.revenue);
-    return Object.entries(m).map(([store,revenue])=>({store,revenue})).sort((a,b)=>b.revenue-a.revenue);}
-  // категория выбрана → категория×магазин
-  if(!allSel(S.cat)){const m={};D.cat_store.filter(r=>inSel(r.category,S.cat)).forEach(r=>m[r.store]=(m[r.store]||0)+r.revenue);
-    return Object.entries(m).map(([store,revenue])=>({store,revenue})).sort((a,b)=>b.revenue-a.revenue);}
-  if(monthSel()){const mo=monthN();return (D.store_month||[]).filter(r=>r.mo===mo).map(r=>({store:r.store,revenue:r.revenue})).sort((a,b)=>b.revenue-a.revenue);}
-  return D.by_store.map(s=>({store:s.store,revenue:s.revenue})).sort((a,b)=>b.revenue-a.revenue);
+  const catSel=!allSel(S.cat), supSel=!allSel(S.sup), moSel=monthSel();
+  const abcSel=S.abc&&S.abc!=='all';
+  STORE_AGG_EXACT=true;
+  const srt=m=>Object.entries(m).map(([store,revenue])=>({store,revenue})).sort((a,b)=>b.revenue-a.revenue);
+  if(!catSel&&!supSel&&!abcSel&&!S.noOff&&!S.q){
+    if(moSel){const mo=monthN();return (D.store_month||[]).filter(r=>r.mo===mo).map(r=>({store:r.store,revenue:r.revenue})).sort((a,b)=>b.revenue-a.revenue);}
+    return (D.by_store||[]).map(s=>({store:s.store,revenue:s.revenue})).sort((a,b)=>b.revenue-a.revenue);
+  }
+  // Категория и/или поставщик выбраны. Раньше ветка sup_store срабатывала первой и молча
+  // ТЕРЯЛА фильтр категории (при «Табачные изделия» + «Оболонь» выдавалось то же, что по одной
+  // «Оболони»). Куб позиция×магазин позволяет учесть оба фильтра сразу и точно.
+  if(D.prod_store&&D.products&&D.stores){
+    const P=D.products, ok=new Uint8Array(P.length);
+    for(let i=0;i<P.length;i++){const p=P[i];
+      ok[i]=(inSel(p.c,S.cat)&&inSel(p.s,S.sup)&&(!abcSel||p.abc===S.abc)&&(!S.noOff||!isTech(p.p))
+             &&(!S.q||(''+p.p).toLowerCase().includes(S.q.toLowerCase())))?1:0;}
+    const acc=new Float64Array(D.stores.length);
+    for(const r of D.prod_store){if(ok[r[0]])acc[r[1]]+=r[2];}
+    const m={};
+    // фильтр магазина здесь НЕ применяем: график магазинов — это способ выбрать другую точку
+    D.stores.forEach((s,i)=>{if(acc[i]>0)m[s]=acc[i];});
+    if(!moSel)return srt(m);
+    // месяц + категория/поставщик: помесячного куба по точкам нет — масштабируем распределение
+    // по точкам на ТОЧНЫЙ месячный итог среза, результат помечаем как оценку
+    const mo=monthN();
+    const monTot=catSel&&!supSel
+      ? (D.cat_month||[]).filter(r=>r.mo===mo&&inSel(r.category,S.cat)).reduce((a,r)=>a+(r.revenue||0),0)
+      : (!catSel&&supSel
+        ? (D.supplier_month||[]).filter(r=>r.mo===mo&&inSel(r.supplier,S.sup)).reduce((a,r)=>a+(r.revenue||0),0)
+        : null);
+    const tot=Object.values(m).reduce((a,v)=>a+v,0);
+    STORE_AGG_EXACT=false;
+    if(monTot&&tot){const k=monTot/tot;Object.keys(m).forEach(s=>m[s]=Math.round(m[s]*k));}
+    return srt(m);
+  }
+  // фолбэк для старого full_data.json без куба (прежнее поведение, но с честной пометкой)
+  STORE_AGG_EXACT=!(catSel&&supSel);
+  if(supSel&&D.sup_store){const m={};D.sup_store.filter(r=>inSel(r.supplier,S.sup)).forEach(r=>m[r.store]=(m[r.store]||0)+r.revenue);return srt(m);}
+  if(catSel&&D.cat_store){const m={};D.cat_store.filter(r=>inSel(r.category,S.cat)).forEach(r=>m[r.store]=(m[r.store]||0)+r.revenue);return srt(m);}
+  if(moSel){const mo=monthN();return (D.store_month||[]).filter(r=>r.mo===mo).map(r=>({store:r.store,revenue:r.revenue})).sort((a,b)=>b.revenue-a.revenue);}
+  return (D.by_store||[]).map(s=>({store:s.store,revenue:s.revenue})).sort((a,b)=>b.revenue-a.revenue);
 }
 
 // ============ ГЛУБОКИЙ РАЗРЕЗ (по выбранному срезу) ============
@@ -2488,7 +2621,9 @@ function coverage(){
 // ============ ПОЗИЦИИ ============
 function renderProducts(){
   const w=workProducts().slice();
-  $('pr_s').textContent=w.length+' позиций'+(!allSel(S.store)?' (топ по магазину)':'');
+  // подпись честная: точный срез по магазинам даёт куб, «≈ оценка» остаётся только для
+  // связки месяц+магазин (помесячного куба по точкам нет)
+  $('pr_s').textContent=w.length+' позиций'+(WP_EXACT?'':' · ≈ оценка (месяц × магазин)');
   // drill карточка
   $('pr_drill').innerHTML = S.prSel ? productCard(S.prSel) : '';
   const xb=x=>`<span class="badge b${x==='X'?'A':x==='Y'?'B':x==='Z'?'C':''}">${x||'—'}</span>`;

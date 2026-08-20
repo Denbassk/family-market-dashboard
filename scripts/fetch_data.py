@@ -43,24 +43,51 @@ def main():
     keep = "(" + ",".join(f"'{k}'" for k in NORM) + ")"
 
     # 1) промежуточная таблица: продажи YEAR в 38 точках + категория/поставщик из матрицы
+    #
+    # ЕДИНАЯ категория/поставщик НА НАЗВАНИЕ ТОВАРА. У одного товара часто два штрих-кода
+    # (штучный и упаковка/перекодировка), и в матрице лежит только один из них. Тогда часть
+    # выручки одной и той же позиции уезжала в «(нет в матрице)», а срезы переставали биться:
+    # `products` берёт категорию через ANY_VALUE по названию, а `by_category` считает по строкам.
+    # Замер: 50 названий из 4 364 имели больше одной категории/поставщика — 6,67 млн ₴ (2,3% выручки).
+    # Решение: вес = выручка ТОЛЬКО матричных штрих-кодов, поэтому вариант, найденный в матрице,
+    # всегда побеждает; если товара нет в матрице ни под одним кодом — остаётся «нет в матрице».
     if not os.environ.get("SKIP_STAGING"):
       client.query(f"""
     CREATE OR REPLACE TABLE {ST} AS
-    WITH m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode)
-    SELECT CASE {cases} END AS store, t.barcode, t.product_name,
-      t.quantity qty, t.price_retail pr, t.price_purchase pp,
-      EXTRACT(MONTH FROM t.transaction_datetime) mo, t.transaction_id tid,
-      DATE(t.transaction_datetime) d,
-      CASE
-        WHEN STARTS_WITH(TRIM(t.product_name),'Кулінарія') THEN 'Кулинария'
-        WHEN STARTS_WITH(TRIM(t.product_name),'Випічка') THEN 'Выпечка'
-        WHEN STARTS_WITH(TRIM(t.product_name),'Хот-Дог') THEN 'Хот-дог'
-        ELSE COALESCE(m.cat,'Прочее (нет в матрице)')
-      END category,
-      COALESCE(m.sup,'(нет в матрице)') supplier,
-      (m.barcode IS NOT NULL) in_matrix
-    FROM {TT} t LEFT JOIN m USING(barcode)
-    WHERE EXTRACT(YEAR FROM t.transaction_datetime)={YEAR} AND store IN {keep}
+    WITH m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
+    raw AS (
+      SELECT CASE {cases} END AS store, t.barcode, t.product_name,
+        t.quantity qty, t.price_retail pr, t.price_purchase pp,
+        EXTRACT(MONTH FROM t.transaction_datetime) mo, t.transaction_id tid,
+        DATE(t.transaction_datetime) d,
+        CASE
+          WHEN STARTS_WITH(TRIM(t.product_name),'Кулінарія') THEN 'Кулинария'
+          WHEN STARTS_WITH(TRIM(t.product_name),'Випічка') THEN 'Выпечка'
+          WHEN STARTS_WITH(TRIM(t.product_name),'Хот-Дог') THEN 'Хот-дог'
+          ELSE COALESCE(m.cat,'Прочее (нет в матрице)')
+        END category,
+        COALESCE(m.sup,'(нет в матрице)') supplier,
+        (m.barcode IS NOT NULL) in_matrix
+      FROM {TT} t LEFT JOIN m USING(barcode)
+      WHERE EXTRACT(YEAR FROM t.transaction_datetime)={YEAR} AND store IN {keep}
+    ),
+    variants AS (
+      SELECT product_name, category, supplier, in_matrix,
+             SUM(IF(in_matrix, qty*pr, 0)) w
+      FROM raw GROUP BY product_name, category, supplier, in_matrix
+    ),
+    fix AS (
+      SELECT product_name,
+             ANY_VALUE(category HAVING MAX w) category_fix,
+             ANY_VALUE(supplier HAVING MAX w) supplier_fix,
+             LOGICAL_OR(in_matrix) in_matrix_fix
+      FROM variants GROUP BY product_name
+    )
+    SELECT raw.store, raw.barcode, raw.product_name, raw.qty, raw.pr, raw.pp, raw.mo, raw.tid, raw.d,
+      IF(fix.in_matrix_fix, fix.category_fix, raw.category) category,
+      IF(fix.in_matrix_fix, fix.supplier_fix, raw.supplier) supplier,
+      fix.in_matrix_fix in_matrix
+    FROM raw JOIN fix USING(product_name)
     """).result()
 
     def run(sql): return [dict(r) for r in client.query(sql).result()]
@@ -148,6 +175,27 @@ def main():
     xm = {r["p"]: r["xyz"] for r in xyz}
     for p in out["products"]:
         p["xyz"] = xm.get(p["p"], "—")
+
+    # ПОЛНЫЙ КУБ ПОЗИЦИЯ × МАГАЗИН (для точного среза «Позиций» по выбранным магазинам).
+    # store_top_products ниже — это ТОП-30 на точку, он покрывает всего ~26% выручки магазина,
+    # а при выборе двух и более магазинов фронт вообще терял фильтр и показывал всю сеть.
+    # Формат компактный: строка = [индекс в out["products"], индекс в out["stores"], выручка, прибыль, кол-во].
+    # Имена не дублируются — индексы ссылаются на уже существующие массивы.
+    pidx = {p["p"]: i for i, p in enumerate(out["products"])}
+    sidx = {s: i for i, s in enumerate(out["stores"])}
+    raw_ps = run(f"""SELECT store, product_name p, ROUND(SUM(qty*pr),0) rev,
+        ROUND(SUM((pr-pp)*qty),0) gp, ROUND(SUM(qty),0) qty
+      FROM {ST} GROUP BY store, p""")
+    ps, lost_rev, lost_rows = [], 0.0, 0
+    for r in raw_ps:
+        i, j = pidx.get(r["p"]), sidx.get(r["store"])
+        if i is None or j is None:          # товар не попал в срез products (LIMIT) — считаем потерю
+            lost_rev += r["rev"] or 0; lost_rows += 1; continue
+        ps.append([i, j, int(r["rev"] or 0), int(r["gp"] or 0), int(r["qty"] or 0)])
+    ps.sort(key=lambda x: (x[0], x[1]))
+    out["prod_store"] = ps
+    out["prod_store_meta"] = {"rows": len(ps), "lost_rows": lost_rows, "lost_revenue": round(lost_rev, 0),
+                              "covered_pct": (round((1 - lost_rev / (out["kpi"]["revenue"] or 1)) * 100, 3))}
 
     # топ товаров по каждому магазину (drill магазин -> позиции)
     out["store_top_products"] = run(f"""
