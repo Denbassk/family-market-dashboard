@@ -57,6 +57,12 @@ select:focus,input:focus{outline:1px solid var(--acc)}
 .sw i::after{content:'';position:absolute;left:2px;top:2px;width:17px;height:17px;background:#fff;border-radius:50%;transition:transform var(--dur) var(--ease)}
 .sw input:checked+i{background:var(--acc)}
 .sw input:checked+i::after{transform:translateX(17px)}
+/* сегментный ползунок (3 позиции) — охват возвратов */
+.seg{display:inline-flex;background:var(--line2);border-radius:20px;padding:2px;gap:2px}
+.seg button{background:transparent;border:0;color:var(--muted);font-size:11.5px;padding:5px 11px;border-radius:20px;cursor:pointer;
+  white-space:nowrap;transition:background var(--dur) var(--ease),color var(--dur) var(--ease)}
+.seg button:hover{color:var(--txt)}
+.seg button.on{background:var(--acc);color:#06111f;font-weight:600}
 .btn{background:var(--c2);color:var(--txt);border:1px solid var(--line);border-radius:var(--radius-sm);padding:7px 13px;font-size:12.5px;cursor:pointer}
 .btn:hover{background:var(--line);border-color:var(--line2)}
 .btn:active{transform:translateY(1px)}
@@ -1466,11 +1472,20 @@ mark{
 <!-- ОБЗОР -->
 <div class="page on" id="p_overview">
   <div class="card full" id="ov_alerts" style="margin-bottom:12px;display:none"></div>
+  <div id="ov_retbar" style="display:none;justify-content:flex-end;align-items:center;gap:9px;margin-bottom:9px;flex-wrap:wrap">
+    <span class="muted" style="font-size:12px">Возвраты поставщикам — охват:</span>
+    <div class="seg" id="retScope">
+      <button data-v="r" title="Только 38 торговых точек сети">Розница</button>
+      <button data-v="rp" title="Розница + списание просрочки поставщику">+ просрочка</button>
+      <button data-v="all" title="Плюс склад/опт (Полевая-Склад, Производство)">Всё</button>
+    </div>
+  </div>
   <div class="kpis" id="ov_kpis"></div>
   <div class="grid">
     <div class="card full"><h3>Динамика выручки и прибыли по месяцам <span id="ov_dyn_s"></span></h3><div id="ov_dyn" class="chart"></div></div>
     <div class="card"><h3>Категории по выручке <span>цвет — маржа % · клик = фильтр</span></h3><div id="ov_cat" class="chart tall"></div></div>
     <div class="card"><h3>Магазины по выручке <span>клик = фильтр</span></h3><div id="ov_store" class="chart tall"></div></div>
+    <div class="card full" id="ov_ret_card" style="display:none"><h3>Возвраты поставщикам <span id="ov_ret_s"></span><button class="csvbtn" data-t="ov_ret">⬇ Excel</button></h3><div class="scroll"><table id="ov_ret"></table></div><div class="muted" id="ov_ret_note" style="font-size:11.5px;margin-top:7px"></div></div>
     <div class="card full"><h3>Сводка по категориям <span id="ov_tab_s"></span><button class="csvbtn" data-t="ov_tab">⬇ Excel</button></h3><div class="scroll"><table id="ov_tab"></table></div></div>
   </div>
 </div>
@@ -1785,7 +1800,7 @@ mark{
 <script>
 const GH_OWNER="Denbassk", GH_REPO="family-market-dashboard";
 let D=null, charts={};
-const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null};
+const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null,retScope:'rp'};
 function monthSel(){return S.month&&S.month!=='all';}
 function monthN(){return +S.month;}
 const MONTHS=['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
@@ -1822,6 +1837,45 @@ function workProducts(){
 // «Технические» товары — расходники собств. производства (зеркало scripts/fetch_stale.py: is_tech)
 const TECH_SUB=["кава зернова","зернова кава","кава в зернах","сухе молоко (1кг)","капучино (1кг)","капучіно (1кг)","лате (1кг)","латте (1кг)","какао (1кг)","еспресо (1кг)","айріш капучино","стакан паперов","стакан пластик","стакан гофр","паперовий стакан","пластиковий стакан","гофр.стакан","гофр стакан","кришка для","кришка біла","розмішувач","мішалка для","стірер","булка для хот","булочка для хот","пакет фасув"];
 function isTech(name){const n=(name||'').toLowerCase();if(TECH_SUB.some(k=>n.includes(k)))return true;if((n.includes('сосиск')||n.includes('сардель'))&&(n.includes('1кг')||n.includes('мк ')))return true;return false;}
+// ---------- ВОЗВРАТЫ ПОСТАВЩИКАМ ----------
+// D.returns_fact — компактный факт-куб, строка = [мес, магазин_i, категория_i, поставщик_i,
+//   класс_i, сумма_закупки, сумма_розницы, кол-во, строк_документов, (1 = физобмен)].
+// D.returns_dim  — словари измерений {s:[…],c:[…],p:[…],k:['retail','prosrok','wh']}.
+// Куб небольшой (~4.5 тыс строк), поэтому любой срез считается точно, а не оценкой —
+// включая кросс-фильтры месяц × магазин × категория × поставщик.
+const RET_SCOPE={r:['retail'],rp:['retail','prosrok'],all:['retail','prosrok','wh']};
+const RET_SCOPE_LBL={r:'только розница',rp:'розница + просрочка',all:'розница + просрочка + склад/опт'};
+function retReady(){return !!(D&&D.returns_fact&&D.returns_dim&&D.returns_dim.k);}
+function retRows(){
+  if(!retReady())return null;
+  const dm=D.returns_dim;
+  const allow=RET_SCOPE[S.retScope]||RET_SCOPE.rp;
+  const kOk=dm.k.map(k=>allow.includes(k));
+  // индексы измерений разрешаем один раз — внутри цикла сравниваем числа, не строки
+  const sOk=dm.s.map(v=>inSel(v,S.store)), cOk=dm.c.map(v=>inSel(v,S.cat)), pOk=dm.p.map(v=>inSel(v,S.sup));
+  const m=monthSel()?monthN():null, out=[];
+  for(const r of D.returns_fact){
+    if(!kOk[r[4]])continue;
+    if(m!==null&&r[0]!==m)continue;
+    if(!sOk[r[1]]||!cOk[r[2]]||!pOk[r[3]])continue;
+    out.push(r);
+  }
+  return out;
+}
+function returnsNow(){
+  const rows=retRows(); if(!rows)return null;
+  let pur=0,ret=0,qty=0,lines=0,exch=0,exchRet=0;
+  for(const r of rows){pur+=r[5];ret+=r[6];qty+=r[7];lines+=r[8];if(r[9]){exch+=r[5];exchRet+=r[6];}}
+  return {pur,ret,qty,lines,exch,exchRet,cells:rows.length};
+}
+// условия возврата по поставщику (из supplier_conditions через маппинг) — текстом
+function retTerms(sup){
+  const t=(D.returns_terms||{})[sup]; if(!t)return '';
+  if(t.t)return t.t;
+  if(t.a===false)return 'возврат не предусмотрен';
+  if(t.p!=null)return 'до '+(+(t.p*100).toFixed(1))+'% оборота';
+  return t.a===true?'возврат разрешён':'';
+}
 function sum(a,f){let s=0;for(const x of a)s+=(+f(x)||0);return s;}
 function groupSum(a,key,fields){const m={};for(const x of a){const k=x[key];if(!(k in m)){m[k]={};fields.forEach(f=>m[k][f]=0);}fields.forEach(f=>m[k][f]+=(+x[f]||0));}return m;}
 
@@ -2156,11 +2210,24 @@ function renderAlerts(){
 function renderOverview(){
   const k=kpiNow();
   renderAlerts();
+  // возвраты — карточка реагирует на месяц/магазин/категорию/поставщика и на ползунок охвата
+  const rn=returnsNow();
+  let retCard;
+  if(!rn){retCard=['Возвраты ₴','—','нет данных — нажмите «Обновить данные»'];}
+  else{
+    const parts=[];
+    if(k.revenue&&rn.ret)parts.push((rn.ret/k.revenue*100).toFixed(2)+'% от выручки');
+    if(rn.exch)parts.push('в т.ч. обмен '+fmt(rn.exch));
+    parts.push(RET_SCOPE_LBL[S.retScope]);
+    retCard=['Возвраты ₴',fmt(rn.pur),parts.join(' · ')];
+  }
   kpiCards('ov_kpis',[
     ['Выручка ₴',fmt(k.revenue)],['Прибыль ₴',fmt(k.gp)],['Маржа',(k.margin||0)+'%'],
     ['Продано, ед.',(k.qty!=null||k.units!=null)?fmt(k.qty!=null?k.qty:k.units):'—'],['Чеков',k.receipts!=null?fmt(k.receipts):'—'],
-    ['Позиций (SKU)',k.skus!=null?fmt(k.skus):'—'],['Средний чек ₴',(k.receipts&&k.revenue)?fmt(k.revenue/k.receipts):'—',k.exact?'точный срез':'≈ оценка']
+    ['Позиций (SKU)',k.skus!=null?fmt(k.skus):'—'],['Средний чек ₴',(k.receipts&&k.revenue)?fmt(k.revenue/k.receipts):'—',k.exact?'точный срез':'≈ оценка'],
+    retCard
   ]);
+  renderReturns(rn);
   // динамика
   let series, note='';
   if(!allSel(S.cat)){const m=D.cat_month.filter(r=>inSel(r.category,S.cat));series=agg12(m);note='категория: '+S.cat.join(', ');}
@@ -2201,6 +2268,36 @@ function renderOverview(){
     [['Категория','category','l'],['Выручка ₴','revenue'],['Доля %','share'],['Прибыль ₴','gp'],['Маржа %','margin'],['SKU','skus'],['Точек','stores']],
     rows,'revenue',r=>setFilter('cat',r.category),
     r=>`<td class="l">${r.category}</td><td>${fmtF(r.revenue)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.gp)}</td><td>${r.margin!=null?r.margin:'—'}</td><td>${r.skus||'—'}</td><td>${r.stores||'—'}</td>`);
+}
+// таблица возвратов по поставщикам под текущий срез (+ условия возврата из договорённостей)
+function renderReturns(rn){
+  const bar=$('ov_retbar'), card=$('ov_ret_card');
+  if(!retReady()){if(bar)bar.style.display='none';if(card)card.style.display='none';return;}
+  if(bar){bar.style.display='flex';
+    bar.querySelectorAll('#retScope button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.retScope));}
+  const rows=retRows(), dm=D.returns_dim, agg={};
+  for(const r of rows){
+    const p=dm.p[r[3]];
+    const a=agg[p]||(agg[p]={supplier:p,pur:0,ret:0,qty:0,exch:0});
+    a.pur+=r[5];a.ret+=r[6];a.qty+=r[7];if(r[9])a.exch+=r[5];
+  }
+  const tot=(rn&&rn.pur)||1;
+  const list=Object.values(agg).map(a=>({...a,pur:Math.round(a.pur),ret:Math.round(a.ret),qty:Math.round(a.qty),
+    share:+(a.pur/tot*100).toFixed(2),terms:retTerms(a.supplier)})).sort((x,y)=>y.pur-x.pur);
+  card.style.display=list.length?'':'none';
+  if(!list.length)return;
+  $('ov_ret_s').textContent=list.length+' поставщиков · '+fmt(tot)+' ₴ · '+RET_SCOPE_LBL[S.retScope];
+  tableSort('ov_ret',
+    [['Поставщик','supplier','l'],['Возврат, закуп ₴','pur'],['Доля %','share'],['В рознице ₴','ret'],['Кол-во','qty'],['Условия возврата','terms','l']],
+    list,'pur',r=>setFilter('sup',r.supplier),
+    r=>`<td class="l">${r.supplier}${r.exch?' <span class="muted" style="font-size:11px">(обмен)</span>':''}</td><td>${fmtF(r.pur)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.ret)}</td><td>${fmtF(r.qty)}</td><td class="l muted">${r.terms||'—'}</td>`);
+  const meta=D.returns_meta||{};
+  const note=[];
+  note.push('Суммы — по закупочной цене (то, что возвращается поставщику деньгами); «в рознице» — та же поставка в розничных ценах.');
+  if(S.retScope!=='r')note.push('Просрочка сводится Торгсофтом в служебные точки «Магазины-Просрок»/«Полевая-Просрок», поэтому при выборе конкретного магазина она не показывается.');
+  if(!meta.exchange_suppliers||!meta.exchange_suppliers.length)note.push('Физобмен (товар за товар) в данных Торгсофта не помечен — список обменных поставщиков задаётся вручную в scripts/returns_config.py.');
+  if(meta.diff_pct!=null)note.push('Расхождение с эталоном torgsoft_outgoing_ref: '+meta.diff_pct+'%.');
+  $('ov_ret_note').textContent=note.join(' ');
 }
 function agg12(rows){const m={};rows.forEach(r=>{m[r.mo]=m[r.mo]||[r.mo,0,0];m[r.mo][1]+=r.revenue;m[r.mo][2]+=r.gp;});return Object.values(m).sort((a,b)=>a[0]-b[0]);}
 // агрегат категорий под фильтр
@@ -2637,6 +2734,11 @@ function applyFilterVis(){
   const hint=$('barHint');if(hint)hint.style.display=anyVisible?'none':'';
 }
 $('nav').addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;S.tab=e.target.dataset.p;syncTabs();render();setTimeout(resizeAll,30);});
+// ползунок охвата возвратов (розница / + просрочка / всё) — выбор запоминается
+(()=>{const seg=$('retScope');if(!seg)return;
+  const saved=lsGet('fm_ret_scope');if(saved&&RET_SCOPE[saved])S.retScope=saved;
+  seg.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    S.retScope=b.dataset.v;lsSet('fm_ret_scope',S.retScope);render();});})();
 // фильтры инструмента «Товары без движения»
 ['stDays','stStore','stCat','stSup'].forEach(id=>{const el=$(id);if(el)el.addEventListener('change',renderStale);});
 (()=>{const rt=$('stRetail');if(rt)rt.addEventListener('change',()=>{const l=$('stRetailLbl');if(l)l.textContent=rt.checked?'склад скрыт':'показывать склад';renderStale();});})();

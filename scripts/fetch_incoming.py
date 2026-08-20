@@ -14,6 +14,7 @@ IN = "`family-market-analytics.family_market.incoming_transactions`"
 REF = "`family-market-analytics.family_market.torgsoft_incoming_ref_2026`"
 MX = "`family-market-analytics.family_market.assortment_matrix_full`"
 IS = "`family-market-analytics.family_market._dash_in26`"
+SM = "`family-market-analytics.family_market.supplier_mapping`"
 cases = " ".join(f"WHEN store='{k}' THEN '{v}'" for k, v in NORM.items())
 keep = "(" + ",".join(f"'{k}'" for k in NORM) + ")"
 
@@ -25,15 +26,22 @@ def main():
     # staging приходов (для срезов по товарам/категориям — в эталоне нет штрихкодов)
     client.query(f"""
     CREATE OR REPLACE TABLE {IS} AS
-    WITH m AS (SELECT barcode, ANY_VALUE(category) cat FROM {MX} GROUP BY barcode)
-    SELECT CASE {cases} END store, i.barcode, i.product_name, i.supplier,
+    WITH m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
+         sm AS (SELECT incoming_supplier, ANY_VALUE(matrix_supplier) ms FROM {SM}
+                WHERE matrix_supplier IS NOT NULL GROUP BY incoming_supplier)
+    SELECT CASE {cases} END store, i.barcode, i.product_name,
+      i.supplier supplier_ts,
+      -- поставщик в терминах МАТРИЦЫ: сначала по штрих-коду (иначе мультибрендовый
+      -- дистрибьютор вроде «ДЛ Солюшн» схлопывает 67 млн ₴ сигарет в одно имя),
+      -- затем — перевод имени контрагента через supplier_mapping.
+      COALESCE(m.sup, sm.ms, '(нет в матрице)') supplier,
       i.quantity qty, i.amount_purchase amt, i.amount_retail amt_ret,
       EXTRACT(MONTH FROM i.incoming_datetime) mo,
       CASE WHEN STARTS_WITH(TRIM(i.product_name),'Кулінарія') THEN 'Кулинария'
            WHEN STARTS_WITH(TRIM(i.product_name),'Випічка') THEN 'Выпечка'
            WHEN STARTS_WITH(TRIM(i.product_name),'Хот-Дог') THEN 'Хот-дог'
            ELSE COALESCE(m.cat,'Прочее (нет в матрице)') END category
-    FROM {IN} i LEFT JOIN m USING(barcode)
+    FROM {IN} i LEFT JOIN m USING(barcode) LEFT JOIN sm ON i.supplier = sm.incoming_supplier
     WHERE EXTRACT(YEAR FROM i.incoming_datetime)={YEAR} AND store IN {keep}
     """).result()
 
@@ -42,9 +50,24 @@ def main():
     out["in_store_month"] = run(f"""SELECT CASE {cases} END store, EXTRACT(MONTH FROM doc_date) mo,
       ROUND(SUM(amount),0) revenue, ROUND(SUM(amount_retail-amount),0) gp, 0 qty
       FROM {REF} WHERE store IN {keep} AND EXTRACT(YEAR FROM doc_date)={YEAR} GROUP BY store, mo""")
-    out["in_supplier_month"] = run(f"""SELECT supplier, EXTRACT(MONTH FROM doc_date) mo,
-      ROUND(SUM(amount),0) revenue, ROUND(SUM(amount_retail-amount),0) gp, 0 qty
-      FROM {REF} WHERE store IN {keep} AND EXTRACT(YEAR FROM doc_date)={YEAR} GROUP BY supplier, mo""")
+    # ПОСТАВЩИКИ — из staging (позиции), а НЕ из эталона.
+    # В эталоне поставщик = контрагент Торгсофта («ДЛ Солюшн», «Союз (Оболонь)»), а фильтр
+    # «Поставщик» на дашборде построен на именах МАТРИЦЫ («Сигарети_PM», «Оболонь»):
+    # 112 из 128 имён эталона в матрице отсутствуют — 94% суммы, фильтр давал пустоту.
+    # Плюс мультибрендовый дистрибьютор на уровне накладной неразделим: «ДЛ Солюшн» — это
+    # 67 млн ₴, которые по штрих-кодам раскладываются на Сигарети_PM/BAT/JTI/IT.
+    # Плата за точность — уровень позиций вместо накладных (сумма ниже эталона на ~1%).
+    out["in_supplier_month"] = run(f"""SELECT supplier, mo,
+      ROUND(SUM(amt),0) revenue, ROUND(SUM(amt_ret-amt),0) gp, ROUND(SUM(qty),0) qty
+      FROM {IS} GROUP BY supplier, mo""")
+    # диагностика покрытия (в лог, не в JSON)
+    cov = run(f"""
+      WITH mx AS (SELECT DISTINCT supplier FROM {MX} WHERE supplier IS NOT NULL)
+      SELECT ROUND(SUM(s.amt),0) total,
+             ROUND(SUM(IF(s.supplier IN (SELECT supplier FROM mx), s.amt, 0)),0) matched
+      FROM {IS} s""")[0]
+    ref_total = run(f"""SELECT ROUND(SUM(amount),0) a FROM {REF}
+      WHERE store IN {keep} AND EXTRACT(YEAR FROM doc_date)={YEAR}""")[0]["a"]
     out["in_cat_month"] = run(f"""SELECT category, mo, ROUND(SUM(amt),0) revenue, ROUND(SUM(amt_ret-amt),0) gp, ROUND(SUM(qty),0) qty
       FROM {IS} GROUP BY category, mo""")
     out["in_prod_month"] = run(f"""
@@ -57,6 +80,10 @@ def main():
     json.dump(out, open(OUT, "w"), ensure_ascii=False, separators=(",", ":"))
     print("приходы: store_month", len(out["in_store_month"]), "| supplier_month", len(out["in_supplier_month"]),
           "| cat_month", len(out["in_cat_month"]), "| prod_month", len(out["in_prod_month"]))
+    print("  поставщики -> имена матрицы:", cov["matched"], "из", cov["total"],
+          "(", (round(cov["matched"] / cov["total"] * 100, 1) if cov["total"] else 0), "% суммы )")
+    print("  позиции", cov["total"], "vs эталон накладных", ref_total,
+          "| расхождение", (round((cov["total"] - ref_total) / ref_total * 100, 2) if ref_total else None), "%")
 
 
 if __name__ == "__main__":
