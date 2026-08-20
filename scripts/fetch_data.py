@@ -30,6 +30,13 @@ NORM = {
  "Танкопія 16":"Танкопія 16","Шевченко 341":"Шевченко 341",
 }
 
+# ОПТОВЫЕ точки. Продажи там реальные и в выручке сети остаются, но это НЕ розничные чеки:
+# «Полевая магазин» (до апреля Торгсофт звал её «Полевая 83», в эталоне продаж — «Полевая-Склад»
+# с признаком is_warehouse) даёт 13,4% выручки при 1,7% чеков, средний чек ~1292 ₴ против
+# розничной медианы ~145 ₴. Из-за неё сетевой средний чек завышался на 13,5% (166 вместо 147 ₴),
+# причём искажение росло: +7% в марте -> +19% в мае–июле. Имена КАНОНИЧЕСКИЕ (после NORM).
+WHOLESALE = ["Полевая магазин"]
+
 TT = "`family-market-analytics.family_market.turnover_transactions`"
 MX = "`family-market-analytics.family_market.assortment_matrix_full`"
 TM = "`family-market-analytics.family_market.turnover_monthly`"
@@ -149,6 +156,7 @@ def main():
       FROM {ST} JOIN topp USING(product_name) GROUP BY p, mo""")
 
     out["stores"] = [r["store"] for r in run(f"SELECT store FROM {ST} GROUP BY store ORDER BY store")]
+    out["wholesale_stores"] = [s for s in WHOLESALE if s in out["stores"]]
 
     # ПОЗИЦИИ (главный факт для drill-down) + ABC-класс, посчитанный по ВСЕМ товарам
     out["products"] = run(f"""

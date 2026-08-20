@@ -120,6 +120,25 @@ function crossSuite() {
     var ca=catAgg().reduce(function(a,r){return a+r.revenue;},0);
     pushCube('Категории: при выбранном магазине == by_store', off(ca,byStore[s1])<0.05, Math.round(ca), byStore[s1]);
 
+    // средний чек: опт («Полевая магазин») не должен смешиваться с розницей
+    CLEAR();
+    var WH=(D.wholesale_stores||['Полевая магазин']);
+    var wh=D.by_store.filter(function(r){return WH.indexOf(r.store)>=0;});
+    if(wh.length){
+      var retR=0,retC=0,allR=0,allC=0;
+      D.by_store.forEach(function(r){allR+=r.revenue;allC+=r.receipts;
+        if(WH.indexOf(r.store)<0){retR+=r.revenue;retC+=r.receipts;}});
+      var ac=avgCheck(kpiNow());
+      push('Средний чек считается по рознице, без опта', ac&&off(ac.v,retR/retC)<0.1, ac?Math.round(ac.v):null, Math.round(retR/retC));
+      push('Средний чек НЕ равен смешанному с оптом', ac&&Math.abs(ac.v-allR/allC)>1, ac?Math.round(ac.v):null, Math.round(allR/allC));
+      push('Средний чек подписан «без опта»', ac&&ac.note==='без опта', ac&&ac.note, 'без опта');
+      // выбран только оптовый магазин — показываем его собственный чек и помечаем «опт»
+      S.store=[wh[0].store]; var acw=avgCheck(kpiNow());
+      push('Выбран только опт — свой чек с пометкой «опт»',
+        acw&&acw.note==='опт'&&off(acw.v,wh[0].revenue/wh[0].receipts)<0.1, acw&&acw.note, 'опт');
+      CLEAR();
+    } else { push('Средний чек: оптовых точек в данных нет', 'skip', 'нет wholesale_stores', ''); }
+
     CLEAR(); var c2=[D.by_category[0].category,D.by_category[1].category];
     var one=0; c2.forEach(function(c){S.cat=[c];one+=kpiNow().revenue;});
     S.cat=c2; var many=kpiNow().revenue;

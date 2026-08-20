@@ -95,8 +95,10 @@ tr.mxtotal:hover td{background:rgba(56,189,248,.24)!important}
 .kpi .v{font-size:22px;font-weight:700;color:#fff;line-height:1.1;letter-spacing:-.01em}
 .kpi .t{font-size:10.5px;color:var(--muted);margin-top:5px;text-transform:uppercase;letter-spacing:.04em}
 .kpi .d{font-size:11px;margin-top:4px;color:var(--faint)}
-#ov_kpis .kpi:first-child{grid-column:span 2;background:linear-gradient(150deg,rgba(74,168,255,.16),var(--c2));border-color:rgba(74,168,255,.4)}
-#ov_kpis .kpi:first-child .v{font-size:30px}
+/* Выручка — герой ряда. Раньше карточка занимала ДВЕ колонки и сплющивала остальные семь;
+   акцент оставлен цветом и размером шрифта, ширина — как у всех. */
+#ov_kpis .kpi:first-child{background:linear-gradient(150deg,rgba(74,168,255,.16),var(--c2));border-color:rgba(74,168,255,.4)}
+#ov_kpis .kpi:first-child .v{font-size:25px}
 #ov_kpis .kpi:first-child .t{color:var(--acc2)}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -132,7 +134,7 @@ footer{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center;bor
   .wrap{padding:10px}
   h1{font-size:16px}.sub{font-size:10.5px}
   .bar{position:static;top:auto}
-  #ov_kpis .kpi:first-child .v{font-size:24px}
+  #ov_kpis .kpi:first-child .v{font-size:19px}
   .top{flex-direction:column;gap:6px}
   .upd{text-align:left;font-size:11px}
   .nav{flex-wrap:nowrap;overflow-x:auto;gap:2px;-webkit-overflow-scrolling:touch}
@@ -1911,6 +1913,25 @@ function workProducts(){
 // «Технические» товары — расходники собств. производства (зеркало scripts/fetch_stale.py: is_tech)
 const TECH_SUB=["кава зернова","зернова кава","кава в зернах","сухе молоко (1кг)","капучино (1кг)","капучіно (1кг)","лате (1кг)","латте (1кг)","какао (1кг)","еспресо (1кг)","айріш капучино","стакан паперов","стакан пластик","стакан гофр","паперовий стакан","пластиковий стакан","гофр.стакан","гофр стакан","кришка для","кришка біла","розмішувач","мішалка для","стірер","булка для хот","булочка для хот","пакет фасув"];
 function isTech(name){const n=(name||'').toLowerCase();if(TECH_SUB.some(k=>n.includes(k)))return true;if((n.includes('сосиск')||n.includes('сардель'))&&(n.includes('1кг')||n.includes('мк ')))return true;return false;}
+// ---------- СРЕДНИЙ ЧЕК: опт не мешаем с розницей ----------
+// «Полевая магазин» (она же «Полевая 83» до апреля) — опт/склад: 13,4% выручки при 1,7% чеков
+// и средним чеком ~1292 ₴ против розничной медианы ~145 ₴. В сетевом среднем чеке она давала
+// +13,5% (166 вместо 147 ₴), и разрыв рос — с +7% в марте до +19% в мае–июле.
+// Выручка и число чеков остаются полными, отдельно пересчитывается только СРЕДНИЙ ЧЕК.
+// Список приходит из данных (fetch_data.WHOLESALE); фолбэк — на случай старого full_data.json.
+const wholesaleSet=()=>new Set((D&&D.wholesale_stores)||['Полевая магазин']);
+function avgCheck(k){
+  if(!k||!k.receipts||!k.revenue)return null;              // чеки не суммируемы в этом срезе
+  const rows=monthSel()?(D.store_month||[]).filter(r=>r.mo===monthN()):(D.by_store||[]);
+  const sel=rows.filter(r=>inSel(r.store,S.store));
+  if(!sel.length)return {v:k.revenue/k.receipts,note:''};
+  const WH=wholesaleSet(), retail=sel.filter(r=>!WH.has(r.store));
+  if(!retail.length)return {v:k.revenue/k.receipts,note:'опт'};   // выбран только опт — так и покажем
+  const rev=retail.reduce((a,r)=>a+(r.revenue||0),0), rec=retail.reduce((a,r)=>a+(r.receipts||0),0);
+  if(!rec)return {v:k.revenue/k.receipts,note:''};
+  return {v:rev/rec, note:retail.length!==sel.length?'без опта':''};
+}
+
 // ---------- ВОЗВРАТЫ ПОСТАВЩИКАМ ----------
 // D.returns_fact — компактный факт-куб, строка = [мес, магазин_i, категория_i, поставщик_i,
 //   класс_i, сумма_закупки, сумма_розницы, кол-во, строк_документов, (1 = физобмен)].
@@ -2320,10 +2341,12 @@ function renderOverview(){
     parts.push(RET_SCOPE_LBL[S.retScope]);
     retCard=['Возвраты ₴',fmt(rn.pur),parts.join(' · ')];
   }
+  const ac=avgCheck(k);
+  const acNote=[ac&&ac.note, k.exact?'точный срез':'≈ оценка'].filter(Boolean).join(' · ');
   kpiCards('ov_kpis',[
     ['Выручка ₴',fmt(k.revenue)],['Прибыль ₴',fmt(k.gp)],['Маржа',(k.margin||0)+'%'],
     ['Продано, ед.',(k.qty!=null||k.units!=null)?fmt(k.qty!=null?k.qty:k.units):'—'],['Чеков',k.receipts!=null?fmt(k.receipts):'—'],
-    ['Позиций (SKU)',k.skus!=null?fmt(k.skus):'—'],['Средний чек ₴',(k.receipts&&k.revenue)?fmt(k.revenue/k.receipts):'—',k.exact?'точный срез':'≈ оценка'],
+    ['Позиций (SKU)',k.skus!=null?fmt(k.skus):'—'],['Средний чек ₴',ac?fmt(ac.v):'—',acNote],
     retCard
   ]);
   renderReturns(rn);
@@ -2715,11 +2738,17 @@ function renderStores(){
       avgcheck:r.receipts?Math.round(r.revenue/r.receipts):0,revsku:r.skus?Math.round(r.revenue/r.skus):0,
       skus:r.skus,turndays:tr?Math.round(period/tr):null,dead:dd.dead_value||0,wro:w.amount||0};});
   const tR=sum(rows,x=>x.revenue),tRe=sum(rows,x=>x.receipts),tDead=sum(rows,x=>x.dead),tW=sum(rows,x=>x.wro);
-  kpiCards('st_kpis2',[['Магазинов в выборке',fmt(rows.length)],['Выручка ₴',fmt(tR)],['Средний чек ₴',tRe?fmt(tR/tRe):'—'],['Заморожено в неликвидах ₴',fmt(tDead)],['Списания ₴',fmt(tW)]]);
+  // сводный средний чек — по рознице: опт с чеком ~1292 ₴ перекашивает его на десятки процентов.
+  // В таблице ниже у самой оптовой точки её собственный средний чек остаётся как есть.
+  const WH=wholesaleSet(), retRows=rows.filter(r=>!WH.has(r.store)), useRows=retRows.length?retRows:rows;
+  const aR=sum(useRows,x=>x.revenue), aRe=sum(useRows,x=>x.receipts);
+  kpiCards('st_kpis2',[['Магазинов в выборке',fmt(rows.length)],['Выручка ₴',fmt(tR)],
+    ['Средний чек ₴',aRe?fmt(aR/aRe):'—',retRows.length!==rows.length?'без опта':''],
+    ['Заморожено в неликвидах ₴',fmt(tDead)],['Списания ₴',fmt(tW)]]);
   tableSort('stf_tab',
     [['Магазин','store','l'],['Выручка ₴','revenue'],['Прибыль ₴','gp'],['Маржа %','margin'],['Ср.чек ₴','avgcheck'],['Выр/SKU ₴','revsku'],['Чеков','receipts'],['SKU','skus'],['Оборот, дн','turndays'],['Неликвид ₴','dead'],['Списания ₴','wro']],
     rows,'revenue',r=>setFilter('store',r.store),
-    r=>`<td class="l">${r.store}</td><td>${fmt(r.revenue)}</td><td>${fmt(r.gp)}</td><td class="${r.margin<8?'neg':(r.margin>=18?'pos':'')}">${(r.margin||0)}%</td><td>${fmtF(r.avgcheck)}</td><td>${fmtF(r.revsku)}</td><td>${fmtF(r.receipts)}</td><td>${fmtF(r.skus)}</td><td>${r.turndays!=null?fmtF(r.turndays):'—'}</td><td>${fmt(r.dead)}</td><td>${fmt(r.wro)}</td>`);
+    r=>`<td class="l">${r.store}${WH.has(r.store)?' <span class="muted" style="font-size:11px">(опт)</span>':''}</td><td>${fmt(r.revenue)}</td><td>${fmt(r.gp)}</td><td class="${r.margin<8?'neg':(r.margin>=18?'pos':'')}">${(r.margin||0)}%</td><td>${fmtF(r.avgcheck)}</td><td>${fmtF(r.revsku)}</td><td>${fmtF(r.receipts)}</td><td>${fmtF(r.skus)}</td><td>${r.turndays!=null?fmtF(r.turndays):'—'}</td><td>${fmt(r.dead)}</td><td>${fmt(r.wro)}</td>`);
   renderHeatmap();
 }
 function renderHeatmap(){
