@@ -27,3 +27,11 @@ scripts/cmp_*.py
 scripts/diag_*.py
 scripts/patch_*.py
 docs/*.bak_*
+
+# автотесты: контрольные числа тянутся из BigQuery локально (python tests/truth.py),
+# файл машинозависимый и меняется при каждой пересборке данных
+tests/truth.json
+# отчёт сверки — генерируется scripts/reconcile.py, в репозитории не нужен
+docs/reconcile.json
+# временные выгрузки пайплайна
+_*_tmp.json

@@ -32,7 +32,9 @@ const truth = fs.existsSync(TRUTH) ? JSON.parse(fs.readFileSync(TRUTH, 'utf8')) 
 
 const errors = [];
 const results = [];
-const add = (name, ok, got, exp) => { results.push({ name, ok: !!ok, got, exp }); };
+// state: true = OK, false = FAIL, 'skip' = проверить нечем (данные ещё не пересобраны)
+const add = (name, ok, got, exp) => { results.push({ name, ok: ok === 'skip' ? 'skip' : !!ok, got, exp }); };
+const skip = (name, why) => results.push({ name, ok: 'skip', got: why, exp: '' });
 
 const dom = new JSDOM(html, {
   runScripts: 'dangerously', pretendToBeVisual: true,
@@ -85,19 +87,23 @@ function crossSuite() {
   w.eval(`window.__T = ${JSON.stringify(truth || {})};`);
   const rows = w.eval(`(function(){
     var T=window.__T, out=[], has=Object.keys(T).length>0;
+    var CUBE=!!(D.prod_store&&D.products&&D.stores);
+    var NOCUBE='нет куба prod_store — пересоберите данные';
     var CLEAR=function(){${CLEAR}};
     var off=function(a,b){return b?Math.abs(a-b)/b*100:(a?100:0);};
     var wpRev=function(){return workProducts().reduce(function(s,p){return s+(+p.rev||0);},0);};
     var byStore={}; D.by_store.forEach(function(r){byStore[r.store]=r.revenue;});
     var s1=(T.s1||D.stores[0]), s2=(T.s2||D.stores[1]);
-    var push=function(n,ok,g,e){out.push([n,!!ok,g,e]);};
+    var push=function(n,ok,g,e){out.push([n,ok==='skip'?'skip':!!ok,g,e]);};
+    // проверки, которым нужен куб позиция×магазин: без него они не провалены, а НЕПРОВЕРЯЕМЫ
+    var pushCube=function(n,ok,g,e){ CUBE?push(n,ok,g,e):push(n,'skip',NOCUBE,''); };
 
     CLEAR(); S.store=[s1];
-    push('Позиции: один магазин == by_store', off(wpRev(),byStore[s1])<0.05, Math.round(wpRev()), byStore[s1]);
+    pushCube('Позиции: один магазин == by_store', off(wpRev(),byStore[s1])<0.05, Math.round(wpRev()), byStore[s1]);
 
     CLEAR(); S.store=[s1,s2];
     var two=wpRev(), ref2=byStore[s1]+byStore[s2];
-    push('Позиции: два магазина == сумма by_store', off(two,ref2)<0.05, Math.round(two), ref2);
+    pushCube('Позиции: два магазина == сумма by_store', off(two,ref2)<0.05, Math.round(two), ref2);
     push('Позиции: два магазина НЕ равны всей сети', Math.abs(two-D.kpi.revenue)>1000, Math.round(two), D.kpi.revenue);
     var k=kpiNow();
     push('KPI: два магазина == сумма by_store', off(k.revenue,ref2)<0.05, k.revenue, ref2);
@@ -108,11 +114,11 @@ function crossSuite() {
 
     CLEAR(); var all=0; D.stores.forEach(function(s){S.store=[s];all+=wpRev();});
     CLEAR();
-    push('Позиции: сумма по всем точкам == выручка сети', off(all,D.kpi.revenue)<0.05, Math.round(all), D.kpi.revenue);
+    pushCube('Позиции: сумма по всем точкам == выручка сети', off(all,D.kpi.revenue)<0.05, Math.round(all), D.kpi.revenue);
 
     CLEAR(); S.store=[s1];
     var ca=catAgg().reduce(function(a,r){return a+r.revenue;},0);
-    push('Категории: при выбранном магазине == by_store', off(ca,byStore[s1])<0.05, Math.round(ca), byStore[s1]);
+    pushCube('Категории: при выбранном магазине == by_store', off(ca,byStore[s1])<0.05, Math.round(ca), byStore[s1]);
 
     CLEAR(); var c2=[D.by_category[0].category,D.by_category[1].category];
     var one=0; c2.forEach(function(c){S.cat=[c];one+=kpiNow().revenue;});
@@ -121,14 +127,16 @@ function crossSuite() {
     push('KPI: чеки по двум категориям скрыты (не складываются)', kpiNow().receipts===undefined, kpiNow().receipts, undefined);
     CLEAR();
 
-    if(D.prod_store&&D.stores){
+    if(CUBE){
       var acc={}; D.prod_store.forEach(function(r){var s=D.stores[r[1]];acc[s]=(acc[s]||0)+r[2];});
       var worst=0,wn='';
       Object.keys(byStore).forEach(function(s){var d=off(acc[s]||0,byStore[s]);if(d>worst){worst=d;wn=s;}});
       push('Куб prod_store == by_store по всем точкам (макс. '+worst.toFixed(3)+'% · '+wn+')', worst<0.05, +worst.toFixed(3), 0);
+    } else {
+      push('Куб prod_store == by_store по всем точкам', 'skip', NOCUBE, '');
     }
 
-    if(has){
+    if(has&&CUBE){
       CLEAR(); S.cat=[T.cat]; S.sup=[T.sup];
       var both=storeAgg().reduce(function(a,r){return a+r.revenue;},0);
       CLEAR(); S.sup=[T.sup];
@@ -147,17 +155,20 @@ function crossSuite() {
       var km=kpiNow();
       push('KPI месяц+магазин точный (store_month)', off(km.revenue,T.store_month_rev)<0.05&&km.exact===true, km.revenue, T.store_month_rev);
       CLEAR();
+    } else if(has){
+      push('Сверка срезов с BigQuery', 'skip', NOCUBE, '');
     }
     CLEAR();
     return out;
   })()`);
   rows.forEach(([n, ok, g, e]) => add(n, ok, g, e));
-  if (!truth) add('Сверка с BigQuery пропущена (нет tests/truth.json)', true, 'skip', 'skip');
+  if (!truth) skip('Сверка срезов с BigQuery', 'нет tests/truth.json — запустите python tests/truth.py');
 }
 
 function returnsSuite() {
   if (!w.eval('!!(D.returns_fact&&D.returns_dim)')) {
-    add('Возвраты: данных нет — пересоберите full_data.json', false, 'нет returns_fact', 'есть');
+    skip('Возвраты: аддитивность куба и карточка на «Обзоре»',
+         'нет returns_fact — пересоберите данные');
     return;
   }
   const rows = w.eval(`(function(){
@@ -202,12 +213,27 @@ function returnsSuite() {
 
 setTimeout(() => {
   if (!w.eval('typeof D!=="undefined" && !!D')) { console.error('ДАННЫЕ НЕ ЗАГРУЗИЛИСЬ'); process.exit(2); }
+
+  // Что вообще есть в этом full_data.json. Если данные собраны прежним скриптом,
+  // часть проверок физически нечем выполнить — они идут как «пропущено», а не «провалено».
+  const has = w.eval(`({cube:!!(D.prod_store&&D.products&&D.stores), ret:!!(D.returns_fact&&D.returns_dim),
+    upd:(D.updated_at||'—')})`);
+  const stale = !has.cube || !has.ret;
+  console.log('  Данные от ' + has.upd + ' · куб позиций: ' + (has.cube ? 'есть' : 'НЕТ') +
+    ' · возвраты: ' + (has.ret ? 'есть' : 'НЕТ'));
+  if (stale) {
+    console.log('  ВНИМАНИЕ: full_data.json собран прежним скриптом. Сначала `git push`,');
+    console.log('  затем «Обновить данные» — иначе проверять нечего, а дашборд работает');
+    console.log('  в приблизительном режиме (в интерфейсе это подписано «≈ оценка»).');
+  }
+
   tabsSuite(); crossSuite(); returnsSuite();
 
   const num = v => typeof v === 'number' ? v.toLocaleString('ru-RU') : String(v);
-  let bad = 0;
+  let bad = 0, skipped = 0;
   console.log('');
   for (const r of results) {
+    if (r.ok === 'skip') { skipped++; console.log('  --    ' + r.name.padEnd(62) + 'пропущено: ' + r.got); continue; }
     if (!r.ok) bad++;
     console.log('  ' + (r.ok ? 'OK  ' : 'FAIL') + '  ' + r.name.padEnd(62) +
       num(r.got) + (r.ok ? '' : '   (ожидалось ' + num(r.exp) + ')'));
@@ -217,6 +243,7 @@ setTimeout(() => {
     errors.slice(0, 15).forEach(e => console.log('    ' + e));
   }
   console.log('\n  Проверок: ' + results.length + ' · провалено: ' + bad +
-    ' · рантайм-ошибок: ' + errors.length);
-  process.exit(bad || errors.length ? 1 : 0);
+    ' · пропущено: ' + skipped + ' · рантайм-ошибок: ' + errors.length);
+  // 1 — есть реальные провалы; 3 — провалов нет, но данные устарели и проверено не всё
+  process.exit(bad || errors.length ? 1 : (stale ? 3 : 0));
 }, 1200);

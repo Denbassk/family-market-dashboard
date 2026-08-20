@@ -1867,28 +1867,36 @@ function workProducts(){
   if(WP_CACHE.key===key){WP_EXACT=WP_CACHE.exact;return WP_CACHE.val;}
   const storeSel=!allSel(S.store), hasCube=!!(D.prod_store&&D.products&&D.stores);
   let base, exact=true;
+  // позиции по выбранным магазинам: из куба — точно; без куба (full_data.json собран
+  // прежним скриптом) — объединяем ТОП-30 по каждой выбранной точке, это ~26% выручки,
+  // поэтому срез помечается как оценка. Пустой список тут был бы хуже неполного.
+  const byStoreRows=()=>{
+    if(hasCube)return productsByStore();
+    exact=false;
+    const meta={};(D.products||[]).forEach(p=>meta[p.p]=p);
+    const acc=new Map();
+    for(const r of (D.store_top_products||[])){
+      if(!inSel(r.store,S.store))continue;
+      const a=acc.get(r.p);
+      if(a){a.rev+=r.rev;a.gp+=r.gp;a.qty+=r.qty;a.st++;}
+      else{const d=meta[r.p]||{};
+        acc.set(r.p,{p:r.p,c:r.c||d.c,s:r.s||d.s,rev:r.rev,gp:r.gp,qty:r.qty,st:1,abc:d.abc,xyz:d.xyz});}
+    }
+    return [...acc.values()].map(x=>({...x,mrg:x.rev?+(x.gp/x.rev*100).toFixed(1):0}));
+  };
   if(monthSel()){
     const m=monthN(), meta={};(D.products||[]).forEach(p=>meta[p.p]=p);
     base=(D.prod_month||[]).filter(r=>r.mo===m).map(r=>{const d=meta[r.p]||{};return {p:r.p,c:d.c||'Прочее (нет в матрице)',s:d.s||'(нет в матрице)',rev:r.rev,gp:r.gp,qty:r.qty,st:d.st,mrg:r.rev?+(r.gp/r.rev*100).toFixed(1):0,abc:d.abc,xyz:d.xyz};});
     if(storeSel){
-      if(hasCube){
-        // доля выбранных точек в годовой выручке позиции -> раскладываем её месячную выручку
-        const share={}; const byStore=productsByStore();
-        byStore.forEach(x=>{const tot=(meta[x.p]&&meta[x.p].rev)||0;share[x.p]=tot?x.rev/tot:0;});
-        base=base.filter(r=>share[r.p]>0).map(r=>{const k=share[r.p];
-          return {...r,rev:Math.round(r.rev*k),gp:Math.round(r.gp*k),qty:Math.round(r.qty*k),st:undefined};});
-        exact=false;
-      } else {
-        base=base.filter(r=>false); // куба нет — честнее показать пусто, чем выручку всей сети
-        exact=false;
-      }
+      // доля выбранных точек в годовой выручке позиции -> раскладываем её месячную выручку
+      const share={};
+      byStoreRows().forEach(x=>{const tot=(meta[x.p]&&meta[x.p].rev)||0;share[x.p]=tot?x.rev/tot:0;});
+      base=base.filter(r=>share[r.p]>0).map(r=>{const k=share[r.p];
+        return {...r,rev:Math.round(r.rev*k),gp:Math.round(r.gp*k),qty:Math.round(r.qty*k),st:undefined};});
+      exact=false;
     }
-  } else if(storeSel && hasCube){
-    base=productsByStore();
   } else if(storeSel){
-    // фолбэк для старого full_data.json без куба: ТОП-30 на точку, только при одном магазине
-    base=(S.store.length===1)?(D.store_top_products||[]).filter(r=>r.store===S.store[0]):[];
-    exact=false;
+    base=byStoreRows();
   } else {
     base=D.products||[];
   }
@@ -2621,9 +2629,11 @@ function coverage(){
 // ============ ПОЗИЦИИ ============
 function renderProducts(){
   const w=workProducts().slice();
-  // подпись честная: точный срез по магазинам даёт куб, «≈ оценка» остаётся только для
-  // связки месяц+магазин (помесячного куба по точкам нет)
-  $('pr_s').textContent=w.length+' позиций'+(WP_EXACT?'':' · ≈ оценка (месяц × магазин)');
+  // подпись честная: точный срез по магазинам даёт куб prod_store, «≈ оценка» остаётся
+  // только для связки месяц+магазин; а если куба ещё нет — данные собраны прежним скриптом
+  const why=!D.prod_store?' · ≈ оценка: ТОП-30 на точку, нажмите «Обновить данные»'
+                         :' · ≈ оценка (месяц × магазин)';
+  $('pr_s').textContent=w.length+' позиций'+(WP_EXACT?'':why);
   // drill карточка
   $('pr_drill').innerHTML = S.prSel ? productCard(S.prSel) : '';
   const xb=x=>`<span class="badge b${x==='X'?'A':x==='Y'?'B':x==='Z'?'C':''}">${x||'—'}</span>`;
