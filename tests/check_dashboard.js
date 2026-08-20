@@ -16,7 +16,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { JSDOM } = require('jsdom');
+const { JSDOM, VirtualConsole } = require('jsdom');
 
 const ROOT = path.resolve(__dirname, '..');
 const HTML = process.argv[2] || path.join(ROOT, 'docs', 'index.html');
@@ -36,8 +36,18 @@ const results = [];
 const add = (name, ok, got, exp) => { results.push({ name, ok: ok === 'skip' ? 'skip' : !!ok, got, exp }); };
 const skip = (name, why) => results.push({ name, ok: 'skip', got: why, exp: '' });
 
+// Свой «виртуальный консоль»: jsdom не умеет разбирать современный CSS и на каждый запуск
+// печатает «Could not parse CSS stylesheet» — это шум, а не проблема дашборда. Настоящие
+// ошибки страницы ловятся через window.onerror и unhandledrejection ниже.
+const vconsole = new VirtualConsole();
+vconsole.on('jsdomError', e => {
+  if (!/Could not parse CSS/i.test(e && e.message || '')) errors.push('jsdom: ' + (e.stack || e.message));
+});
+['log', 'info', 'warn', 'debug', 'error', 'dir', 'table', 'trace', 'group', 'groupEnd',
+ 'groupCollapsed', 'count', 'assert', 'time', 'timeEnd', 'timeLog'].forEach(k => vconsole.on(k, () => {}));
+
 const dom = new JSDOM(html, {
-  runScripts: 'dangerously', pretendToBeVisual: true,
+  runScripts: 'dangerously', pretendToBeVisual: true, virtualConsole: vconsole,
   beforeParse(w) {
     const chart = () => ({ setOption(){}, on(){}, off(){}, resize(){}, dispose(){},
       getZr: () => ({ on(){} }), showLoading(){}, hideLoading(){} });
