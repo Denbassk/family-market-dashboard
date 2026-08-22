@@ -37,6 +37,7 @@ select:focus,input:focus{outline:1px solid var(--acc)}
 .ms-btn::after{content:'▾';position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:11px}
 .ms-btn:hover{border-color:var(--line2);background:var(--c2)}
 .ms-btn.act{border-color:var(--acc);color:var(--acc2);background:var(--accsoft);font-weight:600;box-shadow:inset 3px 0 0 var(--acc)}
+.btn.preset-on{border-color:var(--acc);color:var(--acc2);background:var(--accsoft);font-weight:600}
 .ctrl.hasval label{color:var(--acc)}
 .ctrl.hasval label::after{content:'●';margin-left:5px;font-size:8px;color:var(--acc);vertical-align:middle}
 .ms-pop{position:absolute;z-index:40;top:calc(100% + 4px);left:0;min-width:240px;max-width:340px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.45);padding:8px;display:none}
@@ -1450,10 +1451,8 @@ mark{
   <button data-p="report">Отчёты</button>
   <button data-p="analytics">Аналитика</button>
   <button data-p="products">Позиции</button>
-  <button data-p="frozen">Дефицит · неликвиды · списания</button>
+  <button data-p="stock">Запасы</button>
   <button data-p="stores">Магазины</button>
-  <button data-p="moves">Перемещения</button>
-  <button data-p="culinary">Кулинария и выпечка</button>
   <button data-p="matrix">Матрица</button>
   <button data-p="suppliers">Условия поставщиков</button>
 </div>
@@ -1465,7 +1464,8 @@ mark{
   <div class="ctrl" id="cSup"><label>Поставщик</label><div class="ms" id="msSup"></div></div>
   <div class="ctrl" id="cQ"><label>Поиск товара</label><input type="text" id="fQ" list="prodList" placeholder="начните вводить название…" autocomplete="off"><datalist id="prodList"></datalist></div>
   <div class="ctrl" id="cOff"><label>Внематричные</label><label class="btn" style="display:flex;gap:7px;align-items:center;font-weight:400"><input type="checkbox" id="fOff"> скрыть технические</label></div>
-  <div class="ctrl" id="barHint" style="display:none;align-self:center"><span class="muted" style="font-size:12px">Отчёт настраивается своими фильтрами внутри вкладки ↓</span></div>
+  <div class="ctrl" id="cPreset"><label>Пресет</label><button class="btn" id="fOwnProd" title="Кулинария + Выпечка + Хот-дог — собственное производство сети">🍞 Собственное производство</button></div>
+  <div class="ctrl" id="barHint" style="display:none;align-self:center"><span class="muted" style="font-size:12px">Период, группировка и метрика — в панели отчёта ниже ↓</span></div>
   <button class="btn" id="reset">Сбросить</button>
   <button class="btn acc" id="refresh" title="Запустить пересборку данных из BigQuery (нужен токен GitHub)">🔄 Обновить данные</button>
 </div>
@@ -1483,6 +1483,7 @@ mark{
     </div>
   </div>
   <div class="kpis" id="ov_kpis"></div>
+  <div id="ov_slice"></div>
   <div class="grid">
     <div class="card full"><h3>Динамика выручки и прибыли по месяцам <span id="ov_dyn_s"></span></h3><div id="ov_dyn" class="chart"></div></div>
     <div class="card"><h3>Категории по выручке <span>цвет — маржа % · клик = фильтр</span></h3><div id="ov_cat" class="chart tall"></div></div>
@@ -1504,7 +1505,7 @@ mark{
     <button class="btn acc" id="rpRun">📊 Сформировать отчёт</button>
     <button class="csvbtn" data-t="rp_tab" style="align-self:flex-end">⬇ Excel</button>
   </div>
-  <div class="note" style="margin-top:0"><b>Динамика по месяцам:</b> каждый месяц периода — отдельная колонка + «Итого» и «Рост». Фильтры «Магазин/Категория/Поставщик/Поиск» из шапки применяются (для «Товары» магазин не влияет — считается по всей сети). <b>Покрытие</b> — в скольких точках продавалась позиция.</div>
+  <div class="note" style="margin-top:0"><b>Динамика по месяцам:</b> каждый месяц периода — отдельная колонка + «Итого» и «Доля». Фильтры «Магазин/Категория/Поставщик/Поиск» из шапки применяются ко всем группировкам; для «Товары» магазин учитывается через куб позиция×магазин и срез помечается «≈ оценка». <b>Покрытие</b> — в скольких точках продавалась позиция.</div>
   <div class="kpis" id="rp_kpis"></div>
   <div class="grid">
     <div class="card full"><h3>Динамика по месяцам <span id="rp_cs"></span></h3><div id="rp_chart" class="chart tall"></div></div>
@@ -1515,7 +1516,6 @@ mark{
 
 <!-- АНАЛИТИКА -->
 <div class="page" id="p_analytics">
-  <div id="an_deep"></div>
   <div class="grid" id="an_overview">
     <div class="card full"><h3>ABC-анализ <span>A=80% / B=15% / C=5% выручки · кривая Парето</span></h3>
       <div class="kpis" id="an_abc_k" style="margin:6px 0"></div>
@@ -1526,11 +1526,10 @@ mark{
     <div class="card"><h3>Оборачиваемость по поставщикам <span>оборотов за период · клик = фильтр</span></h3><div id="an_turnsup" class="chart tall"></div></div>
     <div class="card"><h3>Маржа vs выручка по категориям <span>размер — SKU</span></h3><div id="an_margin" class="chart"></div></div>
     <div class="card"><h3>Оборачиваемость по магазинам <span>выше = быстрее</span></h3><div id="an_turnstore" class="chart"></div></div>
-    <div class="card full"><h3>💰 Прибыль по категориям <span>чистая = валовая прибыль − списания · клик = фильтр</span></h3><div id="an_profit" class="chart tall"></div></div>
     <div class="card full"><h3>🔴 Убыточные и низкомаржинальные позиции <span>маржа ≤5% или продажа ниже закупки · клик = карточка</span><button class="csvbtn" data-t="an_loss">⬇ Excel</button></h3>
       <div class="kpis" id="an_loss_k" style="margin:4px 0"></div>
       <div class="scroll"><table id="an_loss"></table></div></div>
-    <div class="card full"><h3>Поставщики <span id="an_sup_s">клик = фильтр</span><button class="csvbtn" data-t="an_sup">⬇ Excel</button></h3><div class="scroll"><table id="an_sup"></table></div></div>
+    <div class="card full"><h3>🧺 Кросс-продажи: что покупают вместе <span>пары товаров в одном чеке</span><button class="csvbtn" data-t="fr_cross">⬇ Excel</button></h3><div class="scroll"><table id="fr_cross"></table></div></div>
     <div class="card full"><h3>Покрытие: категории × магазины <span>доля магазина в выручке категории, %</span></h3><div class="scroll"><div id="an_cov"></div></div></div>
   </div>
 </div>
@@ -1544,39 +1543,19 @@ mark{
   </div>
 </div>
 
-<!-- НЕЛИКВИДЫ И СПИСАНИЯ -->
-<div class="page" id="p_frozen">
+<!-- ЗАПАСЫ: дефицит -> что лежит мёртвым грузом -> что переместить -->
+<div class="page" id="p_stock">
   <div class="kpis" id="fr_kpis"></div>
   <div class="card full" style="margin-bottom:12px"><h3>⚠ Дефицит: упущенные продажи <span>продаётся, но остаток 0 · «есть в др. точках» = кандидат на перемещение, иначе — дозаказ</span><button class="csvbtn" data-t="fr_oos">⬇ Excel</button></h3>
     <div class="scroll"><table id="fr_oos"></table></div></div>
-  <div class="grid">
-    <div class="card"><h3>Замороженный капитал по магазинам <span>остаток есть, продаж 90д нет</span></h3><div id="fr_store" class="chart tall"></div></div>
-    <div class="card"><h3>Замороженный капитал по поставщикам</h3><div id="fr_sup" class="chart tall"></div></div>
-    <div class="card full"><h3>Неликвиды по позициям <span id="fr_items_s">топ по стоимости · клик = поиск позиции</span><button class="csvbtn" data-t="fr_items">⬇ Excel</button></h3>
-      <div class="scroll"><table id="fr_items"></table></div></div>
-    <div class="card"><h3>Кросс-продажи: пары товаров <span>вместе в одном чеке</span><button class="csvbtn" data-t="fr_cross">⬇ Excel</button></h3><div class="scroll"><table id="fr_cross"></table></div></div>
-    <div class="card"><h3>Списания: топ позиций <span>по себестоимости</span><button class="csvbtn" data-t="fr_wo">⬇ Excel</button></h3><div class="scroll"><table id="fr_wo"></table></div></div>
+  <div class="grid" style="margin-bottom:12px">
+    <div class="card"><h3>Замороженный капитал по магазинам <span>остаток есть, продаж 90 дней нет</span></h3><div id="fr_store" class="chart tall"></div></div>
+    <div class="card"><h3>Замороженный капитал по поставщикам <span>топ-40</span></h3><div id="fr_sup" class="chart tall"></div></div>
   </div>
-</div>
-
-<!-- МАГАЗИНЫ: эффективность + тепловая карта -->
-<div class="page" id="p_stores">
-  <div class="kpis" id="st_kpis2"></div>
-  <div class="card full" style="margin-bottom:12px"><h3>Тепловая карта продаж <span>день недели × час · клик по строке магазина ниже фокусирует карту · местное время</span>
-    <span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center;font-weight:400"><label style="font-size:11px;color:var(--muted)">показатель</label><select id="hmMetric" style="min-width:120px"><option value="revenue">Выручка</option><option value="receipts">Чеки</option></select></span></h3>
-    <div id="hm_chart" class="chart" style="height:340px"></div>
-    <div class="note" id="hm_note"></div></div>
-  <div class="card full"><h3>Эффективность магазинов <span>сортируйте по любому столбцу · клик = фильтр по магазину</span><button class="csvbtn" data-t="stf_tab">⬇ Excel</button></h3>
-    <div class="scroll tall"><table id="stf_tab"></table></div>
-    <div class="note">Оборот, дн — за сколько дней распродаётся средний остаток (меньше = лучше). Неликвид ₴ — заморожено в товарах без движения. Списания ₴ — сумма списаний за период.</div></div>
-</div>
-
-<!-- ПЕРЕМЕЩЕНИЯ -->
-<div class="page" id="p_moves">
   <div class="card full" id="stale_card">
     <h3>Товары без движения <span>есть остаток, но нет продаж N дней · остаток = снимок склада, движение = по чекам</span><button class="csvbtn" data-t="st_tab">⬇ Excel</button></h3>
     <div class="bar" style="margin:2px 0 12px">
-      <div class="ctrl"><label>Не продаётся ≥</label><select id="stDays"><option value="3">3 дня</option><option value="5">5 дней</option><option value="7" selected>7 дней</option><option value="10">10 дней</option><option value="14">14 дней</option><option value="30">30 дней</option><option value="60">60 дней</option><option value="999">ни одной продажи</option></select></div>
+      <div class="ctrl"><label>Не продаётся ≥</label><select id="stDays"><option value="3">3 дня</option><option value="5">5 дней</option><option value="7">7 дней</option><option value="10">10 дней</option><option value="14">14 дней</option><option value="30">30 дней</option><option value="60">60 дней</option><option value="90" selected>90 дней</option><option value="999">ни одной продажи</option></select></div>
       <div class="ctrl"><label>Магазин</label><select id="stStore"><option value="all">Все магазины</option></select></div>
       <div class="ctrl"><label>Категория</label><select id="stCat"><option value="all">Все категории</option></select></div>
       <div class="ctrl" id="cStSup"><label>Поставщик</label><select id="stSup" style="display:none"><option value="all">Все поставщики</option></select><div class="ms" id="msStSup"></div></div>
@@ -1589,27 +1568,21 @@ mark{
     <div class="note" id="st_note"></div>
   </div>
   <div class="kpis" id="mv_kpis"></div>
-  <div class="card full"><h3>Рекомендации по перемещению <span>только между розничными точками · клик = карточка позиции</span><button class="csvbtn" data-t="mv_tab">⬇ Excel</button></h3>
+  <div class="card full" style="margin-bottom:12px"><h3>Рекомендации по перемещению <span>только между розничными точками · клик = карточка позиции</span><button class="csvbtn" data-t="mv_tab">⬇ Excel</button></h3>
     <div class="scroll tall"><table id="mv_tab"></table></div>
     <div class="note" id="mv_note"></div></div>
 </div>
 
-<!-- КУЛИНАРИЯ И ВЫПЕЧКА (собственное производство, вне матрицы) -->
-<div class="page" id="p_culinary">
-  <div class="bar" style="margin-bottom:12px">
-    <div class="ctrl"><label>Тип</label><select id="cuSub"><option value="all">Все (Кулінарія + Випічка)</option><option>Кулінарія</option><option>Випічка</option></select></div>
-    <div class="note" style="align-self:flex-end;margin:0">Собственное производство · находится по префиксам «Кулінарія»/«Випічка» · вне ассортиментной матрицы. Работают фильтры «Магазин» и «Поиск» сверху.</div>
-  </div>
-  <div class="kpis" id="cu_kpis"></div>
-  <div class="grid">
-    <div class="card"><h3>Кулінарія vs Випічка <span>по сети</span></h3><div id="cu_sub" class="chart sm"></div></div>
-    <div class="card"><h3>Динамика по месяцам <span id="cu_dyn_s"></span></h3><div id="cu_dyn" class="chart sm"></div></div>
-    <div class="card"><h3>По магазинам <span>клик = фильтр</span></h3><div id="cu_store" class="chart tall"></div></div>
-    <div class="card"><h3>Топ позиций <span>цвет — маржа · клик = детали</span></h3><div id="cu_top" class="chart tall"></div></div>
-    <div class="card full"><h3>Позиции <span id="cu_s"></span><button class="csvbtn" data-t="cu_tab">⬇ Excel</button></h3>
-      <div id="cu_drill"></div>
-      <div class="scroll tall"><table id="cu_tab"></table></div></div>
-  </div>
+<!-- МАГАЗИНЫ: эффективность + тепловая карта -->
+<div class="page" id="p_stores">
+  <div class="kpis" id="st_kpis2"></div>
+  <div class="card full" style="margin-bottom:12px"><h3>Тепловая карта продаж <span>день недели × час · клик по строке магазина ниже фокусирует карту · местное время</span>
+    <span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center;font-weight:400"><label style="font-size:11px;color:var(--muted)">показатель</label><select id="hmMetric" style="min-width:120px"><option value="revenue">Выручка</option><option value="receipts">Чеки</option></select></span></h3>
+    <div id="hm_chart" class="chart" style="height:340px"></div>
+    <div class="note" id="hm_note"></div></div>
+  <div class="card full"><h3>Эффективность магазинов <span>сортируйте по любому столбцу · клик = фильтр по магазину</span><button class="csvbtn" data-t="stf_tab">⬇ Excel</button></h3>
+    <div class="scroll tall"><table id="stf_tab"></table></div>
+    <div class="note">Оборот, дн — за сколько дней распродаётся средний остаток (меньше = лучше). Неликвид ₴ — заморожено в товарах без движения (нет продаж 90 дней).</div></div>
 </div>
 
 <!-- МАТРИЦА (зеркало Google-таблицы) -->
@@ -1802,7 +1775,7 @@ mark{
 <script>
 const GH_OWNER="Denbassk", GH_REPO="family-market-dashboard";
 let D=null, charts={};
-const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',culSub:'all',cuSel:null,rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null,retScope:'rp'};
+const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null,retScope:'rp'};
 function monthSel(){return S.month&&S.month!=='all';}
 function monthN(){return +S.month;}
 const MONTHS=['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
@@ -2084,6 +2057,15 @@ async function load(){
 
 // клик по графику/строке = выбрать один вариант (заменяет текущий выбор фильтра)
 function setFilter(k,v){ if(k==='store'||k==='cat'||k==='sup'){S[k]=[v];msSync(k);} else {S[k]=v;} S.prSel=null; render();}
+// ---------- ПРЕСЕТ «Собственное производство» (Кулинария + Выпечка + Хот-дог) ----------
+// Раньше это была отдельная вкладка со своим запросом в fetch_data.py, который молча исключал
+// опт («Полевая магазин») и не знал про «Хот-дог»: 2 896 785 ₴ против 3 527 919 ₴ по тем же
+// товарам в D.products. Теперь это обычный фильтр по категориям — те же цифры, что везде,
+// и работают все разрезы, отчёты и выгрузка в Excel.
+const OWN_PROD=['Кулинария','Выпечка','Хот-дог'];
+function ownProdCats(){const have=new Set(((D&&D.by_category)||[]).map(c=>c.category));return OWN_PROD.filter(c=>have.has(c));}
+function ownProdOn(){const o=ownProdCats();return !!o.length&&S.cat.length===o.length&&o.every(c=>S.cat.includes(c));}
+function toggleOwnProd(){S.cat=ownProdOn()?[]:ownProdCats();msSync('cat');S.prSel=null;render();}
 function chips(){
   const c=[]; const mk=(lbl,val,key)=>`<div class="chip">${lbl}: <b>${val}</b><span data-k="${key}">✕</span></div>`;
   const many=arr=>arr.length===1?arr[0]:arr.length+' выбр.';
@@ -2112,70 +2094,10 @@ function render(){ if(!D)return; chips(); applyFilterVis();
   else if(S.tab==='report')renderReport();
   else if(S.tab==='analytics')renderAnalytics();
   else if(S.tab==='products')renderProducts();
-  else if(S.tab==='frozen')renderFrozen();
+  else if(S.tab==='stock'){renderFrozen();renderMoves();renderStale();}
   else if(S.tab==='stores')renderStores();
-  else if(S.tab==='moves'){renderMoves();renderStale();}
-  else if(S.tab==='culinary')renderCulinary();
   else if(S.tab==='matrix')renderMatrix();
   else if(S.tab==='suppliers')supEnter();
-}
-// ============ КУЛИНАРИЯ И ВЫПЕЧКА ============
-function renderCulinary(){
-  const C=D.culinary;
-  if(!C||!C.products){$('cu_tab').innerHTML='<tbody><tr><td class="l">Нет данных по кулинарии. Нажмите «Обновить данные».</td></tr></tbody>';$('cu_kpis').innerHTML='';return;}
-  const pmap={};C.products.forEach(p=>pmap[p.p]=p);
-  const storeSel=!allSel(S.store);
-  let prods;
-  if(storeSel)prods=(C.prod_store||[]).filter(r=>inSel(r.store,S.store)).map(r=>{const m=pmap[r.p]||{};return {p:r.p,sub:m.sub||'',rev:r.rev,qty:r.qty,mrg:m.mrg||0,gp:Math.round(r.rev*(m.mrg||0)/100),abc:m.abc||'—',st:1};});
-  else prods=C.products.map(p=>({...p}));
-  if(S.culSub!=='all')prods=prods.filter(p=>p.sub===S.culSub);
-  if(S.q)prods=prods.filter(p=>(''+p.p).toLowerCase().includes(S.q.toLowerCase()));
-  let kpi;
-  if(!storeSel&&S.culSub==='all'&&!S.q)kpi=C.kpi;
-  else if(storeSel&&S.culSub==='all'&&!S.q){const s=(C.by_store||[]).find(x=>inSel(x.store,S.store));kpi=s?{revenue:s.revenue,gp:s.gp,margin:s.margin,units:s.qty,receipts:s.receipts,skus:prods.length}:{};}
-  else {const rev=sum(prods,x=>x.rev),gp=sum(prods,x=>x.gp||0);kpi={revenue:rev,gp:gp,margin:rev?+(gp/rev*100).toFixed(1):0,units:sum(prods,x=>x.qty),skus:prods.length};}
-  kpiCards('cu_kpis',[
-    ['Выручка ₴',fmt(kpi.revenue)],['Прибыль ₴',fmt(kpi.gp)],['Маржа',(kpi.margin||0)+'%'],
-    ['Продано, ед.',fmt(kpi.units||0)],['Чеков',kpi.receipts!=null?fmt(kpi.receipts):'—'],
-    ['Позиций',fmt(kpi.skus||prods.length)],['Доля в обороте',((kpi.revenue||0)/(D.kpi.revenue||1)*100).toFixed(1)+'%']
-  ]);
-  const bs=C.by_sub||[];
-  chart('cu_sub').setOption({tooltip:tt({trigger:'item',formatter:p=>`<b>${p.name}</b><br>${fmtF(p.value)} ₴ (${p.percent}%)`}),
-    series:[{type:'pie',radius:['45%','72%'],center:['50%','52%'],data:bs.map(s=>({name:s.sub,value:s.revenue,itemStyle:{color:s.sub==='Випічка'?'#fb923c':'#38bdf8'}})),label:{color:TXT,formatter:'{b}: {d}%'}}]},true);
-  chart('cu_sub').resize();
-  const mSrc=storeSel?(C.store_month||[]).filter(r=>inSel(r.store,S.store)):(C.by_month||[]);
-  const series=agg12(mSrc.map(r=>({mo:r.mo,revenue:r.revenue,gp:r.gp}))),mos=series.map(x=>MONTHS[x[0]]);
-  $('cu_dyn_s').textContent=storeSel?S.store:'вся сеть';
-  chart('cu_dyn').setOption({grid:{...baseGrid,bottom:30},tooltip:tt({trigger:'axis',valueFormatter:v=>fmt(v)+' ₴'}),legend:{data:['Выручка','Прибыль'],textStyle:{color:TXT},top:0,right:0},xAxis:axCat(mos),yAxis:axV(),
-    series:[{name:'Выручка',type:'bar',data:series.map(x=>x[1]),itemStyle:{color:'#4aa8ff',borderRadius:[4,4,0,0]},barMaxWidth:34},{name:'Прибыль',type:'line',data:series.map(x=>x[2]),smooth:true,symbol:'circle',symbolSize:5,itemStyle:{color:'#34d399'},lineStyle:{width:2.5,shadowColor:'rgba(52,211,153,.35)',shadowBlur:8}}]},true);
-  chart('cu_dyn').resize();
-  const bst=(C.by_store||[]).slice().sort((a,b)=>b.revenue-a.revenue).slice(0,20).reverse();
-  chart('cu_store').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>`<b>${p.name}</b><br>${fmtF(p.value)} ₴`}),xAxis:axV(),yAxis:axCat(bst.map(s=>s.store)),
-    series:[{type:'bar',data:bst.map(s=>s.revenue),itemStyle:{color:'#a78bfa',borderRadius:[0,4,4,0]},barMaxWidth:16}]},true);
-  chart('cu_store').resize();chart('cu_store').off('click');chart('cu_store').on('click',p=>setFilter('store',p.name));
-  const top=prods.slice().sort((a,b)=>b.rev-a.rev).slice(0,15).reverse();
-  chart('cu_top').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>`<b>${top[p.dataIndex].p}</b><br>Выручка: ${fmtF(p.value)} ₴<br>Маржа: ${top[p.dataIndex].mrg}%`}),xAxis:axV(),yAxis:{...axCat(top.map(p=>p.p.length>26?p.p.slice(0,26)+'…':p.p)),axisLabel:{color:TXT,fontSize:10}},
-    series:[{type:'bar',data:top.map(p=>({value:p.rev,itemStyle:{color:mColor(p.mrg)}})),barMaxWidth:16}]},true);
-  chart('cu_top').resize();chart('cu_top').off('click');chart('cu_top').on('click',p=>{S.cuSel=top[p.dataIndex].p;render();});
-  $('cu_drill').innerHTML=S.cuSel?cuCard(S.cuSel):'';
-  const tot=kpi.revenue||1, ws=prods.map(p=>({...p,share:+(p.rev/tot*100).toFixed(2)}));
-  $('cu_s').textContent=prods.length+' позиций';
-  const cols=[['Товар','p','l'],['Тип','sub','l'],['Выручка ₴','rev'],['Доля %','share'],['Прибыль ₴','gp'],['Маржа %','mrg'],['Продано','qty'],['Точек','st'],['ABC','abc']];
-  tableSort('cu_tab',cols,ws,'rev',r=>{S.cuSel=r.p;render();},
-    r=>`<td class="l" title="${r.p}">${r.p}</td><td class="l muted">${r.sub}</td><td>${fmtF(r.rev)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.gp)}</td><td>${r.mrg}</td><td>${fmtF(r.qty)}</td><td>${r.st||'—'}</td><td><span class="badge b${r.abc}">${r.abc}</span></td>`);
-}
-function cuCard(name){
-  const C=D.culinary,p=(C.products||[]).find(x=>x.p===name),ps=(C.prod_store||[]).filter(r=>r.p===name).sort((a,b)=>b.rev-a.rev);
-  if(!p)return '';
-  return `<div class="drill"><h4>${name} <span class="btn" style="float:right;padding:3px 9px" onclick="S.cuSel=null;render()">✕ закрыть</span></h4>
-    <div class="dgrid">
-      <div class="dstat"><div class="v">${fmt(p.rev)}</div><div class="t">Выручка ₴</div></div>
-      <div class="dstat"><div class="v">${fmt(p.gp)}</div><div class="t">Прибыль ₴</div></div>
-      <div class="dstat"><div class="v">${p.mrg}%</div><div class="t">Маржа</div></div>
-      <div class="dstat"><div class="v">${fmt(p.qty)}</div><div class="t">Продано, ед.</div></div>
-      <div class="dstat"><div class="v">${p.st}</div><div class="t">В точках</div></div>
-      <div class="dstat"><div class="v">${p.sub}</div><div class="t">Тип</div></div></div>
-    <div class="note">Топ-точки по продажам: ${ps.slice(0,8).map(s=>s.store+' ('+fmt(s.rev)+')').join(', ')}.</div></div>`;
 }
 // ============ МАТРИЦА (зеркало Google-таблицы) ============
 function statusColor(s){s=s||'';if(s.includes('🟢'))return '#22c55e';if(s.includes('🔴'))return '#ef4444';if(s.includes('🔵'))return '#38bdf8';if(s.includes('🟡'))return '#eab308';return '#94a3b8';}
@@ -2227,14 +2149,47 @@ function monthsInRange(){
 }
 const RPNAME={products:'Товар',category:'Категория',store:'Магазин',supplier:'Поставщик'};
 function rpMetricLabel(){const inc=S.rpSource==='incoming';return S.rpMetric==='rev'?(inc?'Сумма закупки ₴':'Выручка ₴'):S.rpMetric==='gp'?(inc?'Наценка ₴':'Прибыль ₴'):'Кол-во';}
+// Доля выбранных точек в ГОДОВОЙ выручке каждой позиции — из куба prod_store.
+// Та же механика, что в workProducts() для связки месяц+магазин: помесячного куба по точкам
+// нет (398 тыс строк), поэтому месячные суммы позиции масштабируются её долей в выбранных
+// точках. Замеренная погрешность такого приёма — 0,3%, срез помечается «≈ оценка».
+function storeShareByProduct(){
+  if(allSel(S.store))return null;
+  if(!(D.prod_store&&D.products&&D.stores))return null;
+  const P=D.products, on=storeMask(), rev=new Float64Array(P.length);
+  for(const r of D.prod_store){ if(on[r[1]]) rev[r[0]]+=r[2]; }
+  const m={};
+  for(let i=0;i<P.length;i++){const tot=P[i].rev||0; if(tot>0&&rev[i]>0)m[P[i].p]=rev[i]/tot;}
+  return m;
+}
+// RP_EXACT / RP_NOTE выставляются ВНУТРИ reportPivot — читать только ПОСЛЕ вызова.
+let RP_EXACT=true, RP_NOTE='';
 function reportPivot(dim,months){
+  RP_EXACT=true; RP_NOTE='';
   const inc=S.rpSource==='incoming';
   const src=dim==='products'?((inc?D.in_prod_month:D.prod_month)||[]):dim==='category'?((inc?D.in_cat_month:D.cat_month)||[]):dim==='store'?((inc?D.in_store_month:D.store_month)||[]):((inc?D.in_supplier_month:D.supplier_month)||[]);
   const key=dim==='products'?'p':dim==='category'?'category':dim==='store'?'store':'supplier', met=S.rpMetric;
   const val=r=>met==='gp'?(r.gp||0):met==='qty'?(r.qty||0):((r.rev==null?r.revenue:r.rev)||0);
   const mset=new Set(months), map={};
-  src.forEach(r=>{if(!mset.has(r.mo))return;const n=r[key];const o=map[n]||(map[n]={name:n,by:{},q:{},total:0,qtot:0});const v=val(r);o.by[r.mo]=(o.by[r.mo]||0)+v;o.total+=v;o.q[r.mo]=(o.q[r.mo]||0)+(r.qty||0);o.qtot+=(r.qty||0);});
+  src.forEach(r=>{if(!mset.has(r.mo))return;const n=r[key];const o=map[n]||(map[n]={name:n,by:{},q:{},total:0,qtot:0,rev:0,gp:0});const v=val(r);o.by[r.mo]=(o.by[r.mo]||0)+v;o.total+=v;o.q[r.mo]=(o.q[r.mo]||0)+(r.qty||0);o.qtot+=(r.qty||0);
+    o.rev+=((r.rev==null?r.revenue:r.rev)||0);o.gp+=(r.gp||0);});
   let rows=Object.values(map);
+  // ФИЛЬТР МАГАЗИНА. Раньше он к отчёту по товарам не применялся вообще (в подсказке было
+  // написано «магазин не влияет»), хотя к остальным группировкам применялся ниже. Теперь
+  // по продажам он учитывается через куб; по закупкам разреза «товар × магазин» в данных нет.
+  if(dim==='products'&&!allSel(S.store)){
+    if(inc){ RP_NOTE='фильтр магазина к закупкам по товарам не применяется — в данных нет разреза «товар × магазин»'; }
+    else {
+      const sh=storeShareByProduct();
+      if(sh){
+        rows=rows.filter(o=>sh[o.name]>0).map(o=>{const k=sh[o.name], by={}, q={};
+          months.forEach(mo=>{by[mo]=Math.round((o.by[mo]||0)*k);q[mo]=Math.round((o.q[mo]||0)*k);});
+          return {...o,by,q,total:Math.round(o.total*k),qtot:Math.round(o.qtot*k),
+                  rev:o.rev*k,gp:o.gp*k};});
+        RP_EXACT=false; RP_NOTE='≈ оценка: месячные суммы позиции разложены по выбранным точкам пропорционально их годовой доле (погрешность ~0,3%)';
+      } else { RP_NOTE='фильтр магазина не применён: в данных нет куба prod_store — нажмите «Обновить данные»'; }
+    }
+  }
   const meta={};
   if(dim==='products'){(D.products||[]).forEach(p=>meta[p.p]=p);rows.forEach(o=>{const m=meta[o.name]||{};o.c=m.c;o.s=m.s;o.coverage=m.st;o.abc=m.abc;o.xyz=m.xyz;});
     if(!allSel(S.cat))rows=rows.filter(o=>inSel(o.c,S.cat));if(!allSel(S.sup))rows=rows.filter(o=>inSel(o.s,S.sup));
@@ -2243,7 +2198,7 @@ function reportPivot(dim,months){
   else if(dim==='store'){(D.by_store||[]).forEach(s=>meta[s.store]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.skus=m.skus;o.cats=m.cats;});if(!allSel(S.store))rows=rows.filter(o=>inSel(o.name,S.store));}
   else {(D.by_supplier||[]).forEach(s=>meta[s.supplier]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;o.cats=m.cats;});if(!allSel(S.sup))rows=rows.filter(o=>inSel(o.name,S.sup));}
   if(S.q)rows=rows.filter(o=>(''+o.name).toLowerCase().includes(S.q.toLowerCase()));
-  rows.forEach(o=>{months.forEach(mo=>{o['m'+mo]=o.by[mo]||0;o['q'+mo]=o.q[mo]||0;});});
+  rows.forEach(o=>{months.forEach(mo=>{o['m'+mo]=o.by[mo]||0;o['q'+mo]=o.q[mo]||0;});o.mrg=o.rev?+(o.gp/o.rev*100).toFixed(1):0;});
   return rows;
 }
 function renderReport(){
@@ -2252,9 +2207,10 @@ function renderReport(){
   let rows=reportPivot(dim,months);
   if(S.rpMode==='total'&&rows.length){
     const dn={products:'позициям',category:'категориям',store:'магазинам',supplier:'поставщикам'}[dim];
-    const agg={name:'ИТОГО (сумма по всем '+dn+', с учётом фильтров)',by:{},q:{},total:0,qtot:0};
-    rows.forEach(o=>{months.forEach(mo=>{agg.by[mo]=(agg.by[mo]||0)+(o.by[mo]||0);agg.q[mo]=(agg.q[mo]||0)+(o.q[mo]||0);});agg.total+=o.total;agg.qtot+=o.qtot;});
+    const agg={name:'ИТОГО (сумма по всем '+dn+', с учётом фильтров)',by:{},q:{},total:0,qtot:0,rev:0,gp:0};
+    rows.forEach(o=>{months.forEach(mo=>{agg.by[mo]=(agg.by[mo]||0)+(o.by[mo]||0);agg.q[mo]=(agg.q[mo]||0)+(o.q[mo]||0);});agg.total+=o.total;agg.qtot+=o.qtot;agg.rev+=(o.rev||0);agg.gp+=(o.gp||0);});
     months.forEach(mo=>{agg['m'+mo]=agg.by[mo]||0;agg['q'+mo]=agg.q[mo]||0;});
+    agg.mrg=agg.rev?+(agg.gp/agg.rev*100).toFixed(1):0;
     rows=[agg];
   }
   const gtot=rows.reduce((a,o)=>a+o.total,0)||1;
@@ -2263,7 +2219,7 @@ function renderReport(){
   const plabel=months.length?MONTHS[months[0]]+'–'+MONTHS[months[months.length-1]]:'—', dimN={products:'Товары',category:'Категории',store:'Магазины',supplier:'Поставщики'}[dim];
   const srcN=S.rpSource==='incoming'?'Закупки':'Продажи';
   $('rp_cs').textContent=srcN+' · '+rpMetricLabel()+' · '+dimN+' · '+plabel;
-  $('rp_s').textContent=rows.length+' строк · '+srcN+' · '+rpMetricLabel()+' · '+plabel;
+  $('rp_s').textContent=rows.length+' строк · '+srcN+' · '+rpMetricLabel()+' · '+plabel+(RP_NOTE?' · '+RP_NOTE:'');
   kpiCards('rp_kpis',[['Итого',fmt(gtot)],['Данные',srcN],['Метрика',rpMetricLabel()],['Строк',fmt(rows.length)],['Месяцев',fmt(months.length)]]);
   const top=rows.slice(0,8);
   chart('rp_chart').setOption({grid:{...baseGrid,bottom:30,right:20,top:34},tooltip:tt({trigger:'axis',valueFormatter:v=>fmt(v)}),
@@ -2275,15 +2231,16 @@ function renderReport(){
   const qtyCols=showQty?months.map(m=>[MONTHS[m]+', шт','q'+m]):[];
   const qtyTot=showQty?[['Кол-во всего','qtot']]:[];
   const qtyCells=o=>showQty?months.map(m=>`<td class="muted">${fmtF(o.q[m]||0)}</td>`).join('')+`<td>${fmtF(o.qtot)}</td>`:'';
+  const mrgN=S.rpSource==='incoming'?'Наценка %':'Маржа %';
   let head,rowHtml,onRow;
   if(dim==='products'){
-    head=[['Товар','name','l'],['Поставщик','s','l'],...monCols,['Итого','total'],['Доля %','share'],...qtyCols,...qtyTot,['Покрытие','coverage'],['ABC','abc']];
-    rowHtml=o=>`<td class="l" title="${o.name}">${o.name}</td><td class="l muted">${o.s||''}</td>`+months.map(m=>`<td>${fmtF(o.by[m]||0)}</td>`).join('')+`<td><b>${fmtF(o.total)}</b></td><td class="muted">${o.share}%</td>`+qtyCells(o)+`<td>${o.coverage||'—'}</td><td><span class="badge b${o.abc||''}">${o.abc||''}</span></td>`;
+    head=[['Товар','name','l'],['Поставщик','s','l'],...monCols,['Итого','total'],['Доля %','share'],[mrgN,'mrg'],...qtyCols,...qtyTot,['Покрытие','coverage'],['ABC','abc']];
+    rowHtml=o=>`<td class="l" title="${o.name}">${o.name}</td><td class="l muted">${o.s||''}</td>`+months.map(m=>`<td>${fmtF(o.by[m]||0)}</td>`).join('')+`<td><b>${fmtF(o.total)}</b></td><td class="muted">${o.share}%</td><td>${o.mrg}</td>`+qtyCells(o)+`<td>${o.coverage||'—'}</td><td><span class="badge b${o.abc||''}">${o.abc||''}</span></td>`;
     onRow=o=>{S.prSel=o.name;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);};
   } else {
     const extra=dim==='store'?[['SKU','skus'],['Категорий','cats']]:[['SKU','skus'],['Точек','coverage']];
-    head=[[RPNAME[dim],'name','l'],...monCols,['Итого','total'],['Доля %','share'],...qtyCols,...qtyTot,...extra];
-    rowHtml=o=>`<td class="l">${o.name}</td>`+months.map(m=>`<td>${fmtF(o.by[m]||0)}</td>`).join('')+`<td><b>${fmtF(o.total)}</b></td><td class="muted">${o.share}%</td>`+qtyCells(o)+extra.map(c=>`<td>${o[c[1]]||'—'}</td>`).join('');
+    head=[[RPNAME[dim],'name','l'],...monCols,['Итого','total'],['Доля %','share'],[mrgN,'mrg'],...qtyCols,...qtyTot,...extra];
+    rowHtml=o=>`<td class="l">${o.name}</td>`+months.map(m=>`<td>${fmtF(o.by[m]||0)}</td>`).join('')+`<td><b>${fmtF(o.total)}</b></td><td class="muted">${o.share}%</td><td>${o.mrg}</td>`+qtyCells(o)+extra.map(c=>`<td>${o[c[1]]||'—'}</td>`).join('');
     onRow=dim==='category'?(o=>setFilter('cat',o.name)):dim==='store'?(o=>setFilter('store',o.name)):(o=>setFilter('sup',o.name));
   }
   tableSort('rp_tab',head,rows,'total',onRow,rowHtml);
@@ -2310,10 +2267,10 @@ function renderAlerts(){
     act:()=>{S.tab='analytics';syncTabs();render();setTimeout(resizeAll,60);}});
   const dt=D.dead_total||{};
   if(dt.v){const ts=(D.dead_by_store||[])[0];A.push({c:'o',ic:'🧊',t:`Заморожено в неликвидах: <b>${fmt(dt.v)} ₴</b> (${fmt(dt.n)} остатков)${ts?', больше всего: '+ts.store+' — '+fmt(ts.dead_value):''}.`,
-    act:()=>{S.tab='frozen';syncTabs();render();setTimeout(resizeAll,60);}});}
+    act:()=>{S.tab='stock';syncTabs();render();setTimeout(resizeAll,60);}});}
   const oos=(D.oos||[]);
   if(oos.length)A.push({c:'y',ic:'📦',t:`Дефицит: <b>${oos.length}</b> ходовых позиций с нулевым остатком (${oos.filter(o=>o.elsewhere).length} закрываются перемещением).`,
-    act:()=>{S.tab='frozen';syncTabs();render();setTimeout(resizeAll,60);}});
+    act:()=>{S.tab='stock';syncTabs();render();setTimeout(resizeAll,60);}});
   const lowcat=(D.by_category||[]).filter(c=>c.revenue>1e6&&c.margin<8);
   if(lowcat.length)A.push({c:'y',ic:'📊',t:`Категории с низкой маржой (&lt;8%): ${lowcat.slice(0,5).map(c=>c.category+' '+c.margin+'%').join(', ')}.`,act:()=>{}});
   if(!A.length){box.style.display='none';return;}
@@ -2349,6 +2306,7 @@ function renderOverview(){
     ['Позиций (SKU)',k.skus!=null?fmt(k.skus):'—'],['Средний чек ₴',ac?fmt(ac.v):'—',acNote],
     retCard
   ]);
+  renderSlice(k);
   renderReturns(rn);
   // динамика
   let series, note='';
@@ -2488,78 +2446,50 @@ function storeAgg(){
   return (D.by_store||[]).map(s=>({store:s.store,revenue:s.revenue})).sort((a,b)=>b.revenue-a.revenue);
 }
 
-// ============ ГЛУБОКИЙ РАЗРЕЗ (по выбранному срезу) ============
-function renderDeep(dim,val){
-  ['and_dyn','and_top','and_break'].forEach(id=>{if(charts[id]){charts[id].dispose();delete charts[id];}});
-  const w=workProducts(), k=kpiNow(), totalRev=D.kpi.revenue||1;
-  const label=dim==='cat'?'Категория':dim==='sup'?'Поставщик':'Магазин';
+// ============ КАРТОЧКА СРЕЗА (на «Обзоре») ============
+// Заменяет прежний режим «Разрез» на «Аналитике». Тот показывал таблицу позиций,
+// построенную из того же workProducts(), что и вкладка «Позиции» — буквальный дубль,
+// клик по строке уводил на «Позиции». Здесь остаётся только то, чего НЕТ в верхних
+// KPI: доля в обороте, оборачиваемость среза, ABC/XYZ-микс, заморожено и дефицит.
+// Показывается, когда активно РОВНО одно измерение с РОВНО одним значением.
+function sliceDim(){
+  const nf=[S.store,S.cat,S.sup].filter(a=>a.length).length;
+  if(nf!==1)return null;
+  if(S.cat.length===1)return ['cat','Категория',S.cat[0]];
+  if(S.sup.length===1)return ['sup','Поставщик',S.sup[0]];
+  if(S.store.length===1)return ['store','Магазин',S.store[0]];
+  return null;
+}
+function renderSlice(k){
+  const box=$('ov_slice'); if(!box)return;
+  const d=sliceDim();
+  if(!d){box.innerHTML='';return;}
+  const [dim,label,val]=d;
+  const w=workProducts(), totalRev=(D.kpi&&D.kpi.revenue)||1;
   const abcMix={A:0,B:0,C:0}, xyzMix={X:0,Y:0,Z:0};
   w.forEach(p=>{if(abcMix[p.abc]!=null)abcMix[p.abc]++;if(xyzMix[p.xyz]!=null)xyzMix[p.xyz]++;});
-  const froz=(D.dead_items||[]).filter(r=>dim==='cat'?r.c===val:dim==='sup'?r.s===val:r.store===val);
-  const frozV=froz.reduce((a,r)=>a+r.value,0);
-  const oosN=(D.oos||[]).filter(r=>dim==='cat'?r.category===val:dim==='sup'?r.supplier===val:r.store===val).length;
-  let turn=dim==='cat'?(D.turnover||[]).find(t=>t.category===val):dim==='sup'?(D.turnover_supplier||[]).find(t=>t.supplier===val):(D.turnover_store||[]).find(t=>t.store===val);
+  const turn=dim==='cat'?(D.turnover||[]).find(t=>t.category===val)
+           :dim==='sup'?(D.turnover_supplier||[]).find(t=>t.supplier===val)
+                       :(D.turnover_store||[]).find(t=>t.store===val);
   const pdays=(D.period&&D.period.days)||0;
-  const turnTxt=turn?turn.turnover_rate.toFixed(2)+' об.':'—';
-  const hasDyn=dim==='cat'||dim==='store';
-  const secTitle=dim==='cat'?'Поставщики в категории':dim==='sup'?'Категории поставщика':'Категории в магазине';
-  $('an_deep').innerHTML=`
-    <div class="drill"><h4>🔎 Разрез: ${label} — ${val}
-      <span class="btn" style="float:right;padding:3px 10px" onclick="S.${dim}=[];msSync('${dim}');S.prSel=null;render();">✕ сбросить разрез</span></h4>
-      <div class="dgrid">
-        <div class="dstat"><div class="v">${fmt(k.revenue)}</div><div class="t">Выручка ₴</div></div>
-        <div class="dstat"><div class="v">${fmt(k.gp)}</div><div class="t">Прибыль ₴</div></div>
-        <div class="dstat"><div class="v">${k.margin||0}%</div><div class="t">Маржа</div></div>
-        <div class="dstat"><div class="v">${(k.revenue/totalRev*100).toFixed(1)}%</div><div class="t">Доля в обороте</div></div>
-        <div class="dstat"><div class="v">${fmt(w.length)}</div><div class="t">Позиций</div></div>
-        <div class="dstat"><div class="v">${turnTxt}${turn&&turn.turnover_rate>0?' · '+Math.round(pdays/turn.turnover_rate)+'дн':''}</div><div class="t">Оборачиваемость</div></div>
-        <div class="dstat"><div class="v"><span class="pos">${abcMix.A}</span>/<span style="color:#facc15">${abcMix.B}</span>/<span class="neg">${abcMix.C}</span></div><div class="t">ABC (A/B/C)</div></div>
-        <div class="dstat"><div class="v"><span class="pos">${xyzMix.X}</span>/<span style="color:#facc15">${xyzMix.Y}</span>/<span class="neg">${xyzMix.Z}</span></div><div class="t">XYZ (X/Y/Z)</div></div>
-        <div class="dstat"><div class="v ${frozV>0?'neg':''}">${fmt(frozV)}</div><div class="t">Заморожено ₴</div></div>
-        <div class="dstat"><div class="v ${oosN>0?'neg':''}">${fmt(oosN)}</div><div class="t">Дефицит, поз.</div></div>
-      </div></div>
-    <div class="grid">
-      ${hasDyn?`<div class="card full"><h3>Динамика выручки и прибыли <span>${val}</span></h3><div id="and_dyn" class="chart"></div></div>`:''}
-      <div class="card"><h3>Топ-15 позиций <span>цвет — маржа · клик = карточка</span></h3><div id="and_top" class="chart tall"></div></div>
-      <div class="card"><h3>${secTitle} <span>клик = фильтр</span></h3><div id="and_break" class="chart tall"></div></div>
-      <div class="card full"><h3>Позиции разреза <span>${w.length}</span><button class="csvbtn" data-t="and_tab">⬇ Excel</button></h3>
-        <div class="scroll tall"><table id="and_tab"></table></div></div>
-    </div>`;
-  if(hasDyn){
-    const src=dim==='cat'?(D.cat_month||[]).filter(r=>r.category===val):(D.store_month||[]).filter(r=>r.store===val);
-    const series=agg12(src), mos=series.map(x=>MONTHS[x[0]]);
-    chart('and_dyn').setOption({grid:{...baseGrid,bottom:30},tooltip:tt({trigger:'axis',valueFormatter:v=>fmt(v)+' ₴'}),
-      legend:{data:['Выручка','Прибыль'],textStyle:{color:TXT},top:0,right:0},xAxis:axCat(mos),yAxis:axV(),
-      series:[{name:'Выручка',type:'bar',data:series.map(x=>x[1]),itemStyle:{color:'#4aa8ff',borderRadius:[4,4,0,0]},barMaxWidth:38},
-        {name:'Прибыль',type:'line',data:series.map(x=>x[2]),smooth:true,symbol:'circle',symbolSize:5,itemStyle:{color:'#34d399'},lineStyle:{width:2.5,shadowColor:'rgba(52,211,153,.35)',shadowBlur:8}}]},true);
-    chart('and_dyn').resize();
-  }
-  const top=w.slice().sort((a,b)=>b.rev-a.rev).slice(0,15).reverse();
-  chart('and_top').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>`<b>${top[p.dataIndex].p}</b><br>Выручка: ${fmtF(p.value)} ₴<br>Маржа: ${top[p.dataIndex].mrg}%`}),
-    xAxis:axV(),yAxis:{...axCat(top.map(p=>p.p.length>26?p.p.slice(0,26)+'…':p.p)),axisLabel:{color:TXT,fontSize:10}},
-    series:[{type:'bar',data:top.map(p=>({value:p.rev,itemStyle:{color:mColor(p.mrg)}})),barMaxWidth:16}]},true);
-  chart('and_top').resize();chart('and_top').off('click');chart('and_top').on('click',p=>{S.prSel=top[p.dataIndex].p;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);});
-  let brk=[];
-  if(dim==='cat'){const g=groupSum(w,'s',['rev']);brk=Object.entries(g).map(([n,v])=>({name:n,rev:v.rev}));}
-  else if(dim==='sup'){const g=groupSum(w,'c',['rev']);brk=Object.entries(g).map(([n,v])=>({name:n,rev:v.rev}));}
-  else {const m={};(D.cat_store||[]).filter(r=>r.store===val).forEach(r=>m[r.category]=(m[r.category]||0)+r.revenue);brk=Object.entries(m).map(([n,rev])=>({name:n,rev}));}
-  brk=brk.sort((a,b)=>b.rev-a.rev).slice(0,15).reverse();
-  chart('and_break').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>`<b>${p.name}</b><br>${fmtF(p.value)} ₴`}),
-    xAxis:axV(),yAxis:axCat(brk.map(b=>b.name)),
-    series:[{type:'bar',data:brk.map(b=>b.rev),itemStyle:{color:'#a78bfa',borderRadius:[0,4,4,0]},barMaxWidth:16}]},true);
-  chart('and_break').resize();chart('and_break').off('click');
-  chart('and_break').on('click',p=>{if(dim==='cat')setFilter('sup',p.name);else setFilter('cat',p.name);});
-  const sliceRev=k.revenue||1, ws=w.map(p=>({...p,share:+(p.rev/sliceRev*100).toFixed(2)}));
-  const cols=[['Товар','p','l'],['Категория','c','l'],['Поставщик','s','l'],['Выручка ₴','rev'],['Доля в срезе %','share'],['Прибыль ₴','gp'],['Маржа %','mrg'],['Кол-во','qty'],['ABC','abc'],['XYZ','xyz']];
-  tableSort('and_tab',cols,ws,'rev',r=>{S.prSel=r.p;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);},
-    r=>`<td class="l" title="${r.p}">${r.p}</td><td class="l muted">${r.c}</td><td class="l muted">${r.s}</td><td>${fmtF(r.rev)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.gp)}</td><td>${r.mrg}</td><td>${fmtF(r.qty)}</td><td><span class="badge b${r.abc}">${r.abc}</span></td><td>${r.xyz||'—'}</td>`);
+  const turnTxt=turn?turn.turnover_rate.toFixed(2)+' об.'+(turn.turnover_rate>0?' · '+Math.round(pdays/turn.turnover_rate)+'дн':''):'—';
+  const fz=frozenNow();
+  const oosN=(D.oos||[]).filter(r=>dim==='cat'?inSel(r.category,S.cat):dim==='sup'?inSel(r.supplier,S.sup):inSel(r.store,S.store)).length;
+  box.innerHTML=`<div class="drill"><h4>🔎 Срез: ${label} — ${val}
+      <span class="btn" style="float:right;padding:3px 10px" onclick="S.${dim}=[];msSync('${dim}');S.prSel=null;render();">✕ сбросить срез</span></h4>
+    <div class="dgrid">
+      <div class="dstat"><div class="v">${(((k&&k.revenue)||0)/totalRev*100).toFixed(1)}%</div><div class="t">Доля в обороте</div></div>
+      <div class="dstat"><div class="v">${turnTxt}</div><div class="t">Оборачиваемость</div></div>
+      <div class="dstat"><div class="v"><span class="pos">${abcMix.A}</span>/<span style="color:#facc15">${abcMix.B}</span>/<span class="neg">${abcMix.C}</span></div><div class="t">ABC (A/B/C)</div></div>
+      <div class="dstat"><div class="v"><span class="pos">${xyzMix.X}</span>/<span style="color:#facc15">${xyzMix.Y}</span>/<span class="neg">${xyzMix.Z}</span></div><div class="t">XYZ (X/Y/Z)</div></div>
+      <div class="dstat"><div class="v ${fz.v>0?'neg':''}">${fz.v!=null?fmt(fz.v):'—'}</div><div class="t">Заморожено ₴</div></div>
+      <div class="dstat"><div class="v ${oosN>0?'neg':''}">${fmt(oosN)}</div><div class="t">Дефицит, поз.</div></div>
+    </div>
+    <div class="note">Позиции среза — на вкладке «Позиции» (фильтр уже выставлен), помесячная разбивка — в «Отчётах».</div></div>`;
 }
+
 // ============ АНАЛИТИКА ============
 function renderAnalytics(){
-  const one=a=>a.length===1?a[0]:null; const fc=one(S.cat),fsu=one(S.sup),fst=one(S.store);
-  const focus=fc!==null?['cat',fc]:(fsu!==null?['sup',fsu]:(fst!==null?['store',fst]:null));
-  if(focus){$('an_overview').style.display='none';$('an_deep').style.display='block';renderDeep(focus[0],focus[1]);return;}
-  $('an_deep').style.display='none';$('an_overview').style.display='grid';
   const cl={};(D.abc.classes||[]).forEach(c=>cl[c.abc]=c);const tot=D.abc.total_sku||0;
   kpiCards('an_abc_k',[
     ['Класс A (80%)',(cl.A?.skus||0)+' SKU',fmt(cl.A?.revenue)+' ₴'],
@@ -2579,12 +2509,12 @@ function renderAnalytics(){
   const paretoPct=cl.A?Math.round(cl.A.skus/tot*100):0;
   $('an_abc_note').innerHTML=`<b>Как читать:</b> товары отсортированы по убыванию выручки. Класс <b class="pos">A</b> — ${cl.A?.skus||0} позиций дают 80% выручки (правило Парето: всего ${paretoPct}% ассортимента). Класс <b style="color:#facc15">B</b> — следующие 15%, класс <b class="neg">C</b> — «длинный хвост» (${cl.C?.skus||0} позиций, лишь 5% выручки — кандидаты на вывод). Список конкретных позиций с классом — на вкладке «Позиции». Товары вне матрицы попадают в категорию «Прочее (нет в матрице)».${monthSel()?' <b class="neg">При выбранном месяце:</b> ABC, оборачиваемость, покрытие и маржа-скаттер считаются за весь период; помесячно пересчитываются KPI, категории, магазины, поставщики и позиции.':''}`;
   // оборачиваемость: показываем и обороты, и «дни на складе» = период / оборачиваемость (pdays определён выше)
+  const pdays=(D.period&&D.period.days)||0, pmon=(pdays/30.4).toFixed(1);
   const tvf=v=>v.toFixed(2)+' об. · '+(v>0?Math.round(pdays/v):'∞')+' дн. на складе';
   hbar('an_turn', D.turnover.filter(t=>allSel(S.cat)||inSel(t.category,S.cat)).slice().sort((a,b)=>b.turnover_rate-a.turnover_rate).slice(0,15).reverse(),
     'category','turnover_rate','#a78bfa',tvf,p=>setFilter('cat',p.name),'');
   hbar('an_turnsup', (D.turnover_supplier||[]).filter(t=>allSel(S.sup)||inSel(t.supplier,S.sup)).slice(0,15).reverse(),
     'supplier','turnover_rate','#38bdf8',tvf,p=>setFilter('sup',p.name),'');
-  const pdays=D.period?.days||0, pmon=(pdays/30.4).toFixed(1);
   $('an_turn_note').innerHTML=`<b>Что это:</b> оборачиваемость = продажи по себестоимости ÷ средний складской остаток по себестоимости, за весь период (${D.period?fmtD(D.period.start)+'–'+fmtD(D.period.end)+', ~'+pmon+' мес':''}). Показывает, <b>сколько раз запас полностью обернулся</b> (продался и пополнился) за период. Выше — быстрее продаётся, меньше денег «заморожено» в остатках. Пример: 3 = товар распродан и завезён ~3 раза за период; в пересчёте на месяц ≈ ${pmon>0?(3/pmon).toFixed(2):'—'}. <b>«Дни на складе»</b> = период ÷ оборачиваемость — сколько дней в среднем товар лежит до продажи (меньше = лучше; видно в подсказке на графике).`;
   // маржа vs выручка (scatter)
   const bc=D.by_category.filter(c=>c.revenue>0);
@@ -2598,24 +2528,17 @@ function renderAnalytics(){
   // оборачиваемость магазины
   hbar('an_turnstore', D.turnover_store.slice().sort((a,b)=>a.turnover_rate-b.turnover_rate),
     'store','turnover_rate','#fb923c',tvf,p=>setFilter('store',p.name),'',600);
-  // поставщики таблица
-  let supBase;
-  if(monthSel()){const m=monthN();const tm=(D.monthly||[]).find(x=>x.mo===m);const st=(tm&&tm.revenue)||1;
-    supBase=(D.supplier_month||[]).filter(r=>r.mo===m).map(r=>({supplier:r.supplier,revenue:r.revenue,gp:r.gp,margin:r.revenue?+(r.gp/r.revenue*100).toFixed(1):0,skus:'—',cats:'—',stores:'—',share:+(r.revenue/st*100).toFixed(2)})).sort((a,b)=>b.revenue-a.revenue);}
-  else {const stot=D.kpi.revenue||1;supBase=D.by_supplier.map(s=>({...s,share:+(s.revenue/stot*100).toFixed(2)}));}
-  const sup=supBase.filter(s=>allSel(S.sup)||inSel(s.supplier,S.sup));
-  tableSort('an_sup',[['Поставщик','supplier','l'],['Выручка ₴','revenue'],['Доля %','share'],['Прибыль ₴','gp'],['Маржа %','margin'],['SKU','skus'],['Категорий','cats'],['Точек','stores']],
-    sup,'revenue',r=>setFilter('sup',r.supplier),
-    r=>`<td class="l">${r.supplier}</td><td>${fmtF(r.revenue)}</td><td class="muted">${r.share}%</td><td>${fmtF(r.gp)}</td><td>${r.margin}</td><td>${r.skus}</td><td>${r.cats}</td><td>${r.stores}</td>`);
-  // прибыль по категориям за вычетом списаний (чистая прибыль)
-  const woCat={};(D.writeoffs_by_cat||[]).forEach(w=>woCat[w.category]=w.amount);
-  const prof=(D.by_category||[]).map(c=>({category:c.category,gp:c.gp,wo:woCat[c.category]||0,net:c.gp-(woCat[c.category]||0)})).sort((a,b)=>b.net-a.net).slice(0,15).reverse();
-  chart('an_profit').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>{const d=prof[p.dataIndex];return `<b>${d.category}</b><br>Валовая прибыль: ${fmtF(d.gp)} ₴<br>Списания: −${fmtF(d.wo)} ₴<br><b>Чистая: ${fmtF(d.net)} ₴</b>`;}}),
-    xAxis:axV(),yAxis:axCat(prof.map(p=>p.category)),
-    series:[{type:'bar',data:prof.map(p=>p.net),itemStyle:{color:'#22c55e',borderRadius:[0,4,4,0]},emphasis:{itemStyle:{color:'#22c55e'}},barMaxWidth:18}]},true);
-  chart('an_profit').resize();chart('an_profit').off('click');chart('an_profit').on('click',p=>setFilter('cat',prof[p.dataIndex].category));
+  // кросс-продажи: пары товаров в одном чеке (переехали с «Дефицита» — там они были не по теме).
+  // Таблица поставщиков отсюда убрана: то же самое, но с помесячной разбивкой, даёт
+  // «Отчёты» с группировкой «Поставщики».
+  tableSort('fr_cross',[['Товар A','a','l'],['Товар B','b','l'],['Чеков вместе','cnt']],(D.cross_items||[]),'cnt',null,
+    x=>`<td class="l" title="${x.a}">${x.a}</td><td class="l" title="${x.b}">${x.b}</td><td>${fmtF(x.cnt)}</td>`);
+  // График «Чистая прибыль по категориям» (валовая − списания) убран: списаний за 8 месяцев
+  // 10 288 ₴ на 287 млн выручки (0,004%), из них 5 649 ₴ — «Продавцам в счёт зп». Без вычета
+  // это была бы копия колонки «Прибыль ₴» в сводке категорий на «Обзоре».
+  // Данные writeoffs_* пайплайн собирать не перестал — вернуть блок = одна правка фронта.
   // убыточные / низкомаржинальные позиции
-  const lossItems=(D.products||[]).filter(p=>p.mrg<=5);
+  const lossItems=workProducts().filter(p=>p.mrg<=5);
   const negI=lossItems.filter(p=>p.gp<0);
   kpiCards('an_loss_k',[
     ['Ниже закупки (маржа<0)',fmt(negI.length),fmt(negI.reduce((a,p)=>a+p.rev,0))+' ₴ оборота'],
@@ -2687,7 +2610,22 @@ function productCard(name){
   h+='</div>';return h;
 }
 
-// ============ НЕЛИКВИДЫ И СПИСАНИЯ ============
+// ============ ЗАПАСЫ: дефицит · мёртвый груз · перемещения ============
+// Заморожено под текущий фильтр. dead_by_store и dead_by_cat суммируются в dead_total ТОЧНО,
+// dead_by_supplier обрезан до топ-40 (3 126 647 против 3 307 382, −5,5%) — при фильтре
+// по поставщику это помечается. Разрез сразу по двум измерениям посчитать нечем:
+// помесячно-перекрёстного куба неликвидов нет, а dead_items обрезан до 1 200 из 8 852 строк,
+// поэтому раньше «В выборке ₴» врало ровно вдвое. Честнее показать «—», чем половину.
+function frozenNow(){
+  const st=!allSel(S.store), ct=!allSel(S.cat), sp=!allSel(S.sup);
+  const n=(st?1:0)+(ct?1:0)+(sp?1:0);
+  const dt=D.dead_total||{v:0,n:0};
+  if(n===0)return {v:dt.v||0,n:dt.n||0,note:''};
+  if(n>1)return {v:null,n:null,note:'разрез сразу по двум измерениям не считается'};
+  if(st)return {v:sum((D.dead_by_store||[]).filter(r=>inSel(r.store,S.store)),x=>x.dead_value),n:null,note:''};
+  if(ct)return {v:sum((D.dead_by_cat||[]).filter(r=>inSel(r.category,S.cat)),x=>x.dead_value),n:null,note:''};
+  return {v:sum((D.dead_by_supplier||[]).filter(r=>inSel(r.supplier,S.sup)),x=>x.dead_value),n:null,note:'≈ топ-40 поставщиков'};
+}
 function renderFrozen(){
   // дефицит (out-of-stock): товар продаётся, но остаток 0
   let oosR=(D.oos||[]).slice();
@@ -2699,56 +2637,45 @@ function renderFrozen(){
   tableSort('fr_oos',[['Товар','product','l'],['Категория','category','l'],['Поставщик','supplier','l'],['Магазин','store','l'],['Продажи 90д','sold90'],['Норма/мес','need_month'],['Где взять','elsewhere']],oosR.slice(0,300),'sold90',
     r=>{S.q=r.product;$('fQ').value=r.product;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);},
     r=>`<td class="l" title="${r.product}">${r.product}</td><td class="l muted">${r.category}</td><td class="l muted">${r.supplier}</td><td class="l">${r.store}</td><td>${fmtF(r.sold90)}</td><td>${fmtF(r.need_month)}</td><td class="${r.elsewhere?'pos':'muted'}">${r.elsewhere?'есть в др. точках':'дозаказ у поставщика'}</td>`);
-  const dt=D.dead_total||{v:0,n:0};
-  let items=(D.dead_items||[]).slice();
-  if(!allSel(S.store))items=items.filter(r=>inSel(r.store,S.store));
-  if(!allSel(S.cat))items=items.filter(r=>inSel(r.c,S.cat));
-  if(!allSel(S.sup))items=items.filter(r=>inSel(r.s,S.sup));
-  if(S.noOff)items=items.filter(r=>!isTech(r.p));
-  if(S.q)items=items.filter(r=>r.p.toLowerCase().includes(S.q.toLowerCase()));
+  const fz=frozenNow();
   kpiCards('fr_kpis',[
-    ['Заморожено всего ₴',fmt(dt.v)],['Позиций-остатков',fmt(dt.n)],
-    ['В выборке ₴',fmt(sum(items,x=>x.value))],['Позиций в выборке',fmt(items.length)],
+    ['Заморожено ₴',fz.v!=null?fmt(fz.v):'—','нет продаж 90 дней'+(fz.note?' · '+fz.note:'')],
+    ['Позиций-остатков',fz.n!=null?fmt(fz.n):'—'],
+    ['Дефицит, позиций',fmt(oosR.length),oosR.length>300?'в таблице топ-300':''],
     ['Остатки на',D.stock_as_of||'—','снимок Торгсофта']
   ]);
   hbar('fr_store',(D.dead_by_store||[]).slice().sort((a,b)=>b.dead_value-a.dead_value).slice(0,20).sort((a,b)=>a.dead_value-b.dead_value),'store','dead_value','#ef4444',v=>fmtF(v)+' ₴',p=>setFilter('store',p.name),'',460);
   hbar('fr_sup',(D.dead_by_supplier||[]).slice(0,18).sort((a,b)=>a.dead_value-b.dead_value),'supplier','dead_value','#fb923c',v=>fmtF(v)+' ₴',p=>setFilter('sup',p.name),'',460);
-  tableSort('fr_items',[['Товар','p','l'],['Категория','c','l'],['Поставщик','s','l'],['Магазин','store','l'],['Остаток','qty'],['Заморожено ₴','value']],
-    items.slice(0,400),'value',r=>{S.q=r.p;$('fQ').value=r.p;S.tab='products';syncTabs();render();},
-    r=>`<td class="l" title="${r.p}">${r.p}</td><td class="l muted">${r.c}</td><td class="l muted">${r.s}</td><td class="l">${r.store}</td><td>${fmtF(r.qty)}</td><td>${fmtF(r.value)}</td>`);
-  // кросс пары (сортируемая)
-  tableSort('fr_cross',[['Товар A','a','l'],['Товар B','b','l'],['Чеков вместе','cnt']],(D.cross_items||[]),'cnt',null,
-    x=>`<td class="l" title="${x.a}">${x.a}</td><td class="l" title="${x.b}">${x.b}</td><td>${fmtF(x.cnt)}</td>`);
-  // списания (сортируемая)
-  tableSort('fr_wo',[['Позиция','product_name','l'],['Поставщик','supplier','l'],['Сумма ₴','amount'],['Кол-во','qty']],(D.writeoffs_top||[]),'amount',null,
-    x=>`<td class="l" title="${x.product_name}">${x.product_name}</td><td class="l muted">${x.supplier||'—'}</td><td>${fmtF(x.amount)}</td><td>${fmtF(x.qty)}</td>`);
+  // Пофамильный список того, что лежит мёртвым грузом, — в карточке «Товары без движения»
+  // ниже (stale.json, 53 тыс. строк, окно настраивается). Прежняя таблица `fr_items` строилась
+  // из dead_items, обрезанного до 1 200 строк из 8 852, и её итог («В выборке ₴») расходился
+  // с «Заморожено всего ₴» ровно вдвое — убрана, чтобы на вкладке была одна правда.
 }
 
 // ============ МАГАЗИНЫ: эффективность + тепловая карта ============
 function renderStores(){
   const period=(D.period&&D.period.days)||1;
-  const turn={},dead={},wro={};
+  const turn={},dead={};
   (D.turnover_store||[]).forEach(t=>turn[t.store]=t);
   (D.dead_by_store||[]).forEach(t=>dead[t.store]=t);
-  (D.writeoffs_by_store||[]).forEach(t=>wro[t.store]=t);
   let base=(D.by_store||[]).slice();
   if(!allSel(S.store))base=base.filter(r=>inSel(r.store,S.store));
-  const rows=base.map(r=>{const t=turn[r.store]||{},dd=dead[r.store]||{},w=wro[r.store]||{};const tr=t.turnover_rate||0;
+  const rows=base.map(r=>{const t=turn[r.store]||{},dd=dead[r.store]||{};const tr=t.turnover_rate||0;
     return {store:r.store,revenue:r.revenue,gp:r.gp,margin:r.margin,receipts:r.receipts,
       avgcheck:r.receipts?Math.round(r.revenue/r.receipts):0,revsku:r.skus?Math.round(r.revenue/r.skus):0,
-      skus:r.skus,turndays:tr?Math.round(period/tr):null,dead:dd.dead_value||0,wro:w.amount||0};});
-  const tR=sum(rows,x=>x.revenue),tRe=sum(rows,x=>x.receipts),tDead=sum(rows,x=>x.dead),tW=sum(rows,x=>x.wro);
+      skus:r.skus,turndays:tr?Math.round(period/tr):null,dead:dd.dead_value||0};});
+  const tR=sum(rows,x=>x.revenue),tDead=sum(rows,x=>x.dead);
   // сводный средний чек — по рознице: опт с чеком ~1292 ₴ перекашивает его на десятки процентов.
   // В таблице ниже у самой оптовой точки её собственный средний чек остаётся как есть.
   const WH=wholesaleSet(), retRows=rows.filter(r=>!WH.has(r.store)), useRows=retRows.length?retRows:rows;
   const aR=sum(useRows,x=>x.revenue), aRe=sum(useRows,x=>x.receipts);
   kpiCards('st_kpis2',[['Магазинов в выборке',fmt(rows.length)],['Выручка ₴',fmt(tR)],
     ['Средний чек ₴',aRe?fmt(aR/aRe):'—',retRows.length!==rows.length?'без опта':''],
-    ['Заморожено в неликвидах ₴',fmt(tDead)],['Списания ₴',fmt(tW)]]);
+    ['Заморожено в неликвидах ₴',fmt(tDead),'нет продаж 90 дней']]);
   tableSort('stf_tab',
-    [['Магазин','store','l'],['Выручка ₴','revenue'],['Прибыль ₴','gp'],['Маржа %','margin'],['Ср.чек ₴','avgcheck'],['Выр/SKU ₴','revsku'],['Чеков','receipts'],['SKU','skus'],['Оборот, дн','turndays'],['Неликвид ₴','dead'],['Списания ₴','wro']],
+    [['Магазин','store','l'],['Выручка ₴','revenue'],['Прибыль ₴','gp'],['Маржа %','margin'],['Ср.чек ₴','avgcheck'],['Выр/SKU ₴','revsku'],['Чеков','receipts'],['SKU','skus'],['Оборот, дн','turndays'],['Неликвид ₴','dead']],
     rows,'revenue',r=>setFilter('store',r.store),
-    r=>`<td class="l">${r.store}${WH.has(r.store)?' <span class="muted" style="font-size:11px">(опт)</span>':''}</td><td>${fmt(r.revenue)}</td><td>${fmt(r.gp)}</td><td class="${r.margin<8?'neg':(r.margin>=18?'pos':'')}">${(r.margin||0)}%</td><td>${fmtF(r.avgcheck)}</td><td>${fmtF(r.revsku)}</td><td>${fmtF(r.receipts)}</td><td>${fmtF(r.skus)}</td><td>${r.turndays!=null?fmtF(r.turndays):'—'}</td><td>${fmt(r.dead)}</td><td>${fmt(r.wro)}</td>`);
+    r=>`<td class="l">${r.store}${WH.has(r.store)?' <span class="muted" style="font-size:11px">(опт)</span>':''}</td><td>${fmt(r.revenue)}</td><td>${fmt(r.gp)}</td><td class="${r.margin<8?'neg':(r.margin>=18?'pos':'')}">${(r.margin||0)}%</td><td>${fmtF(r.avgcheck)}</td><td>${fmtF(r.revsku)}</td><td>${fmtF(r.receipts)}</td><td>${fmtF(r.skus)}</td><td>${r.turndays!=null?fmtF(r.turndays):'—'}</td><td>${fmt(r.dead)}</td>`);
   renderHeatmap();
 }
 function renderHeatmap(){
@@ -2862,7 +2789,7 @@ function renderStale(){
     r=>`<td class="l" title="${r.p}">${r.p}</td><td class="l muted">${r.c}</td><td class="l muted">${r.s}</td><td class="l">${r.st}</td><td>${r.q<1?(+r.q).toFixed(2):fmtF(r.q)}</td><td>${fmt(r.v)}</td><td class="${r.d>=30?'neg':(r.d>=999?'neg':'')}"><b>${r.d>=999?'нет продаж':r.d}</b></td><td class="l muted">${r.last}</td><td class="l muted">${r.last_in}</td>`,
     r=>r.d>=999?'warn':'');
   if(EXP['st_tab'])EXP['st_tab'].rows=f.slice().sort((a,b)=>b.v-a.v); // Excel-выгрузка — полный набор, не только топ-500
-  $('st_note').innerHTML=(f.length>CAP?'<b style="color:var(--acc2)">В таблице показаны топ-'+CAP+' по заморозке из '+fmt(f.length)+' — полный список в выгрузке Excel.</b> ':'')+'<b>Методика:</b> текущий остаток берём из снимка склада (только позиции с остатком &gt;0), дату последней продажи — из чеков, дни без движения = дата данных ('+(STALE.as_of||'')+') − последняя продажа. «нет продаж» — не продавалось ни разу. «Последний приход» — для контекста (недавно завезённое ≠ неликвид). Свои фильтры (дни/магазин/категория/поставщик/поиск) независимы от верхней панели, а галочка «скрыть технические» вверху действует и здесь. Технических (расходники производства): '+fmt(rows.filter(r=>r.t).length)+' строк · '+(hideTech?'скрыты':'показаны')+'. Всего в базе: '+fmt(rows.length)+' позиций с остатком.';
+  $('st_note').innerHTML=(f.length>CAP?'<b style="color:var(--acc2)">В таблице показаны топ-'+CAP+' по заморозке из '+fmt(f.length)+' — полный список в выгрузке Excel.</b> ':'')+'<b>Методика:</b> текущий остаток берём из снимка склада (только позиции с остатком &gt;0), дату последней продажи — из чеков, дни без движения = дата данных ('+(STALE.as_of||'')+') − последняя продажа. «нет продаж» — не продавалось ни разу. «Последний приход» — для контекста (недавно завезённое ≠ неликвид). Свои фильтры (дни/магазин/категория/поставщик/поиск) независимы от верхней панели, а галочка «скрыть технические» вверху действует и здесь. Технических (расходники производства): '+fmt(rows.filter(r=>r.t).length)+' строк · '+(hideTech?'скрыты':'показаны')+'. Всего в базе: '+fmt(rows.length)+' позиций с остатком. <b>Почему не сходится с карточкой «Заморожено ₴» вверху:</b> там 38 точек сети и жёсткое окно 90 дней, а здесь — весь снимок Торгсофта (39 объектов, включая «Полевая-Склад» — ползунок «Склад») с настраиваемым окном и собственными названиями точек Торгсофта.';
 }
 // ---------- generic sortable table (клик по любому заголовку — сортировка, повторный клик — реверс) ----------
 const sortState={},EXP={};
@@ -2890,13 +2817,17 @@ function tableSort(id,cols,rows,defKey,onRow,rowHtml,rowClass){
 function syncTabs(){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.p===S.tab));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='p_'+S.tab));}
 // какие фильтры верхней панели показывать на каждой вкладке (Отчёты — свои контролы, глобальные скрыты)
+// «Отчёты» раньше прятали все глобальные фильтры, хотя reportPivot их ПРИМЕНЯЛ:
+// выставленная на другой вкладке категория молча резала отчёт, а сбросить её было нечем.
+// Теперь показываются те, что реально работают (кроме месяца — у отчёта свой период).
 const FILTER_VIS={
   cMonth:['overview','products','analytics'],
-  cStore:['overview','products','analytics','frozen','moves','culinary','matrix','stores'],
-  cCat:['overview','products','analytics','frozen','moves','matrix'],
-  cSup:['overview','products','analytics','frozen','moves','matrix'],
-  cQ:['overview','products','frozen','moves','culinary','matrix'],
-  cOff:['overview','products','analytics','frozen','moves','matrix']
+  cStore:['overview','report','products','analytics','stock','matrix','stores'],
+  cCat:['overview','report','products','analytics','stock','matrix'],
+  cSup:['overview','report','products','analytics','stock','matrix'],
+  cQ:['overview','report','products','stock','matrix'],
+  cOff:['overview','report','products','analytics','stock','matrix'],
+  cPreset:['overview','report','products','analytics','stock','matrix']
 };
 function applyFilterVis(){
   const tab=S.tab;
@@ -2904,8 +2835,9 @@ function applyFilterVis(){
   // подсветка активных фильтров (точка на подписи)
   const active={cMonth:S.month!=='all',cStore:!allSel(S.store),cCat:!allSel(S.cat),cSup:!allSel(S.sup),cQ:!!S.q,cOff:S.noOff};
   for(const id in active){const el=$(id);if(el)el.classList.toggle('hasval',!!active[id]);}
+  {const b=$('fOwnProd');if(b)b.classList.toggle('preset-on',ownProdOn());}
   const anyVisible=Object.keys(FILTER_VIS).some(id=>FILTER_VIS[id].includes(tab));
-  const hint=$('barHint');if(hint)hint.style.display=anyVisible?'none':'';
+  const hint=$('barHint');if(hint)hint.style.display=(tab==='report'||!anyVisible)?'':'none';
 }
 $('nav').addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;S.tab=e.target.dataset.p;syncTabs();render();setTimeout(resizeAll,30);});
 // ползунок охвата возвратов (розница / + просрочка / всё) — выбор запоминается
@@ -2917,7 +2849,7 @@ $('nav').addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;S.ta
 ['stDays','stStore','stCat','stSup'].forEach(id=>{const el=$(id);if(el)el.addEventListener('change',renderStale);});
 (()=>{const rt=$('stRetail');if(rt)rt.addEventListener('change',()=>{const l=$('stRetailLbl');if(l)l.textContent=rt.checked?'склад скрыт':'показывать склад';renderStale();});})();
 (()=>{const q=$('stQ');if(q){let t;q.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(renderStale,250);});}
-  const rb=$('stReset');if(rb)rb.onclick=()=>{$('stDays').value='7';$('stStore').value='all';$('stCat').value='all';$('stSup').value='all';$('stQ').value='';
+  const rb=$('stReset');if(rb)rb.onclick=()=>{$('stDays').value='90';$('stStore').value='all';$('stCat').value='all';$('stSup').value='all';$('stQ').value='';
 if($('stRetail')){$('stRetail').checked=true;const _rl=$('stRetailLbl');if(_rl)_rl.textContent='склад скрыт';}
 ST_SUP=[];const _l=$('msSupL');if(_l){_l.querySelectorAll('input').forEach(cb=>cb.checked=false);}
 const _b=$('msSupBtn');if(_b){_b.textContent='Все поставщики';_b.classList.remove('act');}
@@ -2927,9 +2859,9 @@ $('fMonth').onchange=e=>{S.month=e.target.value;S.prSel=null;render();};
 // Магазин/Категория/Поставщик — через мультиселект (initMS), отдельные обработчики не нужны
 let qt;$('fQ').oninput=e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.value.trim();render();},250);};
 $('fOff').onchange=e=>{S.noOff=e.target.checked;S.prSel=null;render();};
+$('fOwnProd').onclick=toggleOwnProd;
 $('mxStatus').onchange=e=>{S.mxStatus=e.target.value;render();};
 $('hmMetric').onchange=()=>{renderHeatmap();setTimeout(resizeAll,20);};
-$('cuSub').onchange=e=>{S.culSub=e.target.value;S.cuSel=null;render();};
 $('rpDim').onchange=e=>{S.rpDim=e.target.value;};
 $('rpMetric').onchange=e=>{S.rpMetric=e.target.value;};
 $('rpSource').onchange=e=>{S.rpSource=e.target.value;};
@@ -2937,7 +2869,7 @@ $('rpMode').onchange=e=>{S.rpMode=e.target.value;};
 $('rpFrom').onchange=e=>{S.rpFrom=e.target.value;};
 $('rpTo').onchange=e=>{S.rpTo=e.target.value;};
 $('rpRun').onclick=()=>{S.rpBuilt=true;renderReport();setTimeout(resizeAll,30);};
-$('reset').onclick=()=>{S.month='all';S.store=[];S.cat=[];S.sup=[];S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.culSub='all';S.cuSel=null;S.prSel=null;$('fMonth').value='all';$('fQ').value='';$('fOff').checked=false;msSyncAll();if($('mxStatus'))$('mxStatus').value='all';if($('cuSub'))$('cuSub').value='all';render();};
+$('reset').onclick=()=>{S.month='all';S.store=[];S.cat=[];S.sup=[];S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.prSel=null;$('fMonth').value='all';$('fQ').value='';$('fOff').checked=false;msSyncAll();if($('mxStatus'))$('mxStatus').value='all';render();};
 function resizeAll(){Object.values(charts).forEach(c=>c.resize());}
 window.addEventListener('resize',resizeAll);
 // выгрузка CSV (разделитель ; и BOM — корректно открывается в Excel с кириллицей)

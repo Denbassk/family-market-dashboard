@@ -9,7 +9,10 @@
  *   1) все вкладки рендерятся под 8 комбинациями фильтров без единой ошибки;
  *   2) КРОСС-ФИЛЬТРЫ дают точные числа (сверка с by_store / monthly / cat_month и,
  *      если рядом лежит tests/truth.json от scripts/../tests/truth.py — с BigQuery);
- *   3) ВОЗВРАТЫ: аддитивность куба returns_fact по всем измерениям и охватам.
+ *   3) ВОЗВРАТЫ: аддитивность куба returns_fact по всем измерениям и охватам;
+ *   4) РЕВИЗИЯ ВКЛАДОК: пресет «Собственное производство», фильтр магазина в отчёте
+ *      по товарам, карточка среза на «Обзоре» и целостность разметки, от которой
+ *      зависит НЕ ТРОГАЕМЫЙ блок TSD-экспорта (порядок select, один чекбокс «техн»).
  *
  * Код возврата 1, если хоть одна проверка провалилась или был рантайм-эксепшен.
  * Зависимость одна: npm i jsdom
@@ -74,7 +77,7 @@ const w = dom.window;
 const CLEAR = `S.month='all';S.store=[];S.cat=[];S.sup=[];S.q='';S.abc='all';S.noOff=false;`;
 
 function tabsSuite() {
-  const tabs = ['overview','report','analytics','products','frozen','stores','moves','culinary','matrix'];
+  const tabs = ['overview','report','analytics','products','stock','stores','matrix'];
   const combos = [
     ['без фильтров', ''],
     ['один магазин', `S.store=[D.stores[0]];`],
@@ -194,6 +197,88 @@ function crossSuite() {
   if (!truth) skip('Сверка срезов с BigQuery', 'нет tests/truth.json — запустите python tests/truth.py');
 }
 
+// Проверки, добавленные ревизией вкладок (2026-08-21): пресет «Собственное производство»,
+// фильтр магазина в отчёте по товарам, карточка среза на «Обзоре» и — главное —
+// целостность разметки, от которой зависит НЕ ТРОГАЕМЫЙ блок TSD-экспорта.
+function revisionSuite() {
+  const rows = w.eval(`(function(){
+    var out=[], push=function(n,ok,g,e){out.push([n,!!ok,g,e]);};
+    var C=function(){${CLEAR}S.rpFrom='all';S.rpTo='all';S.rpMode='detail';S.rpSource='sales';S.rpMetric='rev';};
+    var off=function(a,b){return b?Math.abs(a-b)/b*100:(a?100:0);};
+
+    // ---- пресет «Собственное производство» = Кулинария + Выпечка + Хот-дог
+    C();
+    var have={}; D.by_category.forEach(function(c){have[c.category]=c.revenue;});
+    var expected=0, n=0;
+    ['Кулинария','Выпечка','Хот-дог'].forEach(function(c){if(have[c]!=null){expected+=have[c];n++;}});
+    toggleOwnProd();
+    var got=kpiNow().revenue;
+    push('Пресет: выбраны все категории собственного производства', S.cat.length===n&&n>0, S.cat.length, n);
+    push('Пресет: выручка == сумма by_category', off(got,expected)<0.05, Math.round(got), Math.round(expected));
+    push('Пресет: кнопка подсвечена', ownProdOn()===true, ownProdOn(), true);
+    toggleOwnProd();
+    push('Пресет: повторный клик снимает фильтр', S.cat.length===0, S.cat.length, 0);
+
+    // ---- фильтр магазина в отчёте по товарам (раньше игнорировался)
+    var bs={}; D.by_store.forEach(function(r){bs[r.store]=r.revenue;});
+    var s1=D.stores[0];
+    C(); S.rpDim='products'; S.store=[s1];
+    var rp=reportPivot('products',monthsInRange()).reduce(function(a,x){return a+x.total;},0);
+    push('Отчёт «Товары»: фильтр магазина применяется', off(rp,bs[s1])<1.5, Math.round(rp), bs[s1]);
+    push('Отчёт «Товары»+магазин помечен как оценка', RP_EXACT===false, RP_EXACT, false);
+    C(); S.rpDim='products';
+    var rpAll=reportPivot('products',monthsInRange()).reduce(function(a,x){return a+x.total;},0);
+    push('Отчёт «Товары» без фильтра != одному магазину', Math.abs(rpAll-rp)>1000, Math.round(rpAll), Math.round(rp));
+
+    // ---- маржа в отчёте совпадает с by_category
+    C(); var c0=D.by_category[0];
+    var rc=reportPivot('category',monthsInRange()).find(function(x){return x.name===c0.category;});
+    push('Отчёт: колонка «Маржа %» == by_category', rc&&Math.abs(rc.mrg-c0.margin)<=0.2, rc&&rc.mrg, c0.margin);
+
+    // ---- карточка среза на «Обзоре» вместо режима «Разрез»
+    C(); S.tab='overview'; render();
+    var empty=document.getElementById('ov_slice').innerHTML.length;
+    S.cat=[c0.category]; render();
+    var stats=document.querySelectorAll('#ov_slice .dstat').length;
+    push('Обзор: без фильтра карточки среза нет', empty===0, empty, 0);
+    push('Обзор: при одном фильтре карточка среза из 6 статов', stats===6, stats, 6);
+    C();
+    return out;
+  })()`);
+  rows.forEach(([n, ok, g, e]) => add(n, ok, g, e));
+
+  // ---- разметка, от которой зависит блок TSD-экспорта (второй <script>, НЕ ТРОГАТЬ).
+  // Он ищет карточку перебором DOM по тексту заголовка и читает <select> ПО ПОЗИЦИИ,
+  // а чекбокс «скрыть технические» — поиском по всему документу.
+  w.eval(`${CLEAR}S.tab='stock';render();`);
+  const d = w.document;
+  const card = d.getElementById('stale_card');
+  const sels = card ? [...card.querySelectorAll('select')].map(s => s.id) : [];
+  const techCbs = [...d.querySelectorAll('input[type=checkbox]')].filter(cb => {
+    const p = cb.closest('label');
+    return ((p ? p.textContent : '') + ' ' + (cb.parentNode ? cb.parentNode.textContent : '')).toLowerCase().includes('техн');
+  }).length;
+  add('TSD-экспорт: карточка «Товары без движения» на вкладке «Запасы»',
+      !!(card && d.querySelector('#p_stock #stale_card') && /Товары без движения/.test(card.textContent)), !!card, true);
+  add('TSD-экспорт: порядок select в карточке (дни/магазин/категория/поставщик)',
+      sels.join(',') === 'stDays,stStore,stCat,stSup', sels.join(','), 'stDays,stStore,stCat,stSup');
+  add('TSD-экспорт: ровно один чекбокс со словом «техн» на странице', techCbs === 1, techCbs, 1);
+  add('TSD-экспорт: текстовый input в карточке есть',
+      !!(card && card.querySelector('input[type=text],input[type=search],input:not([type])')), true, true);
+  const days = d.getElementById('stDays');
+  add('«Товары без движения»: окно по умолчанию 90 дней', days && days.value === '90', days && days.value, '90');
+  // вкладок стало 8, старых имён в разметке быть не должно
+  const navIds = [...d.querySelectorAll('.nav button')].map(b => b.dataset.p);
+  add('Вкладок 8, старые frozen/moves/culinary убраны',
+      navIds.length === 8 && !navIds.some(x => ['frozen','moves','culinary'].includes(x)), navIds.join(','), 8);
+  // у каждой кнопки навигации есть своя страница
+  const orphan = navIds.filter(p => !d.getElementById('p_' + p));
+  add('Каждой кнопке навигации соответствует страница', orphan.length === 0, orphan.join(',') || '—', '—');
+  // кнопки экспорта не указывают на исчезнувшие таблицы
+  const badExp = [...d.querySelectorAll('.csvbtn[data-t]')].map(b => b.dataset.t).filter(t => !d.getElementById(t));
+  add('Кнопки ⬇ Excel указывают на существующие таблицы', badExp.length === 0, badExp.join(',') || '—', '—');
+}
+
 function returnsSuite() {
   if (!w.eval('!!(D.returns_fact&&D.returns_dim)')) {
     skip('Возвраты: аддитивность куба и карточка на «Обзоре»',
@@ -256,7 +341,7 @@ setTimeout(() => {
     console.log('  в приблизительном режиме (в интерфейсе это подписано «≈ оценка»).');
   }
 
-  tabsSuite(); crossSuite(); returnsSuite();
+  tabsSuite(); crossSuite(); returnsSuite(); revisionSuite();
 
   const num = v => typeof v === 'number' ? v.toLocaleString('ru-RU') : String(v);
   let bad = 0, skipped = 0;
