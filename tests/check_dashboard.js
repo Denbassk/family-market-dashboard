@@ -267,6 +267,26 @@ function revisionSuite() {
       !!(card && card.querySelector('input[type=text],input[type=search],input:not([type])')), true, true);
   const days = d.getElementById('stDays');
   add('«Товары без движения»: окно по умолчанию 90 дней', days && days.value === '90', days && days.value, '90');
+  // Имена точек в stale.json обязаны совпадать с остальным дашбордом. До 2026-08-21
+  // fetch_stale.py имел СВОЙ словарь нормализации на 7 ключей, и 12 из 38 магазинов
+  // писались по-другому — «Товары без движения» нельзя было сопоставить ни с чем.
+  // Служебный склад «Полевая-Склад» в full_data не входит намеренно (его прячет ползунок).
+  const STALE = path.join(path.dirname(DATA), 'stale.json');
+  if (fs.existsSync(STALE)) {
+    const raw = fs.readFileSync(STALE, 'utf8');
+    const names = new Set();
+    for (const m of raw.matchAll(/"st"\s*:\s*"((?:[^"\\]|\\.)*)"/g)) names.add(JSON.parse('"' + m[1] + '"'));
+    const canon = new Set(w.eval('D.stores'));
+    const SERVICE = new Set(['Полевая-Склад', 'Полевая-Просрок', 'Магазины-Просрок', 'Производство']);
+    const alien = [...names].filter(n => !canon.has(n) && !SERVICE.has(n));
+    add('stale.json: имена точек совпадают с full_data.stores',
+        alien.length === 0, alien.slice(0, 6).join(', ') || '—', '—');
+    const missing = [...canon].filter(n => !names.has(n));
+    add('stale.json: все точки сети присутствуют',
+        names.size > 0 && missing.length === 0, missing.slice(0, 6).join(', ') || names.size + ' точек', '—');
+  } else {
+    skip('stale.json: имена точек совпадают с full_data.stores', 'нет docs/stale.json рядом с full_data.json');
+  }
   // вкладок стало 8, старых имён в разметке быть не должно
   const navIds = [...d.querySelectorAll('.nav button')].map(b => b.dataset.p);
   add('Вкладок 8, старые frozen/moves/culinary убраны',

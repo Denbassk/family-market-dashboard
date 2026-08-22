@@ -10,19 +10,21 @@ else:
     c = glob.glob(os.path.join(ROOT, 'credentials', '*.json'))
     if c: os.environ.setdefault('GOOGLE_APPLICATION_CREDENTIALS', c[0])
 
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Имена точек — из общего модуля. Раньше здесь лежал СВОЙ словарь на 7 ключей, из-за чего
+# 12 из 38 магазинов в stale.json писались не так, как во всём остальном дашборде
+# («Іскрінський 19» вместо «Іскринський 19В», «Полевая-Магазин» вместо «Полевая магазин»),
+# и «Товары без движения» нельзя было сопоставить ни с одним другим экраном.
+# sql_case_full оставляет незнакомые имена как есть — служебные «Полевая-Склад» и т.п.
+# должны остаться в отчёте: на складе лежит 5,3 млн ₴ запаса, он прячется ползунком.
+from domain import sql_case_full
+
 DS   = 'family-market-analytics.family_market'
 OUT  = os.path.join(ROOT, 'docs', 'stale.json')
 MON  = int(os.environ.get('STALE_MONTHS', '12'))     # окно поиска продаж
 MIN_D= int(os.environ.get('STALE_MIN_DAYS', '3'))    # минимум дней без продаж
 
-NORM = {
-    'Полевая 83': 'Полевая-Магазин', 'Полевая, 83': 'Полевая-Магазин',
-    'Героїв Сталінграда 138/1': 'Байрона 138/1',
-    'Героїв Сталінграду 138/1': 'Байрона 138/1',
-    'Героїв Сталінграду 156': 'Байрона 156',
-    'Героїв Сталінграду 163А': 'Байрона 163',
-    'Героїв Сталінграда 163А': 'Байрона 163',
-}
 TECH = ['пакет', 'плівка', 'пленка', 'стрейч', 'етикет', 'этикет', 'ценник', 'цінник',
         'скотч', 'лоток', 'контейнер', 'рукав', 'мішк', 'мешк', 'перчатк', 'рукавич',
         'серветк', 'салфетк', 'форма для', 'підклад', 'подлож']
@@ -65,11 +67,6 @@ I_BC = pick(ic, 'barcode'); I_SUP = pick(ic, 'supplier', 'постач')
 I_DT = pick(ic, 'date', 'incoming_date', 'doc_date', 'transaction_date', 'dt')
 print(f'продажи: {T_BC}/{T_ST}/{T_DT}   приходы: {I_BC}/{I_SUP}/{I_DT}')
 
-def sql_norm(col):
-    s = col
-    for k, v in NORM.items():
-        s = f"IF(TRIM({s})='{k}','{v}',{s})"
-    return f'TRIM({s})'
 
 SNAP = os.environ.get('STOCK_DATE')
 snap = SNAP or list(cl.query(
@@ -78,7 +75,7 @@ print('снимок остатков: ' + snap)
 
 q = f"""
 WITH st AS (
-  SELECT CAST(barcode AS STRING) bc, {sql_norm('store')} store,
+  SELECT CAST(barcode AS STRING) bc, {sql_case_full('store')} store,
          ANY_VALUE(product_name) nm, SUM(quantity) qty,
          SUM(quantity * COALESCE(cost_price, 0)) val
   FROM `{DS}.stock_matrix`
@@ -86,17 +83,22 @@ WITH st AS (
   GROUP BY bc, store
 ),
 sl AS (
-  SELECT CAST({T_BC} AS STRING) bc, {sql_norm(T_ST)} store,
+  SELECT CAST({T_BC} AS STRING) bc, {sql_case_full(T_ST)} store,
          MAX(DATE({T_DT})) last_sale
   FROM `{DS}.turnover_transactions`
   WHERE DATE({T_DT}) BETWEEN DATE_SUB(DATE'{snap}', INTERVAL {MON} MONTH) AND DATE'{snap}'
   GROUP BY bc, store
 ),
+# Последний поставщик по штрих-коду. Тай-брейк по имени обязателен: при нескольких приходах
+# одного товара в ОДИН день BigQuery без него возвращает произвольную строку, и два прогона
+# подряд дают разных поставщиков (замер 2026-08-21: 267 строк из 44 234 гуляли между
+# запусками, вместе с ними прыгал флаг «технический»). Фильтр «Поставщик» на карточке
+# «Товары без движения» из-за этого менялся после каждой пересборки.
 inc AS (
   SELECT bc, sup, last_in FROM (
     SELECT CAST({I_BC} AS STRING) bc, {I_SUP} sup, DATE({I_DT}) last_in,
            ROW_NUMBER() OVER (PARTITION BY CAST({I_BC} AS STRING)
-                              ORDER BY DATE({I_DT}) DESC) rn
+                              ORDER BY DATE({I_DT}) DESC, {I_SUP}) rn
     FROM `{DS}.incoming_transactions`
     WHERE {I_SUP} IS NOT NULL AND TRIM({I_SUP}) != ''
   ) WHERE rn = 1
