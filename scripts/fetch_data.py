@@ -39,7 +39,10 @@ def main():
     # всегда побеждает; если товара нет в матрице ни под одним кодом — остаётся «нет в матрице».
     if not os.environ.get("SKIP_STAGING"):
       client.query(f"""
-    CREATE OR REPLACE TABLE {ST} AS
+    CREATE OR REPLACE TABLE {ST}
+    PARTITION BY d
+    CLUSTER BY store, category, barcode
+    AS
     WITH m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
     raw AS (
       SELECT CASE {cases} END AS store, t.barcode, t.product_name,
@@ -55,7 +58,9 @@ def main():
         COALESCE(m.sup,'(нет в матрице)') supplier,
         (m.barcode IS NOT NULL) in_matrix
       FROM {TT} t LEFT JOIN m USING(barcode)
-      WHERE EXTRACT(YEAR FROM t.transaction_datetime)={YEAR} AND store IN {keep}
+      WHERE t.transaction_datetime >= TIMESTAMP(DATE({YEAR}, 1, 1))
+        AND t.transaction_datetime <  TIMESTAMP(DATE({YEAR} + 1, 1, 1))
+        AND store IN {keep}
     ),
     variants AS (
       SELECT product_name, category, supplier, in_matrix,

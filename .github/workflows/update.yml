@@ -4,9 +4,18 @@ on:
   schedule:
     - cron: "0 3 * * *"      # каждый день в 03:00 UTC (~06:00 Киев)
   workflow_dispatch:          # ручной запуск (кнопка «Обновить сейчас» / вкладка Actions)
+    inputs:
+      skip_staging:
+        description: "Не пересобирать _dash_tx26 (дешевле, данные продаж не обновятся)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
+
+concurrency:
+  group: update-dashboard
+  cancel-in-progress: true
 
 jobs:
   refresh:
@@ -26,6 +35,7 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa-key.json
           REPORT_YEAR: "2026"
+          SKIP_STAGING: ${{ inputs.skip_staging && '1' || '' }}
         run: python scripts/build_data.py
       - name: Commit updated data
         run: |
