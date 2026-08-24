@@ -58,8 +58,8 @@ def main():
         COALESCE(m.sup,'(нет в матрице)') supplier,
         (m.barcode IS NOT NULL) in_matrix
       FROM {TT} t LEFT JOIN m USING(barcode)
-      WHERE t.transaction_datetime >= TIMESTAMP(DATE({YEAR}, 1, 1))
-        AND t.transaction_datetime <  TIMESTAMP(DATE({YEAR} + 1, 1, 1))
+      WHERE t.transaction_datetime >= DATETIME({YEAR}, 1, 1, 0, 0, 0)
+        AND t.transaction_datetime <  DATETIME({YEAR} + 1, 1, 1, 0, 0, 0)
         AND store IN {keep}
     ),
     variants AS (
