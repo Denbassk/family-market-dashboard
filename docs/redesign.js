@@ -96,7 +96,7 @@ window.addEventListener('rd-theme-change', () => {
   // heatmap
   setTimeout(() => { try { if (typeof window.renderHeatmap === 'function') window.renderHeatmap(); } catch(e){} }, 100);
   // SVG ranks
-  setTimeout(() => { try { if (window.S && window.S.tab === 'overview') renderOverviewRanks(); } catch(e){} }, 100);
+  setTimeout(() => { try { if (rdGetTab() === 'overview') renderOverviewRanks(); } catch(e){} }, 100);
 });
 
 // Наши цвета — читаем из CSS-переменных (OKLCH → браузер приведёт в rgb)
@@ -493,6 +493,45 @@ function overrideHeatmap(){
   };
 }
 
+// ---------- Безопасный доступ к глобалам основного скрипта ----------
+// В основном index.html объявлено `const S = {...}`, `const D = ...` — они находятся
+// в глобальном скоупе, но `const` НЕ вешает переменную на window.
+// Используем прямой eval через глобальный контекст.
+function rdGetGlobal(name){
+  try { return (0, eval)(name); } catch(e){ return undefined; }
+}
+function rdGetTab(){
+  const S = rdGetGlobal('S') || window.S;
+  return S && S.tab;
+}
+function rdGetCatAgg(){
+  const fn = rdGetGlobal('catAgg') || window.catAgg;
+  return typeof fn === 'function' ? fn() : null;
+}
+function rdGetStoreAgg(){
+  const fn = rdGetGlobal('storeAgg') || window.storeAgg;
+  return typeof fn === 'function' ? fn() : null;
+}
+function rdSetFilter(k, v){
+  const fn = rdGetGlobal('setFilter') || window.setFilter;
+  if (typeof fn === 'function') fn(k, v);
+}
+function rdInSel(v, arr){
+  const fn = rdGetGlobal('inSel') || window.inSel;
+  return typeof fn === 'function' ? fn(v, arr) : false;
+}
+function rdGetD(){
+  return rdGetGlobal('D') || window.D;
+}
+function rdGetS(){
+  return rdGetGlobal('S') || window.S;
+}
+function rdMColor(m){
+  const fn = rdGetGlobal('mColor') || window.mColor;
+  if (typeof fn === 'function') return fn(m);
+  return mColorFallback(m);
+}
+
 // ---------- SVG RANK LISTS (топ-категории, топ-магазины) ----------
 // Заменяем ECharts на #ov_cat и #ov_store на нативные SVG-компоненты в стиле мокапа.
 // Клики (setFilter) сохраняем. Данные берём из глобальных catAgg() / storeAgg().
@@ -520,36 +559,38 @@ function mColorFallback(m){
 // Рендер топ-категорий как SVG rank list
 function renderCatRank(){
   const el = document.getElementById('ov_cat');
-  if (!el || typeof window.catAgg !== 'function') return;
-  const rows = window.catAgg().slice(0, 12);
-  if (!rows.length) return;
+  if (!el) return;
+  const raw = rdGetCatAgg();
+  if (!raw || !raw.length) return;
+  const rows = raw.slice(0, 12);
 
   const max = Math.max(...rows.map(r => r.revenue || 0)) || 1;
-  const mColor = window.mColor || mColorFallback;
-  const setFilter = window.setFilter;
-  const S = window.S;
-  const inSel = window.inSel || (() => false);
-
+  const S = rdGetS();
   const c = getThemeColors();
 
   let html = '<div class="rd-rank" role="list">';
   rows.forEach((r, i) => {
     const w = (r.revenue / max * 100).toFixed(1);
-    const col = mColor(r.margin);
-    const isSel = S && S.cat && inSel(r.category, S.cat);
+    const col = rdMColor(r.margin);
+    const isSel = S && S.cat && rdInSel(r.category, S.cat);
     const mrgBg  = 'color-mix(in oklch, ' + col + ' 22%, transparent)';
-    const mrgTxt = col;
     html += '<div class="rd-rank-row" data-cat="' + (r.category || '').replace(/"/g, '&quot;') + '" role="listitem"' + (isSel ? ' style="background:var(--accsoft)"' : '') + '>'
       + '<span class="rd-rk">' + String(i+1).padStart(2,'0') + '</span>'
       + '<div class="rd-lb">'
       +   '<span class="rd-name" title="' + (r.category || '') + '">' + (r.category || '—') + '</span>'
-      +   '<span class="rd-mrg" style="background:' + mrgBg + ';color:' + mrgTxt + '">' + (r.margin != null ? r.margin + '%' : '—') + '</span>'
+      +   '<span class="rd-mrg" style="background:' + mrgBg + ';color:' + col + '">' + (r.margin != null ? r.margin + '%' : '—') + '</span>'
       + '</div>'
       + '<span class="rd-val">' + fmtCompact(r.revenue) + '&nbsp;₴</span>'
       + '<div class="rd-rank-bar"><i style="width:' + w + '%;background:linear-gradient(90deg, ' + c.acc + ', ' + col + ')"></i></div>'
       + '</div>';
   });
   html += '</div>';
+
+  // Уничтожаем ECharts инстанс если он есть — до подмены DOM
+  if (window.echarts && window.echarts.getInstanceByDom) {
+    const inst = window.echarts.getInstanceByDom(el);
+    if (inst) { try { inst.dispose(); } catch(e){} }
+  }
 
   el.classList.add('rd-svg-rank');
   el.innerHTML = html;
@@ -558,42 +599,34 @@ function renderCatRank(){
   el.querySelectorAll('.rd-rank-row').forEach(row => {
     row.addEventListener('click', () => {
       const cat = row.dataset.cat;
-      if (cat && setFilter) setFilter('cat', cat);
+      if (cat) rdSetFilter('cat', cat);
     });
   });
-
-  // диспозим ECharts, если он тут был раньше
-  if (window.echarts && window.echarts.getInstanceByDom) {
-    const inst = window.echarts.getInstanceByDom(el);
-    if (inst) inst.dispose();
-  }
 }
 
 // Рендер топ-магазинов как SVG rank list
 function renderStoreRank(){
   const el = document.getElementById('ov_store');
-  if (!el || typeof window.storeAgg !== 'function') return;
-  const rows = window.storeAgg().slice(0, 20);
-  if (!rows.length) return;
+  if (!el) return;
+  const raw = rdGetStoreAgg();
+  if (!raw || !raw.length) return;
+  const rows = raw.slice(0, 20);
 
   const max = Math.max(...rows.map(r => r.revenue || 0)) || 1;
   const c = getThemeColors();
-  const S = window.S;
-  const inSel = window.inSel || (() => false);
-  const setFilter = window.setFilter;
+  const S = rdGetS();
+  const D = rdGetD();
+  const wholesale = new Set((D && D.wholesale_stores) || ['Полевая магазин']);
 
-  // Опт-магазины из данных
-  const wholesale = new Set((window.D && window.D.wholesale_stores) || ['Полевая магазин']);
-
-  // Обновим подпись
   const sub = document.getElementById('ov_store_s');
-  if (sub) sub.textContent = (window.STORE_AGG_EXACT === false ? '≈ оценка · ' : '') + 'клик = фильтр';
+  const exact = rdGetGlobal('STORE_AGG_EXACT');
+  if (sub) sub.textContent = (exact === false ? '≈ оценка · ' : '') + 'клик = фильтр';
 
   let html = '<div class="rd-rank" role="list">';
   rows.forEach((r, i) => {
     const w = (r.revenue / max * 100).toFixed(1);
     const isWh = wholesale.has(r.store);
-    const isSel = S && S.store && inSel(r.store, S.store);
+    const isSel = S && S.store && rdInSel(r.store, S.store);
     const barColor = isWh
       ? 'linear-gradient(90deg,' + c.orange + ',' + c.warn + ')'
       : 'linear-gradient(90deg,' + c.acc + ',' + c.pos + ')';
@@ -609,20 +642,20 @@ function renderStoreRank(){
   });
   html += '</div>';
 
+  if (window.echarts && window.echarts.getInstanceByDom) {
+    const inst = window.echarts.getInstanceByDom(el);
+    if (inst) { try { inst.dispose(); } catch(e){} }
+  }
+
   el.classList.add('rd-svg-rank');
   el.innerHTML = html;
 
   el.querySelectorAll('.rd-rank-row').forEach(row => {
     row.addEventListener('click', () => {
       const store = row.dataset.store;
-      if (store && setFilter) setFilter('store', store);
+      if (store) rdSetFilter('store', store);
     });
   });
-
-  if (window.echarts && window.echarts.getInstanceByDom) {
-    const inst = window.echarts.getInstanceByDom(el);
-    if (inst) inst.dispose();
-  }
 }
 
 function renderOverviewRanks(){
@@ -769,7 +802,7 @@ function hookRender(){
       const r = orig.apply(this, arguments);
       setTimeout(() => {
         try {
-          if (window.S && window.S.tab === 'overview') {
+          if (rdGetTab() === 'overview') {
             renderOverviewRanks();
           }
           reRenderCharts();
@@ -794,11 +827,15 @@ document.addEventListener('DOMContentLoaded', function(){
     if (typeof window.render === 'function' && typeof window.renderHeatmap === 'function'){
       overrideHeatmap();
       hookRender();
-      // добавим первый заход спарклайнов + SVG-ranks
-      setTimeout(() => {
+      // добавим первый заход спарклайнов + SVG-ranks (несколько попыток —
+      // основной скрипт может отрендерить с задержкой из-за fetch)
+      const kickInit = () => {
         try { addSparklines(); } catch(e){}
-        try { if (window.S && window.S.tab === 'overview') renderOverviewRanks(); } catch(e){}
-      }, 300);
+        try { if (rdGetTab() === 'overview') renderOverviewRanks(); } catch(e){}
+      };
+      setTimeout(kickInit, 200);
+      setTimeout(kickInit, 600);
+      setTimeout(kickInit, 1200);
       return;
     }
     setTimeout(waitForApp, 100);
