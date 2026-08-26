@@ -759,7 +759,8 @@ function addRowSparklinesProducts(){
     newTh.textContent = 'Тренд';
     newTh.dataset.rdTrendCol = '1';
     newTh.style.width = '80px';
-    newTh.style.cursor = 'default';
+    newTh.style.cursor = 'help';
+    newTh.title = 'Динамика выручки товара по месяцам. Цвет = маржа: зелёный ≥20% · синий 10-19% · жёлтый 5-9% · красный <5%';
     if (insertBefore) tbl.tHead.querySelector('tr').insertBefore(newTh, insertBefore);
     else tbl.tHead.querySelector('tr').appendChild(newTh);
     trendColIdx = [...tbl.tHead.querySelectorAll('th')].indexOf(newTh);
@@ -792,8 +793,16 @@ function addRowSparklinesProducts(){
     }
     const td = document.createElement('td');
     td.style.padding = '4px 8px';
-    td.innerHTML = '<span class="rd-row-spark">' + drawRowSpark(values, color) + '</span>';
-    // Вставляем перед ABC (или в конец)
+    // Tooltip: показываем текстом значения по месяцам
+    const MONTHS = ['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+    const fmtV = v => {
+      const a = Math.abs(v);
+      if (a >= 1e6) return (v/1e6).toFixed(2) + 'M';
+      if (a >= 1e3) return Math.round(v/1e3) + 'k';
+      return String(Math.round(v));
+    };
+    const tooltip = months.map((m,i) => (MONTHS[m] || m) + ': ' + fmtV(values[i])).join(' · ');
+    td.innerHTML = '<span class="rd-row-spark" title="' + tooltip + '">' + drawRowSpark(values, color) + '</span>';
     const currentTrendCell = tr.cells[trendColIdx];
     if (currentTrendCell) tr.insertBefore(td, currentTrendCell);
     else tr.appendChild(td);
@@ -807,17 +816,21 @@ function renderAbcSegments(){
   if (!D || !D.abc || !D.abc.classes) return;
   const container = document.getElementById('an_abc_k');
   if (!container) return;
-  if (container.querySelector('.rd-abc-segments')) return; // уже отрисован
+
+  // Ищем внешний .card (родитель an_abc_k). Наш блок кладём ПЕРЕД KPI-карточками,
+  // во всю ширину, а не внутрь сетки KPI.
+  const card = container.closest('.card');
+  if (!card) return;
+  // Не отрисовываем повторно
+  if (card.querySelector('.rd-abc-wrap')) return;
 
   const classes = D.abc.classes;
   const total = D.abc.total_sku || classes.reduce((a,c) => a + (c.skus || 0), 0);
-  const totalRev = classes.reduce((a,c) => a + (c.revenue || 0), 0) || 1;
 
   const clA = classes.find(c => c.abc === 'A') || { skus: 0, revenue: 0 };
   const clB = classes.find(c => c.abc === 'B') || { skus: 0, revenue: 0 };
   const clC = classes.find(c => c.abc === 'C') || { skus: 0, revenue: 0 };
 
-  // Ширины сегментов — по количеству SKU (визуализация Парето)
   const totalSku = clA.skus + clB.skus + clC.skus || 1;
   const wA = (clA.skus / totalSku * 100).toFixed(1);
   const wB = (clB.skus / totalSku * 100).toFixed(1);
@@ -830,34 +843,32 @@ function renderAbcSegments(){
     return String(Math.round(v));
   };
 
-  const setFilter = rdGetGlobal('setFilter') || window.setFilter;
-
-  // Строим блок
-  const block = document.createElement('div');
-  block.innerHTML =
+  // Блок в отдельном div-обёртке, вставим ДО #an_abc_k
+  const wrap = document.createElement('div');
+  wrap.className = 'rd-abc-wrap';
+  wrap.innerHTML =
     '<div class="rd-abc-segments" title="Клик = открыть позиции класса">'
-    +   '<div class="rd-abc-seg a" data-abc="A" style="flex:' + wA + ' 1 0" title="Класс A: ' + clA.skus + ' SKU · 80% выручки">'
-    +     '<div class="lbl">A · 80%</div>'
-    +     '<div class="val">' + fmtCompact(clA.skus) + ' SKU</div>'
+    +   '<div class="rd-abc-seg a" data-abc="A" style="flex:' + wA + ' 1 0" title="Класс A: ' + clA.skus + ' SKU · 80% выручки · ' + fmtCompact(clA.revenue) + ' ₴">'
+    +     '<div class="lbl">A · 80% выручки</div>'
+    +     '<div class="val">' + fmtCompact(clA.skus) + ' SKU · ' + fmtCompact(clA.revenue) + ' ₴</div>'
     +   '</div>'
-    +   '<div class="rd-abc-seg b" data-abc="B" style="flex:' + wB + ' 1 0" title="Класс B: ' + clB.skus + ' SKU · 15% выручки">'
+    +   '<div class="rd-abc-seg b" data-abc="B" style="flex:' + wB + ' 1 0" title="Класс B: ' + clB.skus + ' SKU · 15% выручки · ' + fmtCompact(clB.revenue) + ' ₴">'
     +     '<div class="lbl">B · 15%</div>'
-    +     '<div class="val">' + fmtCompact(clB.skus) + ' SKU</div>'
+    +     '<div class="val">' + fmtCompact(clB.skus) + ' SKU · ' + fmtCompact(clB.revenue) + ' ₴</div>'
     +   '</div>'
-    +   '<div class="rd-abc-seg c" data-abc="C" style="flex:' + wC + ' 1 0" title="Класс C: ' + clC.skus + ' SKU · 5% выручки">'
+    +   '<div class="rd-abc-seg c" data-abc="C" style="flex:' + wC + ' 1 0" title="Класс C: ' + clC.skus + ' SKU · 5% выручки · ' + fmtCompact(clC.revenue) + ' ₴">'
     +     '<div class="lbl">C · 5%</div>'
-    +     '<div class="val">' + fmtCompact(clC.skus) + ' SKU</div>'
+    +     '<div class="val">' + fmtCompact(clC.skus) + ' SKU · ' + fmtCompact(clC.revenue) + ' ₴</div>'
     +   '</div>'
     + '</div>'
     + '<div class="rd-abc-caption">'
-    +   '<span>Всего: <b>' + fmtCompact(total) + '</b> SKU · Парето: <b>' + Math.round(clA.skus/total*100) + '%</b> ассортимента даёт 80% выручки</span>'
-    +   '<span>Выручка: A <b>' + fmtCompact(clA.revenue) + '</b> ₴ · B <b>' + fmtCompact(clB.revenue) + '</b> ₴ · C <b>' + fmtCompact(clC.revenue) + '</b> ₴</span>'
+    +   '<span>Всего: <b>' + fmtCompact(total) + '</b> SKU · Парето: <b>' + Math.round(clA.skus/total*100) + '%</b> ассортимента даёт 80% выручки. <b>Клик по сегменту</b> = открыть позиции класса.</span>'
     + '</div>';
 
-  container.prepend(block);
+  // Вставляем ПЕРЕД #an_abc_k (KPI карточки останутся под нашим баром)
+  container.parentNode.insertBefore(wrap, container);
 
-  // Клики → фильтр по ABC + переход на "Позиции"
-  block.querySelectorAll('.rd-abc-seg').forEach(seg => {
+  wrap.querySelectorAll('.rd-abc-seg').forEach(seg => {
     seg.addEventListener('click', () => {
       const cls = seg.dataset.abc;
       const S = rdGetS();
@@ -867,9 +878,8 @@ function renderAbcSegments(){
         S.tab = 'products';
       }
       const syncTabs = rdGetGlobal('syncTabs') || window.syncTabs;
-      const render = window.render;
       if (typeof syncTabs === 'function') syncTabs();
-      if (typeof render === 'function') render();
+      if (typeof window.render === 'function') window.render();
     });
   });
 }
@@ -888,19 +898,29 @@ function enhanceParetoChart(){
   if (chart.__rdEnhanced) return;
 
   const c = getThemeColors();
+  // Отключить анимацию состояний (это она мигает при hover)
+  opt.stateAnimation = { duration: 0 };
+  opt.animation = false;
+  opt.hoverLayerThreshold = Infinity;
+
   // Добавляем markArea в первую серию (заливка зон Парето)
   opt.series[0].markArea = {
     silent: true,
+    animation: false,
     emphasis: { disabled: true },
-    itemStyle: { opacity: .12 },
+    blur: { itemStyle: { opacity: .14 } },  // при blur — тот же opacity, не выцветаем
+    itemStyle: { opacity: .14 },
     data: [
       [{ yAxis: 0,  itemStyle: { color: c.pos, opacity: .14 } },  { yAxis: 80 }],
       [{ yAxis: 80, itemStyle: { color: c.warn, opacity: .14 } }, { yAxis: 95 }],
       [{ yAxis: 95, itemStyle: { color: c.neg, opacity: .14 } },  { yAxis: 100 }]
     ]
   };
-  // И серии тоже — отключим emphasis чтобы линия не пропадала
-  opt.series.forEach(s => { s.emphasis = { disabled: true }; });
+  // И серии — полностью отключить hover-эффекты
+  opt.series.forEach(s => {
+    s.emphasis = { disabled: true };
+    s.blur = { itemStyle: { opacity: 1 }, lineStyle: { opacity: 1 }, areaStyle: { opacity: (s.areaStyle && s.areaStyle.opacity) || 0.12 } };
+  });
   chart.setOption(opt);
   chart.__rdEnhanced = true;
 }

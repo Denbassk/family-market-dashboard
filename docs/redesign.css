@@ -1044,6 +1044,51 @@ tbody tr.rd-top-3 td:first-child{ box-shadow: inset 3px 0 0 var(--vio); }
 }
 
 /* ==================================================================
+   STICKY FIRST COLUMN — закрепление первой колонки при горизонтальной прокрутке
+   ================================================================== */
+
+/* Обёртка .scroll уже даёт горизонтальную прокрутку. Работаем внутри неё. */
+body.rd .scroll table thead th:first-child,
+body.rd .scroll table tbody td:first-child{
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  /* Сплошной фон, иначе прокручиваемые ячейки будут видны сквозь */
+  background: var(--card);
+  /* Тонкая тень справа = визуальный отрыв от прокрутки */
+  box-shadow: 6px 0 8px -6px oklch(0.10 0 0 / .35);
+}
+/* Заголовок первой колонки — над телом ячейки, z-index выше */
+body.rd .scroll table thead th:first-child{
+  z-index: 3;
+  background: var(--c2);
+}
+/* Совместимость с чётными строками */
+html[data-theme="dark"] body.rd .scroll tbody tr:nth-child(even) td:first-child{
+  background: oklch(0.19 0.014 260);
+}
+html[data-theme="light"] body.rd .scroll tbody tr:nth-child(even) td:first-child{
+  background: oklch(0.975 0.005 260);
+}
+/* Hover сохраняем */
+body.rd .scroll tbody tr:hover td:first-child{ background: var(--c2); }
+html[data-theme="light"] body.rd .scroll tbody tr:hover td:first-child{ background: oklch(0.94 0.008 260); }
+
+/* Top-3 indicator сохраняем при sticky */
+body.rd .scroll tbody tr.rd-top-1 td:first-child{
+  box-shadow: inset 3px 0 0 var(--a), 6px 0 8px -6px oklch(0.10 0 0 / .35);
+}
+body.rd .scroll tbody tr.rd-top-2 td:first-child{
+  box-shadow: inset 3px 0 0 var(--acc), 6px 0 8px -6px oklch(0.10 0 0 / .35);
+}
+body.rd .scroll tbody tr.rd-top-3 td:first-child{
+  box-shadow: inset 3px 0 0 var(--vio), 6px 0 8px -6px oklch(0.10 0 0 / .35);
+}
+
+/* Sticky заголовок таблицы (при вертикальной прокрутке) — уже есть в основном CSS
+   через `th { position: sticky; top: 0 }`, дополнительно ничего не нужно */
+
+/* ==================================================================
    SPARKLINE-ТРЕНД в строке таблицы (Позиции)
    ================================================================== */
 .rd-row-spark{
