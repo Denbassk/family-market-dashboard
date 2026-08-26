@@ -662,6 +662,175 @@ function renderOverviewRanks(){
   try { renderCatRank(); } catch(e){ console.warn('rd catRank:', e); }
   try { renderStoreRank(); } catch(e){ console.warn('rd storeRank:', e); }
   try { restyleAlerts(); } catch(e){ console.warn('rd alerts:', e); }
+  try { restyleTables(); } catch(e){ console.warn('rd tables:', e); }
+}
+
+// ---------- ОЖИВЛЕНИЕ ТАБЛИЦ (пилюли, mini-bar, дельты) ----------
+// Работает на любой таблице, найденной в DOM. По заголовку колонки определяет
+// тип (маржа / доля / прибыль / условия) и подменяет содержимое ячейки.
+
+// Класс пилюли по маржинальности
+function marginPillClass(m){
+  m = +m || 0;
+  if (m >= 23) return 'm-hi';
+  if (m >= 15) return 'm-good';
+  if (m >= 9)  return 'm-mid';
+  if (m >= 5)  return 'm-low';
+  return 'm-bad';
+}
+// Класс пилюли по доле
+function sharePillClass(s){
+  s = +s || 0;
+  if (s >= 10) return 's-hi';
+  if (s >= 3)  return 's-mid';
+  return 's-lo';
+}
+// Класс дельты (up/down/flat) по % значению
+function deltaClass(pct){
+  const p = +pct || 0;
+  if (p > 1)  return 'up';
+  if (p < -1) return 'down';
+  return 'flat';
+}
+function arrowSvgSmall(dir){
+  if (dir === 'up')   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>';
+  if (dir === 'down') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>';
+}
+
+// Определяет тип колонки по заголовку
+function detectColumnType(headerText){
+  const t = (headerText || '').toLowerCase();
+  if (t.includes('маржа') || t.includes('margin')) return 'margin';
+  if (t.includes('доля') || t.includes('share') || t.includes('%')) return 'share';
+  if (t.includes('дельта') || t.includes('δ') || t.includes('прирост') || t.includes('изменение')) return 'delta';
+  if (t.includes('покрытие') || t.includes('точек') || t.includes('coverage')) return 'coverage';
+  if (t.includes('условия') || t.includes('возврат') && t.includes('условия')) return 'terms';
+  if (t.includes('abc')) return 'abc';
+  if (t.includes('xyz')) return 'xyz';
+  return null;
+}
+
+// Основная функция — пробегает по всем таблицам с data-t (экспорт-таблицы = основные аналитические)
+function restyleTables(){
+  const tables = document.querySelectorAll(
+    '#ov_tab, #ov_ret, #pr_tab, #stf_tab, #mv_tab, #mx_tab, #st_tab, #an_loss, #fr_cross, #fr_oos, #rp_tab'
+  );
+  tables.forEach(tbl => {
+    if (!tbl || !tbl.tHead) return;
+
+    // 1. Определить типы всех колонок один раз
+    const headers = [...tbl.tHead.querySelectorAll('th')];
+    const colTypes = headers.map(th => detectColumnType(th.textContent));
+
+    // 2. Пройтись по строкам и подменить ячейки
+    const rows = tbl.tBodies[0] ? [...tbl.tBodies[0].rows] : [];
+    rows.forEach((tr, ri) => {
+      if (tr.dataset.rdStyled === 'done') return;
+
+      // Топ-3 строки — цветной indicator слева (только если сортировка по вменяемой колонке)
+      if (ri < 3) tr.classList.add('rd-top-' + (ri + 1));
+
+      [...tr.cells].forEach((td, ci) => {
+        const type = colTypes[ci];
+        if (!type) return;
+        // Не трогаем если ячейка уже содержит наши пилюли
+        if (td.querySelector('.rd-pill, .rd-delta, .rd-mbar')) return;
+
+        const raw = td.textContent.trim();
+        if (!raw || raw === '—' || raw === '-') return;
+
+        if (type === 'margin') {
+          const num = parseFloat(raw.replace(',', '.'));
+          if (!isNaN(num)) {
+            const cls = marginPillClass(num);
+            td.innerHTML = '<span class="rd-pill ' + cls + '">' + num.toFixed(1) + '%</span>';
+          }
+        } else if (type === 'share') {
+          const num = parseFloat(raw.replace(',', '.').replace('%', ''));
+          if (!isNaN(num)) {
+            const cls = sharePillClass(num);
+            const barW = Math.min(100, num * 3).toFixed(0);
+            td.innerHTML = '<span class="rd-mbar"><i style="width:' + barW + '%"></i></span>'
+              + '<span class="rd-pill ' + cls + '">' + num.toFixed(2) + '%</span>';
+          }
+        } else if (type === 'delta') {
+          // Ожидаем формат "+12%" или "-3%" или "±0%"
+          const m = raw.match(/([+\-−]?\d+(?:[.,]\d+)?)/);
+          if (m) {
+            const num = parseFloat(m[1].replace('−', '-').replace(',', '.'));
+            const cls = deltaClass(num);
+            const sign = num > 0 ? '+' : '';
+            td.innerHTML = '<span class="rd-delta ' + cls + '">'
+              + arrowSvgSmall(cls) + sign + num.toFixed(1) + '%</span>';
+          }
+        } else if (type === 'coverage') {
+          // Формат "36/36" — mini-bar
+          const m = raw.match(/(\d+)\s*\/\s*(\d+)/);
+          if (m) {
+            const cur = +m[1], max = +m[2];
+            const pct = max ? (cur / max * 100) : 0;
+            const barCls = pct >= 95 ? '' : pct >= 80 ? 'warn' : 'neg';
+            td.innerHTML = '<span class="rd-mbar ' + barCls + '"><i style="width:' + pct.toFixed(0) + '%"></i></span>'
+              + '<span style="color:var(--muted);font-size:11px;font-family:JetBrains Mono">' + cur + '/' + max + '</span>';
+          } else {
+            // просто число точек
+            const num = parseInt(raw, 10);
+            if (!isNaN(num)) {
+              const max = 38;  // всего магазинов сети (можно взять из D.stores.length)
+              const D = rdGetD();
+              const totalStores = D && D.stores ? D.stores.length : max;
+              const pct = totalStores ? (num / totalStores * 100) : 0;
+              const barCls = pct >= 95 ? '' : pct >= 80 ? 'warn' : 'neg';
+              td.innerHTML = '<span class="rd-mbar ' + barCls + '"><i style="width:' + pct.toFixed(0) + '%"></i></span>'
+                + '<span style="color:var(--muted);font-size:11px;font-family:JetBrains Mono">' + num + '</span>';
+            }
+          }
+        } else if (type === 'abc') {
+          // A/B/C — цветной badge (уже стилизуется в основном коде через .bA/.bB/.bC)
+          // Ничего не делаем — старый стиль уже красивый
+        } else if (type === 'terms') {
+          // Условия возврата — иконка + текст
+          if (raw.toLowerCase().includes('разреш')) {
+            td.innerHTML = '<span class="rd-pill m-good" style="min-width:auto">✓ ' + raw + '</span>';
+          } else if (raw.toLowerCase().includes('запр') || raw.toLowerCase().includes('нет')) {
+            td.innerHTML = '<span class="rd-pill m-bad" style="min-width:auto">✕ ' + raw + '</span>';
+          } else if (raw.toLowerCase().includes('%') || raw.includes('оборот')) {
+            td.innerHTML = '<span class="rd-pill m-mid" style="min-width:auto">' + raw + '</span>';
+          }
+        }
+      });
+
+      tr.dataset.rdStyled = 'done';
+    });
+  });
+
+  // Добавляем цветной кружок к первой ячейке в некоторых таблицах категорий
+  const catTables = document.querySelectorAll('#ov_tab');
+  catTables.forEach(tbl => {
+    const rows = tbl.tBodies[0] ? [...tbl.tBodies[0].rows] : [];
+    rows.forEach(tr => {
+      if (tr.dataset.rdDot === 'done') return;
+      const firstCell = tr.cells[0];
+      if (!firstCell || firstCell.querySelector('.rd-cat-dot')) return;
+      // Ищем маржу в этой строке
+      const marginCell = [...tr.cells].find(td => td.querySelector('.rd-pill[class*="m-"]'));
+      if (!marginCell) return;
+      const marginPill = marginCell.querySelector('.rd-pill');
+      const pillCls = marginPill.className.match(/m-\w+/);
+      const dotColorMap = {
+        'm-hi':   'var(--a)',
+        'm-good': 'oklch(0.72 0.15 155)',
+        'm-mid':  'var(--b)',
+        'm-low':  'var(--orange)',
+        'm-bad':  'var(--c)'
+      };
+      const dotColor = pillCls ? (dotColorMap[pillCls[0]] || 'var(--acc)') : 'var(--acc)';
+      const dot = '<span class="rd-cat-dot" style="background:' + dotColor + '"></span>';
+      firstCell.innerHTML = dot + firstCell.innerHTML;
+      tr.dataset.rdDot = 'done';
+    });
+  });
 }
 
 // ---------- КРАСИВАЯ РАЗМЕТКА АЛЕРТОВ ----------
@@ -945,7 +1114,7 @@ function hookRender(){
     };
   }
 
-  // 3. Обёртка render — SVG-ranks + перекрашивание оставшихся ECharts
+  // 3. Обёртка render — SVG-ranks + перекрашивание ECharts + оживление таблиц
   if (typeof window.render === 'function') {
     const orig = window.render;
     window.render = function(){
@@ -955,12 +1124,33 @@ function hookRender(){
           if (rdGetTab() === 'overview') {
             renderOverviewRanks();
           }
+          // Таблицы — на всех вкладках
+          restyleTables();
           reRenderCharts();
         } catch(e){ console.warn('rd render hook:', e); }
       }, 60);
       return r;
     };
   }
+
+  // 4. MutationObserver на body — сбрасывать data-rdStyled когда основной скрипт
+  //    перерисовал tbody (при этом наши пилюли пропали, надо восстановить)
+  const tableIds = ['ov_tab','ov_ret','pr_tab','stf_tab','mv_tab','mx_tab','st_tab','an_loss','fr_cross','fr_oos','rp_tab'];
+  tableIds.forEach(id => {
+    const tbl = document.getElementById(id);
+    if (!tbl) return;
+    let pending = false;
+    const mo = new MutationObserver(() => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        try { restyleTables(); } catch(e){}
+      });
+    });
+    // Наблюдаем за содержимым tbody
+    mo.observe(tbl, { childList: true, subtree: true });
+  });
 }
 
 // ---------- INIT ----------

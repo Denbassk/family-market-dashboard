@@ -917,6 +917,96 @@ tbody tr:hover{ background: var(--c2); }
 tbody tr:nth-child(even){ background: oklch(from var(--card) l c h / .35); }
 tbody tr:nth-child(even):hover{ background: var(--c2); }
 
+/* ==================================================================
+   TABLE PILLS & BARS — оживляем таблицы (маржа, доля, статус)
+   ================================================================== */
+
+/* Пилюли для процентов (маржа, доля) — семантические цвета */
+.rd-pill{
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+  min-width: 46px;
+  text-align: center;
+}
+/* Уровни маржи */
+.rd-pill.m-hi   { background: oklch(0.78 0.15 155 / .18); color: var(--a);   }  /* ≥23% отлично */
+.rd-pill.m-good { background: oklch(0.78 0.15 155 / .12); color: oklch(0.72 0.15 155); }  /* 15-22% хорошо */
+.rd-pill.m-mid  { background: oklch(0.82 0.14 85 / .16);  color: var(--b);   }  /* 9-14% средне */
+.rd-pill.m-low  { background: oklch(0.75 0.16 45 / .16);  color: var(--orange); } /* 5-8% плохо */
+.rd-pill.m-bad  { background: oklch(0.70 0.19 25 / .18);  color: var(--c);   }  /* <5% критично */
+
+/* Пилюли доли (share) */
+.rd-pill.s-hi   { background: oklch(0.72 0.16 240 / .22); color: var(--acc2); }
+.rd-pill.s-mid  { background: oklch(0.72 0.16 240 / .12); color: var(--acc);  }
+.rd-pill.s-lo   { background: var(--c2);                   color: var(--muted); }
+
+/* Тренд-стрелка внутри таблицы */
+.rd-delta{
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-variant-numeric: tabular-nums;
+}
+.rd-delta.up   { background: var(--a-s); color: var(--a); }
+.rd-delta.down { background: var(--c-s); color: var(--c); }
+.rd-delta.flat { background: oklch(from var(--muted) l c h / .12); color: var(--muted); }
+.rd-delta svg{ width: 9px; height: 9px; stroke-width: 3; }
+
+/* Mini-bar для доли или покрытия */
+.rd-mbar{
+  display: inline-block;
+  vertical-align: middle;
+  width: 68px;
+  height: 5px;
+  background: color-mix(in oklch, var(--c2) 70%, transparent);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-right: 8px;
+}
+.rd-mbar > i{
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--acc), var(--pos));
+  border-radius: 99px;
+  transition: width .4s var(--ease);
+}
+.rd-mbar.warn > i  { background: linear-gradient(90deg, var(--acc), var(--b)); }
+.rd-mbar.neg > i   { background: linear-gradient(90deg, var(--acc), var(--c)); }
+
+/* Числа в ячейках — моно, tabular */
+td.num, tbody td:nth-child(n+2):not(.l){
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Топ-3 строки в таблице — тонкий цветной indicator слева */
+tbody tr.rd-top-1 td:first-child{ box-shadow: inset 3px 0 0 var(--a); }
+tbody tr.rd-top-2 td:first-child{ box-shadow: inset 3px 0 0 var(--acc); }
+tbody tr.rd-top-3 td:first-child{ box-shadow: inset 3px 0 0 var(--vio); }
+
+/* Кружок-точка в первой ячейке для категорий (цвет по маржинальности) */
+.rd-cat-dot{
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  margin-right: 9px;
+  vertical-align: middle;
+  flex: none;
+}
+
 /* Alerts */
 .alert{
   border-radius: 10px;
