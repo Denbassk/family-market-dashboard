@@ -1564,6 +1564,43 @@ function hookRender(){
     });
     mo.observe(tbl, { childList: true, subtree: true });
   });
+
+  // 5. MutationObserver на переключение вкладок (.page.on).
+  //    Дублирует render-hook на случай, если основной скрипт где-то обходит нашу обёртку.
+  const pageBoxes = document.querySelectorAll('.page');
+  const applyTabFeatures = () => {
+    if (!rdIsReady()) return;
+    try {
+      const tab = rdGetTab();
+      if (tab === 'overview') {
+        renderOverviewRanks();
+      } else if (tab === 'analytics') {
+        renderAbcSegments();
+        enhanceParetoChart();
+      } else if (tab === 'products') {
+        addRowSparklinesProducts();
+      } else if (tab === 'stock') {
+        renderFrozenRanks();
+      } else if (tab === 'stores') {
+        addStoresTrends();
+      }
+      restyleTables();
+    } catch(e){ console.warn('rd applyTabFeatures:', e); }
+  };
+  // При смене класса on/off на любой .page — переприменяем фичи вкладки
+  pageBoxes.forEach(page => {
+    const mo = new MutationObserver(() => {
+      // если эта страница стала активной
+      if (page.classList.contains('on')) {
+        setTimeout(applyTabFeatures, 80);
+      }
+    });
+    mo.observe(page, { attributes: true, attributeFilter: ['class'] });
+  });
+  // Плюс кликаем по кнопкам навигации → тоже переприменяем
+  document.querySelectorAll('.nav button[data-p], .rd-nav-item').forEach(btn => {
+    btn.addEventListener('click', () => setTimeout(applyTabFeatures, 100), true);
+  });
 }
 
 // ---------- INIT ----------
