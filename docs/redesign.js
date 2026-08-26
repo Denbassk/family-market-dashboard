@@ -177,13 +177,11 @@ function applyEchartsTheme(chart){
           if (s.itemStyle.borderRadius === undefined) {
             s.itemStyle.borderRadius = [4, 4, 0, 0];
           }
-          // Явно задать emphasis (стиль при hover), чтобы бар не исчезал.
-          // Приглушить бар слегка + не менять opacity data-элементов.
-          s.emphasis = s.emphasis || {};
-          s.emphasis.focus = 'series';
-          s.emphasis.itemStyle = s.emphasis.itemStyle || {};
-          // Только увеличим яркость, не трогая opacity
-          if (s.emphasis.itemStyle.opacity === undefined) s.emphasis.itemStyle.opacity = 0.85;
+          // Полностью отключить emphasis (hover-эффект ECharts):
+          // ECharts default-emphasis при наведении применяет opacity к data-элементам,
+          // у которых уже задан свой itemStyle — превращая полупрозрачный бар в невидимку.
+          // Проще всего запретить любые изменения при hover: подсветка идёт через tooltip.
+          s.emphasis = { disabled: true };
           barI++;
         } else if (s.type === 'line') {
           const col = paletteLine[lineI % paletteLine.length];
@@ -206,8 +204,8 @@ function applyEchartsTheme(chart){
             if (!s.areaStyle.color || typeof s.areaStyle.color === 'string') s.areaStyle.color = col;
             if (s.areaStyle.opacity === undefined) s.areaStyle.opacity = 0.15;
           }
-          // Emphasis для линий
-          s.emphasis = s.emphasis || { focus: 'series' };
+          // Отключить emphasis и для линий, чтобы не мигали симметрично
+          s.emphasis = { disabled: true };
           lineI++;
         }
         // pie/scatter — палитра через opt.color[]
