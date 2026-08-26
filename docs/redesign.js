@@ -157,42 +157,60 @@ function applyEchartsTheme(chart){
     // Textstyle
     opt.textStyle = { ...(opt.textStyle||{}), color: c.txt, fontFamily: "'Inter Tight',Inter,system-ui,sans-serif" };
 
-    // Обновить серии — цвета
+    // Обновить серии — цвета.
+    // ВАЖНО: НЕ трогаем data-level itemStyle (там могут быть per-bar цвета
+    // от основного скрипта — например полупрозрачный "неполный" месяц). Задаём
+    // серийный itemStyle.color только если на серии его нет вообще, ИЛИ он не объект.
     if (Array.isArray(opt.series)) {
       let barI = 0, lineI = 0;
       opt.series.forEach(s => {
         if (s.type === 'bar') {
           const col = paletteBar[barI % paletteBar.length];
+          // Серийный цвет — только если не задан индивидуально в данных
           if (!s.itemStyle) s.itemStyle = {};
-          // Красивый градиент вертикальный
-          s.itemStyle.color = {
-            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [
-              { offset: 0, color: col },
-              { offset: 1, color: col + (col.startsWith('oklch') ? '' : '') }
-            ]
-          };
-          // если ECharts не поддержит градиент со странным цветом — просто цвет
-          if (col.startsWith('oklch')) s.itemStyle.color = col;
-          s.itemStyle.borderRadius = [4, 4, 0, 0];
+          // Не перезаписываем если основной скрипт уже поставил объектный itemStyle с цветом
+          const hasCustom = s.itemStyle.color && typeof s.itemStyle.color === 'string';
+          if (!hasCustom || /^#[0-9a-f]{3,8}$/i.test(s.itemStyle.color)) {
+            s.itemStyle.color = col;
+          }
+          // borderRadius — только если не задан
+          if (s.itemStyle.borderRadius === undefined) {
+            s.itemStyle.borderRadius = [4, 4, 0, 0];
+          }
+          // Явно задать emphasis (стиль при hover), чтобы бар не исчезал.
+          // Приглушить бар слегка + не менять opacity data-элементов.
+          s.emphasis = s.emphasis || {};
+          s.emphasis.focus = 'series';
+          s.emphasis.itemStyle = s.emphasis.itemStyle || {};
+          // Только увеличим яркость, не трогая opacity
+          if (s.emphasis.itemStyle.opacity === undefined) s.emphasis.itemStyle.opacity = 0.85;
           barI++;
         } else if (s.type === 'line') {
           const col = paletteLine[lineI % paletteLine.length];
           if (!s.itemStyle) s.itemStyle = {};
           if (!s.lineStyle) s.lineStyle = {};
-          s.itemStyle.color = col;
-          s.lineStyle.color = col;
-          s.lineStyle.width = 2.5;
-          s.symbol = 'circle';
-          s.symbolSize = 6;
-          if (s.areaStyle) {
-            s.areaStyle.color = col;
-            s.areaStyle.opacity = 0.15;
+          // Не перезаписывать если задан кастомный цвет
+          const hasCustomItem = s.itemStyle.color && typeof s.itemStyle.color === 'string';
+          if (!hasCustomItem || /^#[0-9a-f]{3,8}$/i.test(s.itemStyle.color)) {
+            s.itemStyle.color = col;
           }
+          const hasCustomLine = s.lineStyle.color && typeof s.lineStyle.color === 'string';
+          if (!hasCustomLine || /^#[0-9a-f]{3,8}$/i.test(s.lineStyle.color)) {
+            s.lineStyle.color = col;
+          }
+          if (s.lineStyle.width === undefined) s.lineStyle.width = 2.5;
+          // symbol/symbolSize — только если не заданы
+          if (s.symbol === undefined) s.symbol = 'circle';
+          if (s.symbolSize === undefined) s.symbolSize = 6;
+          if (s.areaStyle) {
+            if (!s.areaStyle.color || typeof s.areaStyle.color === 'string') s.areaStyle.color = col;
+            if (s.areaStyle.opacity === undefined) s.areaStyle.opacity = 0.15;
+          }
+          // Emphasis для линий
+          s.emphasis = s.emphasis || { focus: 'series' };
           lineI++;
-        } else if (s.type === 'pie' || s.type === 'scatter') {
-          // палитра как есть — echarts возьмёт из color[]
         }
+        // pie/scatter — палитра через opt.color[]
       });
     }
 
