@@ -91,12 +91,16 @@ function reRenderCharts(){
 // Хук на theme-change — с задержкой, чтобы CSS-переменные успели пересчитаться
 window.addEventListener('rd-theme-change', () => {
   setTimeout(reRenderCharts, 50);
-  // + перерисуем sparkline с новыми цветами
   setTimeout(() => { try { addSparklines(); } catch(e){} }, 80);
-  // heatmap
   setTimeout(() => { try { if (typeof window.renderHeatmap === 'function') window.renderHeatmap(); } catch(e){} }, 100);
-  // SVG ranks
-  setTimeout(() => { try { if (rdGetTab() === 'overview') renderOverviewRanks(); } catch(e){} }, 100);
+  setTimeout(() => {
+    try {
+      const tab = rdGetTab();
+      if (tab === 'overview') renderOverviewRanks();
+      if (tab === 'stock') renderFrozenRanks();
+      if (tab === 'analytics') { renderAbcSegments(); enhanceParetoChart(); }
+    } catch(e){}
+  }, 100);
 });
 
 // Наши цвета — читаем из CSS-переменных (OKLCH → браузер приведёт в rgb)
@@ -691,6 +695,362 @@ function renderOverviewRanks(){
   try { restyleTables(); } catch(e){ console.warn('rd tables:', e); }
 }
 
+// ---------- УТИЛИТА: sparkline SVG для маленьких графиков в таблицах ----------
+function drawRowSpark(values, color){
+  if (!values || values.length < 2) return '';
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const W = 100, H = 24;
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * W;
+    const y = H - ((v - min) / range) * (H - 3) - 1.5;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+  const area = 'M0,' + H + ' L' + pts.split(' ').join(' L') + ' L' + W + ',' + H + ' Z';
+  const gradId = 'rs-' + Math.random().toString(36).slice(2,7);
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">'
+    + '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1">'
+    + '<stop offset="0" stop-color="' + color + '" stop-opacity=".28"/>'
+    + '<stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>'
+    + '<path d="' + area + '" fill="url(#' + gradId + ')"/>'
+    + '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'
+    + '</svg>';
+}
+
+// ---------- ПОЗИЦИИ: добавить sparkline-тренд в каждую строку ----------
+function addRowSparklinesProducts(){
+  const tbl = document.getElementById('pr_tab');
+  if (!tbl || !tbl.tBodies[0]) return;
+  const D = rdGetD();
+  if (!D || !D.prod_month || !D.prod_month.length) return;
+
+  // Строим map: товар → массив выручки по месяцам
+  // (одна проходка, потом кэшируем)
+  if (!window.__rd_prodMonthMap) {
+    const map = {};
+    D.prod_month.forEach(r => {
+      const p = r.p;
+      if (!map[p]) map[p] = {};
+      map[p][r.mo] = (map[p][r.mo] || 0) + (+r.rev || 0);
+    });
+    // Список месяцев
+    const monthsSet = new Set();
+    D.prod_month.forEach(r => monthsSet.add(r.mo));
+    const months = [...monthsSet].sort((a,b) => a - b);
+    window.__rd_prodMonthMap = { map, months };
+  }
+  const { map, months } = window.__rd_prodMonthMap;
+  const c = getThemeColors();
+
+  // Найдём индекс колонки "Товар" (первая .l колонка)
+  const headers = [...tbl.tHead.querySelectorAll('th')];
+  const nameColIdx = headers.findIndex(h => (h.textContent || '').trim().toLowerCase().startsWith('товар'));
+  const marginColIdx = headers.findIndex(h => /маржа/i.test(h.textContent));
+  if (nameColIdx < 0) return;
+
+  // Найдём/создадим колонку "Тренд" в шапке
+  let trendColIdx = headers.findIndex(h => h.dataset.rdTrendCol === '1');
+  if (trendColIdx < 0) {
+    // Добавляем после "Маржа" или в конец до ABC
+    const abcColIdx = headers.findIndex(h => /^abc/i.test(h.textContent));
+    const insertBefore = abcColIdx > 0 ? headers[abcColIdx] : null;
+    const newTh = document.createElement('th');
+    newTh.textContent = 'Тренд';
+    newTh.dataset.rdTrendCol = '1';
+    newTh.style.width = '80px';
+    newTh.style.cursor = 'default';
+    if (insertBefore) tbl.tHead.querySelector('tr').insertBefore(newTh, insertBefore);
+    else tbl.tHead.querySelector('tr').appendChild(newTh);
+    trendColIdx = [...tbl.tHead.querySelectorAll('th')].indexOf(newTh);
+  }
+
+  // Пробегаем строки
+  const rows = [...tbl.tBodies[0].rows];
+  rows.forEach(tr => {
+    if (tr.dataset.rdSparkAdded === 'done') return;
+    const nameCell = tr.cells[nameColIdx];
+    if (!nameCell) return;
+    const name = (nameCell.textContent || '').trim();
+    const byMo = map[name];
+    if (!byMo) {
+      // Пустая ячейка тренда
+      const td = document.createElement('td');
+      td.className = 'num';
+      tr.insertBefore(td, tr.cells[trendColIdx] || null);
+      tr.dataset.rdSparkAdded = 'done';
+      return;
+    }
+    const values = months.map(m => byMo[m] || 0);
+    // Цвет по маржинальности из соседней ячейки
+    let color = c.acc;
+    if (marginColIdx >= 0 && tr.cells[marginColIdx]) {
+      const m = parseFloat((tr.cells[marginColIdx].textContent || '').replace(',', '.'));
+      if (!isNaN(m)) {
+        color = m >= 20 ? c.pos : m >= 10 ? c.acc : m >= 5 ? c.warn : c.neg;
+      }
+    }
+    const td = document.createElement('td');
+    td.style.padding = '4px 8px';
+    td.innerHTML = '<span class="rd-row-spark">' + drawRowSpark(values, color) + '</span>';
+    // Вставляем перед ABC (или в конец)
+    const currentTrendCell = tr.cells[trendColIdx];
+    if (currentTrendCell) tr.insertBefore(td, currentTrendCell);
+    else tr.appendChild(td);
+    tr.dataset.rdSparkAdded = 'done';
+  });
+}
+
+// ---------- АНАЛИТИКА: ABC-сегмент-бар ----------
+function renderAbcSegments(){
+  const D = rdGetD();
+  if (!D || !D.abc || !D.abc.classes) return;
+  const container = document.getElementById('an_abc_k');
+  if (!container) return;
+  if (container.querySelector('.rd-abc-segments')) return; // уже отрисован
+
+  const classes = D.abc.classes;
+  const total = D.abc.total_sku || classes.reduce((a,c) => a + (c.skus || 0), 0);
+  const totalRev = classes.reduce((a,c) => a + (c.revenue || 0), 0) || 1;
+
+  const clA = classes.find(c => c.abc === 'A') || { skus: 0, revenue: 0 };
+  const clB = classes.find(c => c.abc === 'B') || { skus: 0, revenue: 0 };
+  const clC = classes.find(c => c.abc === 'C') || { skus: 0, revenue: 0 };
+
+  // Ширины сегментов — по количеству SKU (визуализация Парето)
+  const totalSku = clA.skus + clB.skus + clC.skus || 1;
+  const wA = (clA.skus / totalSku * 100).toFixed(1);
+  const wB = (clB.skus / totalSku * 100).toFixed(1);
+  const wC = (clC.skus / totalSku * 100).toFixed(1);
+
+  const fmtCompact = v => {
+    v = +v || 0;
+    if (v >= 1e6) return (v/1e6).toFixed(1) + ' млн';
+    if (v >= 1e3) return Math.round(v/1e3) + ' тыс';
+    return String(Math.round(v));
+  };
+
+  const setFilter = rdGetGlobal('setFilter') || window.setFilter;
+
+  // Строим блок
+  const block = document.createElement('div');
+  block.innerHTML =
+    '<div class="rd-abc-segments" title="Клик = открыть позиции класса">'
+    +   '<div class="rd-abc-seg a" data-abc="A" style="flex:' + wA + ' 1 0" title="Класс A: ' + clA.skus + ' SKU · 80% выручки">'
+    +     '<div class="lbl">A · 80%</div>'
+    +     '<div class="val">' + fmtCompact(clA.skus) + ' SKU</div>'
+    +   '</div>'
+    +   '<div class="rd-abc-seg b" data-abc="B" style="flex:' + wB + ' 1 0" title="Класс B: ' + clB.skus + ' SKU · 15% выручки">'
+    +     '<div class="lbl">B · 15%</div>'
+    +     '<div class="val">' + fmtCompact(clB.skus) + ' SKU</div>'
+    +   '</div>'
+    +   '<div class="rd-abc-seg c" data-abc="C" style="flex:' + wC + ' 1 0" title="Класс C: ' + clC.skus + ' SKU · 5% выручки">'
+    +     '<div class="lbl">C · 5%</div>'
+    +     '<div class="val">' + fmtCompact(clC.skus) + ' SKU</div>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="rd-abc-caption">'
+    +   '<span>Всего: <b>' + fmtCompact(total) + '</b> SKU · Парето: <b>' + Math.round(clA.skus/total*100) + '%</b> ассортимента даёт 80% выручки</span>'
+    +   '<span>Выручка: A <b>' + fmtCompact(clA.revenue) + '</b> ₴ · B <b>' + fmtCompact(clB.revenue) + '</b> ₴ · C <b>' + fmtCompact(clC.revenue) + '</b> ₴</span>'
+    + '</div>';
+
+  container.prepend(block);
+
+  // Клики → фильтр по ABC + переход на "Позиции"
+  block.querySelectorAll('.rd-abc-seg').forEach(seg => {
+    seg.addEventListener('click', () => {
+      const cls = seg.dataset.abc;
+      const S = rdGetS();
+      if (S) {
+        S.abc = cls;
+        S.store = [];
+        S.tab = 'products';
+      }
+      const syncTabs = rdGetGlobal('syncTabs') || window.syncTabs;
+      const render = window.render;
+      if (typeof syncTabs === 'function') syncTabs();
+      if (typeof render === 'function') render();
+    });
+  });
+}
+
+// ---------- АНАЛИТИКА: заливка зон под кривой Парето ----------
+// Добавляем цветные фоновые зоны на ECharts chart #an_abc
+function enhanceParetoChart(){
+  if (!window.echarts || !window.echarts.getInstanceByDom) return;
+  const el = document.getElementById('an_abc');
+  if (!el) return;
+  const chart = window.echarts.getInstanceByDom(el);
+  if (!chart) return;
+  const opt = chart.getOption();
+  if (!opt || !opt.series || !opt.series.length) return;
+  // Отмечаем чтобы не переприменять при каждом рендере
+  if (chart.__rdEnhanced) return;
+
+  const c = getThemeColors();
+  // Добавляем markArea в первую серию (заливка зон Парето)
+  opt.series[0].markArea = {
+    silent: true,
+    itemStyle: { opacity: .12 },
+    data: [
+      [{ yAxis: 0,  itemStyle: { color: c.pos } },  { yAxis: 80 }],
+      [{ yAxis: 80, itemStyle: { color: c.warn } }, { yAxis: 95 }],
+      [{ yAxis: 95, itemStyle: { color: c.neg } },  { yAxis: 100 }]
+    ]
+  };
+  chart.setOption(opt);
+  chart.__rdEnhanced = true;
+}
+
+// ---------- ЗАПАСЫ: заменить ECharts на SVG rank для frozen ----------
+function renderFrozenRanks(){
+  const D = rdGetD();
+  if (!D) return;
+
+  const c = getThemeColors();
+  const fmtC = v => {
+    v = Math.abs(+v || 0);
+    if (v >= 1e6) return (v/1e6).toFixed(1) + ' млн';
+    if (v >= 1e3) return Math.round(v/1e3) + ' тыс';
+    return String(Math.round(v));
+  };
+
+  const buildRank = (el, rows, nameField, isStore) => {
+    if (!el || !rows || !rows.length) return;
+    const max = Math.max(...rows.map(r => r.dead_value || 0)) || 1;
+    const setFilter = rdGetGlobal('setFilter') || window.setFilter;
+
+    let html = '<div class="rd-rank" role="list" style="max-height:460px">';
+    rows.forEach((r, i) => {
+      const name = r[nameField] || '—';
+      const w = (r.dead_value / max * 100).toFixed(1);
+      const grad = isStore
+        ? 'linear-gradient(90deg,' + c.neg + ',' + c.orange + ')'
+        : 'linear-gradient(90deg,' + c.orange + ',' + c.warn + ')';
+      html += '<div class="rd-rank-row" data-name="' + name.replace(/"/g,'&quot;') + '" role="listitem">'
+        + '<span class="rd-rk">' + String(i+1).padStart(2,'0') + '</span>'
+        + '<div class="rd-lb">'
+        +   '<span class="rd-name" title="' + name + '">' + name + '</span>'
+        + '</div>'
+        + '<span class="rd-val">' + fmtC(r.dead_value) + '&nbsp;₴</span>'
+        + '<div class="rd-rank-bar"><i style="width:' + w + '%;background:' + grad + '"></i></div>'
+        + '</div>';
+    });
+    html += '</div>';
+
+    if (window.echarts && window.echarts.getInstanceByDom) {
+      const inst = window.echarts.getInstanceByDom(el);
+      if (inst) { try { inst.dispose(); } catch(e){} }
+    }
+    el.classList.add('rd-svg-rank');
+    el.innerHTML = html;
+
+    el.querySelectorAll('.rd-rank-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const n = row.dataset.name;
+        if (n && setFilter) setFilter(isStore ? 'store' : 'sup', n);
+      });
+    });
+  };
+
+  const storeEl = document.getElementById('fr_store');
+  const supEl   = document.getElementById('fr_sup');
+  const stores  = (D.dead_by_store || []).slice()
+    .sort((a,b) => (b.dead_value||0) - (a.dead_value||0)).slice(0, 20);
+  const sups    = (D.dead_by_supplier || []).slice()
+    .sort((a,b) => (b.dead_value||0) - (a.dead_value||0)).slice(0, 20);
+  buildRank(storeEl, stores, 'store', true);
+  buildRank(supEl,   sups,   'supplier', false);
+}
+
+// ---------- МАГАЗИНЫ: KPI-карточки с trend-стрелкой (для #st_kpis2) ----------
+function addStoresTrends(){
+  const D = rdGetD();
+  if (!D) return;
+  const kpisBox = document.getElementById('st_kpis2');
+  if (!kpisBox) return;
+  const kpis = kpisBox.querySelectorAll('.kpi');
+  if (!kpis.length) return;
+  if (kpisBox.dataset.rdTrended === 'done') return;
+
+  // Собираем месячные тотальные суммы выручки/чеков по всем выбранным магазинам
+  if (!D.store_month || !D.monthly) return;
+  const S = rdGetS();
+  const storeSel = S && S.store && S.store.length ? new Set(S.store) : null;
+
+  const byMo = {};
+  (D.store_month || []).forEach(r => {
+    if (storeSel && !storeSel.has(r.store)) return;
+    byMo[r.mo] = byMo[r.mo] || { rev: 0, rec: 0 };
+    byMo[r.mo].rev += (+r.revenue || 0);
+    byMo[r.mo].rec += (+r.receipts || 0);
+  });
+  const months = Object.keys(byMo).map(Number).sort((a,b) => a - b);
+  if (months.length < 2) return;
+
+  // Убираем неполный последний месяц
+  let trendMos = months;
+  if (D.period && D.period.end) {
+    const ed = String(D.period.end);
+    const eMo = +ed.slice(5,7), eDay = +ed.slice(8,10);
+    const dim = new Date(+ed.slice(0,4), eMo, 0).getDate();
+    if (eDay < dim && trendMos[trendMos.length-1] === eMo) trendMos = trendMos.slice(0, -1);
+  }
+  if (trendMos.length < 2) return;
+
+  const c = getThemeColors();
+  const uid = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+
+  const trendOf = arr => {
+    if (arr.length < 2) return null;
+    const last = arr[arr.length-1], prev = arr[arr.length-2];
+    if (!prev) return null;
+    const pct = (last - prev) / prev * 100;
+    return { pct, dir: pct > 2 ? 'up' : pct < -2 ? 'down' : 'flat' };
+  };
+  const arrowSvg = dir => {
+    if (dir === 'up')   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>';
+    if (dir === 'down') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>';
+  };
+
+  // 1-я карточка — обычно "Магазинов в выборке" (число, тренд не нужен)
+  // 2-я — "Выручка ₴" → sparkline + тренд
+  // 3-я — "Прибыль" (если есть) → sparkline + тренд
+  const inject = (idx, values, color) => {
+    const kpi = kpis[idx];
+    if (!kpi) return;
+    const t = trendOf(values);
+    if (t) {
+      const vEl = kpi.querySelector('.v');
+      if (vEl && !kpi.querySelector('.rd-trend')) {
+        const sign = t.pct > 0 ? '+' : '';
+        vEl.insertAdjacentHTML('afterend',
+          '<span class="rd-trend ' + t.dir + '">' + arrowSvg(t.dir) + sign + t.pct.toFixed(1) + '%</span>'
+        );
+      }
+    }
+    if (!kpi.querySelector('.rd-spark')) {
+      kpi.insertAdjacentHTML('beforeend', drawRowSpark(values, color).replace('class="rd-row-spark"', 'class="rd-spark"'));
+      // но drawRowSpark не оборачивает — оборачиваем сами
+      // Уже вставили <svg>, добавим ему класс rd-spark
+      const svg = kpi.lastElementChild;
+      if (svg && svg.tagName === 'svg') svg.classList.add('rd-spark');
+    }
+  };
+
+  // Найти по заголовку карточки нужные (revenue/receipts)
+  const revValues = trendMos.map(m => byMo[m].rev);
+  const recValues = trendMos.map(m => byMo[m].rec);
+  kpis.forEach((kpi, i) => {
+    const t = (kpi.querySelector('.t')?.textContent || '').toLowerCase();
+    if (t.includes('выручка')) inject(i, revValues, c.acc);
+    else if (t.includes('чек')) inject(i, recValues, c.pos);
+  });
+
+  kpisBox.dataset.rdTrended = 'done';
+}
+
 // ---------- ОЖИВЛЕНИЕ ТАБЛИЦ (пилюли, mini-bar, дельты) ----------
 // Работает на любой таблице, найденной в DOM. По заголовку колонки определяет
 // тип (маржа / доля / прибыль / условия) и подменяет содержимое ячейки.
@@ -1151,17 +1511,27 @@ function hookRender(){
     };
   }
 
-  // 3. Обёртка render — SVG-ranks + перекрашивание ECharts + оживление таблиц.
+  // 3. Обёртка render — SVG-ranks + перекрашивание ECharts + оживление таблиц + фичи по вкладкам.
   //    Работает только когда D уже загружен, иначе основные функции внутри валятся.
   if (typeof window.render === 'function') {
     const orig = window.render;
     window.render = function(){
       const r = orig.apply(this, arguments);
       setTimeout(() => {
-        if (!rdIsReady()) return;   // D ещё не готов — молча пропускаем
+        if (!rdIsReady()) return;
         try {
-          if (rdGetTab() === 'overview') {
+          const tab = rdGetTab();
+          if (tab === 'overview') {
             renderOverviewRanks();
+          } else if (tab === 'analytics') {
+            renderAbcSegments();
+            enhanceParetoChart();
+          } else if (tab === 'products') {
+            addRowSparklinesProducts();
+          } else if (tab === 'stock') {
+            renderFrozenRanks();
+          } else if (tab === 'stores') {
+            addStoresTrends();
           }
           restyleTables();
           reRenderCharts();
@@ -1171,8 +1541,7 @@ function hookRender(){
     };
   }
 
-  // 4. MutationObserver на body — сбрасывать data-rdStyled когда основной скрипт
-  //    перерисовал tbody (при этом наши пилюли пропали, надо восстановить)
+  // 4. MutationObserver на таблицы — восстановить пилюли + фичи по вкладкам после перерисовки
   const tableIds = ['ov_tab','ov_ret','pr_tab','stf_tab','mv_tab','mx_tab','st_tab','an_loss','fr_cross','fr_oos','rp_tab'];
   tableIds.forEach(id => {
     const tbl = document.getElementById(id);
@@ -1183,10 +1552,13 @@ function hookRender(){
       pending = true;
       requestAnimationFrame(() => {
         pending = false;
-        try { restyleTables(); } catch(e){}
+        try {
+          restyleTables();
+          // Для pr_tab — также sparkline тренда
+          if (id === 'pr_tab' && rdGetTab() === 'products') addRowSparklinesProducts();
+        } catch(e){}
       });
     });
-    // Наблюдаем за содержимым tbody
     mo.observe(tbl, { childList: true, subtree: true });
   });
 }
@@ -1232,8 +1604,12 @@ Object.assign(window.RD, {
   rdGetS,
   rdIsReady,
   rdWhenReady,
-  // Утилиты для сравнения периодов (заготовка на будущее)
-  // Пример: RD.setCompare({ base: kpiNow(), prev: kpiPrev, series: [...] })
+  // Приоритет 1 фичи:
+  addRowSparklinesProducts,
+  renderAbcSegments,
+  enhanceParetoChart,
+  renderFrozenRanks,
+  addStoresTrends,
 });
 
 })();

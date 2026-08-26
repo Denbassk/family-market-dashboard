@@ -1043,6 +1043,84 @@ tbody tr.rd-top-3 td:first-child{ box-shadow: inset 3px 0 0 var(--vio); }
   flex: none;
 }
 
+/* ==================================================================
+   SPARKLINE-ТРЕНД в строке таблицы (Позиции)
+   ================================================================== */
+.rd-row-spark{
+  display: inline-block;
+  vertical-align: middle;
+  width: 70px;
+  height: 24px;
+  pointer-events: none;
+}
+.rd-row-spark svg{ width: 100%; height: 100%; display: block; }
+
+/* ==================================================================
+   ABC-SEGMENT BAR (Аналитика)
+   ================================================================== */
+.rd-abc-segments{
+  display: flex;
+  height: 44px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  margin: 8px 0 14px;
+  background: var(--c2);
+  box-shadow: var(--shadow);
+}
+.rd-abc-seg{
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: transform .18s var(--ease), filter .18s var(--ease);
+  color: #fff;
+  font-family: 'Inter Tight', system-ui, sans-serif;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+.rd-abc-seg::before{
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, oklch(1 0 0 / .12), transparent);
+  pointer-events: none;
+}
+.rd-abc-seg.a{ background: linear-gradient(135deg, var(--a), oklch(0.65 0.16 155)); }
+.rd-abc-seg.b{ background: linear-gradient(135deg, var(--b), oklch(0.70 0.16 65));  }
+.rd-abc-seg.c{ background: linear-gradient(135deg, var(--c), oklch(0.60 0.20 20));  }
+.rd-abc-seg:hover{ filter: brightness(1.1); }
+.rd-abc-seg:active{ transform: scale(.98); }
+.rd-abc-seg .lbl{
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  opacity: .92;
+  white-space: nowrap;
+}
+.rd-abc-seg .val{
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+html[data-theme="light"] .rd-abc-seg{ color: #fff; }
+.rd-abc-caption{
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: -8px;
+  padding: 0 4px;
+}
+.rd-abc-caption b{ color: var(--txt); font-family: 'JetBrains Mono', monospace; }
+
 /* Alerts */
 .alert{
   border-radius: 10px;
