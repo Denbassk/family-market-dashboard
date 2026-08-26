@@ -125,10 +125,10 @@ function applyEchartsTheme(chart){
     const opt = chart.getOption();
     if (!opt) return;
 
-    // Наша палитра для серий (bar/line): аккуратный градиент по семантике
-    // Заменим только базовые цвета, чтобы не сломать пользовательские назначения
-    const paletteBar   = [c.acc, c.pos, c.warn, c.orange, c.vio, c.neg];
-    const paletteLine  = [c.acc, c.pos, c.orange, c.vio, c.warn, c.neg];
+    // Наша палитра для серий.
+    // Bar-серии — акцент/варианты; Line-серии — pos/варианты (чтобы линия прибыли контрастировала с барами выручки).
+    const paletteBar   = [c.acc, c.orange, c.vio, c.warn, c.neg, c.pos];
+    const paletteLine  = [c.pos, c.orange, c.vio, c.warn, c.neg, c.acc];
 
     // Обновить оси
     ['xAxis','yAxis'].forEach(ax => {
@@ -567,21 +567,39 @@ function addSparklines(){
   }
 }
 
-// Хук: перерисовать спарклайны и перекрасить ECharts после каждого render()
+// Хук на изменения #ov_kpis: MutationObserver железобетонно поймает любую перерисовку.
+// Плюс отдельный хук на window.render для перекрашивания ECharts.
 function hookRender(){
-  if (typeof window.render !== 'function') return;
-  const orig = window.render;
-  window.render = function(){
-    const r = orig.apply(this, arguments);
-    // после отрисовки — обновим спарклайны и цветовую тему чартов
-    setTimeout(() => {
-      try {
-        if (window.S && window.S.tab === 'overview') addSparklines();
-        reRenderCharts();
-      } catch(e){ console.warn('rd hook:', e); }
-    }, 40);
-    return r;
-  };
+  // 1. MutationObserver на KPI-контейнер
+  const box = document.getElementById('ov_kpis');
+  if (box) {
+    let pending = false;
+    const mo = new MutationObserver(() => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        try {
+          // не добавляем если уже есть (наш sparkline создаёт childList mutation → ре-триггер)
+          if (!box.querySelector('.rd-spark')) addSparklines();
+        } catch(e){ console.warn('rd mo:', e); }
+      });
+    });
+    mo.observe(box, { childList: true, subtree: false });
+  }
+
+  // 2. Обёртка render — для перекрашивания ECharts после каждого рендера
+  if (typeof window.render === 'function') {
+    const orig = window.render;
+    window.render = function(){
+      const r = orig.apply(this, arguments);
+      setTimeout(() => {
+        try { reRenderCharts(); }
+        catch(e){ console.warn('rd chart:', e); }
+      }, 60);
+      return r;
+    };
+  }
 }
 
 // ---------- INIT ----------

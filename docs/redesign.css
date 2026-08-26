@@ -964,9 +964,14 @@ footer{
   border-color: var(--acc-line);
 }
 #ov_alerts #al_body{
-  display: grid !important;
+  display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 10px;
+}
+/* Уважаем inline display:none от старого JS-обработчика (клик по заголовку) */
+#ov_alerts #al_body[style*="display: none"],
+#ov_alerts #al_body[style*="display:none"]{
+  display: none !important;
 }
 
 #ov_alerts .alert{

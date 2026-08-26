@@ -9,7 +9,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="redesign.css">
 <script src="redesign.js" defer></script>
 <script>
   // Ранняя установка темы (до отрисовки), чтобы избежать вспышки
@@ -1450,7 +1449,10 @@ mark{
   #p_suppliers .modal-row{grid-template-columns:1fr;gap:2px}
 }
 
-</style></head>
+</style>
+<!-- Redesign CSS — ПОСЛЕДНИМ в <head>, чтобы гарантированно переопределять inline-стили -->
+<link rel="stylesheet" href="redesign.css">
+</head>
 <body><div class="wrap">
 
 <div class="top">
