@@ -527,6 +527,166 @@ html[data-theme="light"] .seg button.on{ color: #fff; }
 }
 
 /* ==================================================================
+   BENTO GRID — Обзор
+   ================================================================== */
+body.rd #p_overview > .grid{
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  grid-auto-rows: minmax(0, auto);
+}
+/* Основной график динамики — во всю ширину */
+body.rd #p_overview > .grid > .card.full,
+body.rd #p_overview > .grid > .card:has(#ov_dyn){
+  grid-column: 1 / -1;
+}
+/* Категории + магазины — по 3 колонки рядом */
+body.rd #p_overview > .grid > .card:has(#ov_cat){
+  grid-column: span 3;
+  min-width: 0;
+}
+body.rd #p_overview > .grid > .card:has(#ov_store){
+  grid-column: span 3;
+  min-width: 0;
+}
+/* Сводка таблицы категорий — во всю ширину */
+body.rd #p_overview > .grid > .card:has(#ov_tab){
+  grid-column: 1 / -1;
+}
+/* Возвраты (если есть) — во всю ширину */
+body.rd #p_overview > .grid > .card:has(#ov_ret){
+  grid-column: 1 / -1;
+}
+/* Mobile */
+@media (max-width: 1100px){
+  body.rd #p_overview > .grid{ grid-template-columns: 1fr; }
+  body.rd #p_overview > .grid > .card{ grid-column: 1 / -1 !important; }
+}
+
+/* ==================================================================
+   SVG RANK LIST (топ-категории, топ-магазины) — вместо ECharts
+   ================================================================== */
+.rd-rank{
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 0 2px;
+  max-height: 460px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.rd-rank::-webkit-scrollbar{ width: 6px; }
+.rd-rank::-webkit-scrollbar-thumb{ background: var(--line); border-radius: 3px; }
+
+.rd-rank-row{
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 4px 5px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+  min-width: 0;
+}
+.rd-rank-row:hover{ background: var(--c2); }
+.rd-rank-row .rd-rk{
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--faint);
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rd-rank-row .rd-lb{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+.rd-rank-row .rd-name{
+  color: var(--txt);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rd-rank-row .rd-flag{
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--c2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  flex: none;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.rd-rank-row .rd-mrg{
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.rd-rank-row .rd-val{
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--txt);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 68px;
+}
+.rd-rank-row .rd-trend-mini{
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  min-width: 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rd-rank-row .rd-trend-mini.up{ color: var(--a); }
+.rd-rank-row .rd-trend-mini.down{ color: var(--c); }
+.rd-rank-row .rd-trend-mini.flat{ color: var(--faint); }
+
+/* Прогресс-бар под строкой */
+.rd-rank-bar{
+  grid-column: 2 / -1;
+  height: 4px;
+  background: color-mix(in oklch, var(--c2) 70%, transparent);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: -3px;
+  margin-bottom: 2px;
+}
+.rd-rank-bar > i{
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  transition: width .5s cubic-bezier(.32,.72,0,1);
+}
+
+/* Скрываем оригинальный ECharts-контейнер когда мы отрисовали SVG-версию */
+body.rd #ov_cat.rd-svg-rank,
+body.rd #ov_store.rd-svg-rank{
+  height: auto !important;
+}
+body.rd #ov_cat.rd-svg-rank canvas,
+body.rd #ov_store.rd-svg-rank canvas,
+body.rd #ov_cat.rd-svg-rank > div,
+body.rd #ov_store.rd-svg-rank > div:not(.rd-rank){
+  display: none !important;
+}
+
+/* ==================================================================
    HERO KPI (Обзор) — со стрелкой тренда и sparkline
    ================================================================== */
 

@@ -93,8 +93,10 @@ window.addEventListener('rd-theme-change', () => {
   setTimeout(reRenderCharts, 50);
   // + перерисуем sparkline с новыми цветами
   setTimeout(() => { try { addSparklines(); } catch(e){} }, 80);
-  // heatmap тоже
+  // heatmap
   setTimeout(() => { try { if (typeof window.renderHeatmap === 'function') window.renderHeatmap(); } catch(e){} }, 100);
+  // SVG ranks
+  setTimeout(() => { try { if (window.S && window.S.tab === 'overview') renderOverviewRanks(); } catch(e){} }, 100);
 });
 
 // Наши цвета — читаем из CSS-переменных (OKLCH → браузер приведёт в rgb)
@@ -491,6 +493,143 @@ function overrideHeatmap(){
   };
 }
 
+// ---------- SVG RANK LISTS (топ-категории, топ-магазины) ----------
+// Заменяем ECharts на #ov_cat и #ov_store на нативные SVG-компоненты в стиле мокапа.
+// Клики (setFilter) сохраняем. Данные берём из глобальных catAgg() / storeAgg().
+
+function fmtCompact(n){
+  n = +n || 0;
+  const a = Math.abs(n);
+  const s = n < 0 ? '−' : '';
+  if (a >= 1e9) return s + (a/1e9).toFixed(1) + ' млрд';
+  if (a >= 1e6) return s + (a/1e6).toFixed(1) + ' млн';
+  if (a >= 1e3) return s + Math.round(a/1e3) + 'k';
+  return s + Math.round(a);
+}
+
+function mColorFallback(m){
+  // повторяет window.mColor если основной не готов
+  m = +m || 0;
+  if (m <= 8) return 'oklch(0.70 0.19 25)';
+  if (m <= 14) return 'oklch(0.75 0.16 45)';
+  if (m <= 22) return 'oklch(0.82 0.14 85)';
+  if (m <= 30) return 'oklch(0.80 0.16 130)';
+  return 'oklch(0.78 0.15 155)';
+}
+
+// Рендер топ-категорий как SVG rank list
+function renderCatRank(){
+  const el = document.getElementById('ov_cat');
+  if (!el || typeof window.catAgg !== 'function') return;
+  const rows = window.catAgg().slice(0, 12);
+  if (!rows.length) return;
+
+  const max = Math.max(...rows.map(r => r.revenue || 0)) || 1;
+  const mColor = window.mColor || mColorFallback;
+  const setFilter = window.setFilter;
+  const S = window.S;
+  const inSel = window.inSel || (() => false);
+
+  const c = getThemeColors();
+
+  let html = '<div class="rd-rank" role="list">';
+  rows.forEach((r, i) => {
+    const w = (r.revenue / max * 100).toFixed(1);
+    const col = mColor(r.margin);
+    const isSel = S && S.cat && inSel(r.category, S.cat);
+    const mrgBg  = 'color-mix(in oklch, ' + col + ' 22%, transparent)';
+    const mrgTxt = col;
+    html += '<div class="rd-rank-row" data-cat="' + (r.category || '').replace(/"/g, '&quot;') + '" role="listitem"' + (isSel ? ' style="background:var(--accsoft)"' : '') + '>'
+      + '<span class="rd-rk">' + String(i+1).padStart(2,'0') + '</span>'
+      + '<div class="rd-lb">'
+      +   '<span class="rd-name" title="' + (r.category || '') + '">' + (r.category || '—') + '</span>'
+      +   '<span class="rd-mrg" style="background:' + mrgBg + ';color:' + mrgTxt + '">' + (r.margin != null ? r.margin + '%' : '—') + '</span>'
+      + '</div>'
+      + '<span class="rd-val">' + fmtCompact(r.revenue) + '&nbsp;₴</span>'
+      + '<div class="rd-rank-bar"><i style="width:' + w + '%;background:linear-gradient(90deg, ' + c.acc + ', ' + col + ')"></i></div>'
+      + '</div>';
+  });
+  html += '</div>';
+
+  el.classList.add('rd-svg-rank');
+  el.innerHTML = html;
+
+  // клики → фильтр
+  el.querySelectorAll('.rd-rank-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const cat = row.dataset.cat;
+      if (cat && setFilter) setFilter('cat', cat);
+    });
+  });
+
+  // диспозим ECharts, если он тут был раньше
+  if (window.echarts && window.echarts.getInstanceByDom) {
+    const inst = window.echarts.getInstanceByDom(el);
+    if (inst) inst.dispose();
+  }
+}
+
+// Рендер топ-магазинов как SVG rank list
+function renderStoreRank(){
+  const el = document.getElementById('ov_store');
+  if (!el || typeof window.storeAgg !== 'function') return;
+  const rows = window.storeAgg().slice(0, 20);
+  if (!rows.length) return;
+
+  const max = Math.max(...rows.map(r => r.revenue || 0)) || 1;
+  const c = getThemeColors();
+  const S = window.S;
+  const inSel = window.inSel || (() => false);
+  const setFilter = window.setFilter;
+
+  // Опт-магазины из данных
+  const wholesale = new Set((window.D && window.D.wholesale_stores) || ['Полевая магазин']);
+
+  // Обновим подпись
+  const sub = document.getElementById('ov_store_s');
+  if (sub) sub.textContent = (window.STORE_AGG_EXACT === false ? '≈ оценка · ' : '') + 'клик = фильтр';
+
+  let html = '<div class="rd-rank" role="list">';
+  rows.forEach((r, i) => {
+    const w = (r.revenue / max * 100).toFixed(1);
+    const isWh = wholesale.has(r.store);
+    const isSel = S && S.store && inSel(r.store, S.store);
+    const barColor = isWh
+      ? 'linear-gradient(90deg,' + c.orange + ',' + c.warn + ')'
+      : 'linear-gradient(90deg,' + c.acc + ',' + c.pos + ')';
+    html += '<div class="rd-rank-row" data-store="' + (r.store || '').replace(/"/g, '&quot;') + '" role="listitem"' + (isSel ? ' style="background:var(--accsoft)"' : '') + '>'
+      + '<span class="rd-rk">' + String(i+1).padStart(2,'0') + '</span>'
+      + '<div class="rd-lb">'
+      +   '<span class="rd-name" title="' + (r.store || '') + '">' + (r.store || '—') + '</span>'
+      +   (isWh ? '<span class="rd-flag">опт</span>' : '')
+      + '</div>'
+      + '<span class="rd-val">' + fmtCompact(r.revenue) + '&nbsp;₴</span>'
+      + '<div class="rd-rank-bar"><i style="width:' + w + '%;background:' + barColor + '"></i></div>'
+      + '</div>';
+  });
+  html += '</div>';
+
+  el.classList.add('rd-svg-rank');
+  el.innerHTML = html;
+
+  el.querySelectorAll('.rd-rank-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const store = row.dataset.store;
+      if (store && setFilter) setFilter('store', store);
+    });
+  });
+
+  if (window.echarts && window.echarts.getInstanceByDom) {
+    const inst = window.echarts.getInstanceByDom(el);
+    if (inst) inst.dispose();
+  }
+}
+
+function renderOverviewRanks(){
+  try { renderCatRank(); } catch(e){ console.warn('rd catRank:', e); }
+  try { renderStoreRank(); } catch(e){ console.warn('rd storeRank:', e); }
+}
+
 // ---------- SPARKLINE + TREND ARROW inject в KPI ----------
 // Данные — из D.monthly. Sparkline рендерится ПОД числом, во всю ширину карточки.
 // Стрелка тренда (▲/▼/±) рисуется рядом со значением — Δ vs предыдущий месяц.
@@ -583,10 +722,9 @@ function addSparklines(){
   }
 }
 
-// Хук на изменения #ov_kpis: MutationObserver железобетонно поймает любую перерисовку.
-// Плюс отдельный хук на window.render для перекрашивания ECharts.
+// Хук: MutationObserver + обёртка render + перехват chart() для замены ECharts на SVG-ranks.
 function hookRender(){
-  // 1. MutationObserver на KPI-контейнер
+  // 1. MutationObserver на KPI-контейнер (sparkline + trend)
   const box = document.getElementById('ov_kpis');
   if (box) {
     let pending = false;
@@ -596,22 +734,46 @@ function hookRender(){
       requestAnimationFrame(() => {
         pending = false;
         try {
-          // не добавляем если уже есть (наш sparkline создаёт childList mutation → ре-триггер)
           if (!box.querySelector('.rd-spark')) addSparklines();
-        } catch(e){ console.warn('rd mo:', e); }
+        } catch(e){ console.warn('rd kpi mo:', e); }
       });
     });
     mo.observe(box, { childList: true, subtree: false });
   }
 
-  // 2. Обёртка render — для перекрашивания ECharts после каждого рендера
+  // 2. Перехватываем window.chart(id) — для #ov_cat / #ov_store возвращаем заглушку,
+  //    основной скрипт "нарисует" в неё → мы игнорируем, потом сами отрендерим SVG.
+  if (typeof window.chart === 'function') {
+    const origChart = window.chart;
+    const stubChart = {
+      setOption: function(){ return this; },
+      on: function(){ return this; },
+      off: function(){ return this; },
+      resize: function(){ return this; },
+      dispose: function(){ return this; },
+      getZr: function(){ return { on: function(){}, off: function(){} }; },
+      showLoading: function(){}, hideLoading: function(){},
+      getOption: function(){ return null; },
+      __rdStub: true
+    };
+    window.chart = function(id){
+      if (id === 'ov_cat' || id === 'ov_store') return stubChart;
+      return origChart.apply(this, arguments);
+    };
+  }
+
+  // 3. Обёртка render — SVG-ranks + перекрашивание оставшихся ECharts
   if (typeof window.render === 'function') {
     const orig = window.render;
     window.render = function(){
       const r = orig.apply(this, arguments);
       setTimeout(() => {
-        try { reRenderCharts(); }
-        catch(e){ console.warn('rd chart:', e); }
+        try {
+          if (window.S && window.S.tab === 'overview') {
+            renderOverviewRanks();
+          }
+          reRenderCharts();
+        } catch(e){ console.warn('rd render hook:', e); }
       }, 60);
       return r;
     };
@@ -632,8 +794,11 @@ document.addEventListener('DOMContentLoaded', function(){
     if (typeof window.render === 'function' && typeof window.renderHeatmap === 'function'){
       overrideHeatmap();
       hookRender();
-      // добавим первый заход спарклайнов
-      setTimeout(addSparklines, 300);
+      // добавим первый заход спарклайнов + SVG-ranks
+      setTimeout(() => {
+        try { addSparklines(); } catch(e){}
+        try { if (window.S && window.S.tab === 'overview') renderOverviewRanks(); } catch(e){}
+      }, 300);
       return;
     }
     setTimeout(waitForApp, 100);
