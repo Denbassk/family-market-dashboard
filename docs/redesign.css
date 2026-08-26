@@ -674,14 +674,16 @@ body.rd #p_overview > .grid > .card:has(#ov_ret){
   transition: width .5s cubic-bezier(.32,.72,0,1);
 }
 
-/* Скрываем оригинальный ECharts-контейнер когда мы отрисовали SVG-версию */
+/* Когда SVG-версия готова: ECharts-контейнер (canvas + служебные div) скрыт,
+   а наш .rd-rank виден и определяет высоту карточки. */
 body.rd #ov_cat.rd-svg-rank,
 body.rd #ov_store.rd-svg-rank{
   height: auto !important;
+  min-height: 200px;
 }
-body.rd #ov_cat.rd-svg-rank canvas,
-body.rd #ov_store.rd-svg-rank canvas,
-body.rd #ov_cat.rd-svg-rank > div,
+body.rd #ov_cat.rd-svg-rank > canvas,
+body.rd #ov_store.rd-svg-rank > canvas,
+body.rd #ov_cat.rd-svg-rank > div:not(.rd-rank),
 body.rd #ov_store.rd-svg-rank > div:not(.rd-rank){
   display: none !important;
 }
