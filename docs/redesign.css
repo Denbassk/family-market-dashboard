@@ -914,8 +914,10 @@ td{
 }
 tbody tr{ transition: background var(--dur) var(--ease); }
 tbody tr:hover{ background: var(--c2); }
-tbody tr:nth-child(even){ background: oklch(from var(--card) l c h / .35); }
+html[data-theme="dark"] tbody tr:nth-child(even){ background: oklch(0.19 0.014 260); }
+html[data-theme="light"] tbody tr:nth-child(even){ background: oklch(0.975 0.005 260); }
 tbody tr:nth-child(even):hover{ background: var(--c2); }
+html[data-theme="light"] tbody tr:hover{ background: oklch(0.94 0.008 260); }
 
 /* ==================================================================
    TABLE PILLS & BARS — оживляем таблицы (маржа, доля, статус)
@@ -935,17 +937,39 @@ tbody tr:nth-child(even):hover{ background: var(--c2); }
   min-width: 46px;
   text-align: center;
 }
-/* Уровни маржи */
-.rd-pill.m-hi   { background: oklch(0.78 0.15 155 / .18); color: var(--a);   }  /* ≥23% отлично */
-.rd-pill.m-good { background: oklch(0.78 0.15 155 / .12); color: oklch(0.72 0.15 155); }  /* 15-22% хорошо */
-.rd-pill.m-mid  { background: oklch(0.82 0.14 85 / .16);  color: var(--b);   }  /* 9-14% средне */
-.rd-pill.m-low  { background: oklch(0.75 0.16 45 / .16);  color: var(--orange); } /* 5-8% плохо */
-.rd-pill.m-bad  { background: oklch(0.70 0.19 25 / .18);  color: var(--c);   }  /* <5% критично */
+/* Уровни маржи — DARK */
+html[data-theme="dark"] .rd-pill.m-hi   { background: oklch(0.78 0.15 155 / .22); color: oklch(0.85 0.15 155); }
+html[data-theme="dark"] .rd-pill.m-good { background: oklch(0.78 0.15 155 / .15); color: oklch(0.82 0.15 155); }
+html[data-theme="dark"] .rd-pill.m-mid  { background: oklch(0.82 0.14 85  / .20); color: oklch(0.88 0.14 85);  }
+html[data-theme="dark"] .rd-pill.m-low  { background: oklch(0.75 0.16 45  / .20); color: oklch(0.82 0.16 45);  }
+html[data-theme="dark"] .rd-pill.m-bad  { background: oklch(0.70 0.19 25  / .22); color: oklch(0.80 0.18 25);  }
+
+/* Уровни маржи — LIGHT (более контрастные, тёмный текст на цветном фоне) */
+html[data-theme="light"] .rd-pill.m-hi   { background: oklch(0.60 0.16 155 / .18); color: oklch(0.32 0.16 155); }
+html[data-theme="light"] .rd-pill.m-good { background: oklch(0.60 0.16 155 / .12); color: oklch(0.38 0.14 155); }
+html[data-theme="light"] .rd-pill.m-mid  { background: oklch(0.68 0.16 75  / .22); color: oklch(0.35 0.14 65);  }
+html[data-theme="light"] .rd-pill.m-low  { background: oklch(0.65 0.16 45  / .22); color: oklch(0.38 0.16 45);  }
+html[data-theme="light"] .rd-pill.m-bad  { background: oklch(0.58 0.20 25  / .18); color: oklch(0.40 0.20 25);  }
+
+/* Fallback (когда data-theme не выставлен) */
+.rd-pill.m-hi   { background: oklch(0.78 0.15 155 / .22); color: var(--a);   }
+.rd-pill.m-good { background: oklch(0.78 0.15 155 / .14); color: var(--a);   }
+.rd-pill.m-mid  { background: oklch(0.82 0.14 85  / .20); color: var(--b);   }
+.rd-pill.m-low  { background: oklch(0.75 0.16 45  / .22); color: var(--orange); }
+.rd-pill.m-bad  { background: oklch(0.70 0.19 25  / .22); color: var(--c);   }
 
 /* Пилюли доли (share) */
+html[data-theme="dark"] .rd-pill.s-hi   { background: oklch(0.72 0.16 240 / .26); color: oklch(0.85 0.13 240); }
+html[data-theme="dark"] .rd-pill.s-mid  { background: oklch(0.72 0.16 240 / .14); color: oklch(0.82 0.13 240); }
+html[data-theme="dark"] .rd-pill.s-lo   { background: var(--c2);                    color: var(--muted); }
+
+html[data-theme="light"] .rd-pill.s-hi   { background: oklch(0.55 0.18 250 / .18); color: oklch(0.32 0.18 250); }
+html[data-theme="light"] .rd-pill.s-mid  { background: oklch(0.55 0.18 250 / .10); color: oklch(0.38 0.16 250); }
+html[data-theme="light"] .rd-pill.s-lo   { background: oklch(0.94 0.008 260);       color: oklch(0.50 0.015 260); }
+
 .rd-pill.s-hi   { background: oklch(0.72 0.16 240 / .22); color: var(--acc2); }
 .rd-pill.s-mid  { background: oklch(0.72 0.16 240 / .12); color: var(--acc);  }
-.rd-pill.s-lo   { background: var(--c2);                   color: var(--muted); }
+.rd-pill.s-lo   { background: var(--c2);                    color: var(--muted); }
 
 /* Тренд-стрелка внутри таблицы */
 .rd-delta{
@@ -969,21 +993,33 @@ tbody tr:nth-child(even):hover{ background: var(--c2); }
   display: inline-block;
   vertical-align: middle;
   width: 68px;
-  height: 5px;
-  background: color-mix(in oklch, var(--c2) 70%, transparent);
+  height: 6px;
+  background: var(--line);
   border-radius: 99px;
   overflow: hidden;
   margin-right: 8px;
 }
+html[data-theme="light"] .rd-mbar{
+  background: oklch(0.90 0.008 260);
+}
 .rd-mbar > i{
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--acc), var(--pos));
+  background: linear-gradient(90deg, var(--acc), var(--a));
   border-radius: 99px;
   transition: width .4s var(--ease);
 }
 .rd-mbar.warn > i  { background: linear-gradient(90deg, var(--acc), var(--b)); }
-.rd-mbar.neg > i   { background: linear-gradient(90deg, var(--acc), var(--c)); }
+.rd-mbar.neg > i   { background: linear-gradient(90deg, var(--c),   var(--orange)); }
+
+/* Число рядом с mini-bar */
+.rd-mbar-lbl{
+  color: var(--muted);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
 
 /* Числа в ячейках — моно, tabular */
 td.num, tbody td:nth-child(n+2):not(.l){

@@ -791,25 +791,36 @@ function restyleTables(){
               + arrowSvgSmall(cls) + sign + num.toFixed(1) + '%</span>';
           }
         } else if (type === 'coverage') {
-          // Формат "36/36" — mini-bar
+          // Всего розничных магазинов сети — берём из D.stores (за минусом опта),
+          // fallback: D.kpi.stores, иначе 38. Автообновляется при добавлении новых точек.
+          const D = rdGetD();
+          let totalStores = 38;
+          if (D) {
+            if (Array.isArray(D.stores) && D.stores.length) {
+              // Опт-магазины не считаем в покрытии
+              const wholesale = new Set(D.wholesale_stores || []);
+              totalStores = D.stores.filter(s => !wholesale.has(s)).length || D.stores.length;
+            } else if (D.kpi && D.kpi.stores) {
+              totalStores = D.kpi.stores;
+            }
+          }
+
+          // Формат "36/38" — есть слэш, парсим оба числа
           const m = raw.match(/(\d+)\s*\/\s*(\d+)/);
           if (m) {
-            const cur = +m[1], max = +m[2];
+            const cur = +m[1], max = +m[2] || totalStores;
             const pct = max ? (cur / max * 100) : 0;
             const barCls = pct >= 95 ? '' : pct >= 80 ? 'warn' : 'neg';
             td.innerHTML = '<span class="rd-mbar ' + barCls + '"><i style="width:' + pct.toFixed(0) + '%"></i></span>'
-              + '<span style="color:var(--muted);font-size:11px;font-family:JetBrains Mono">' + cur + '/' + max + '</span>';
+              + '<span class="rd-mbar-lbl">' + cur + '/' + max + '</span>';
           } else {
-            // просто число точек
+            // Одно число — покрытие
             const num = parseInt(raw, 10);
             if (!isNaN(num)) {
-              const max = 38;  // всего магазинов сети (можно взять из D.stores.length)
-              const D = rdGetD();
-              const totalStores = D && D.stores ? D.stores.length : max;
               const pct = totalStores ? (num / totalStores * 100) : 0;
               const barCls = pct >= 95 ? '' : pct >= 80 ? 'warn' : 'neg';
               td.innerHTML = '<span class="rd-mbar ' + barCls + '"><i style="width:' + pct.toFixed(0) + '%"></i></span>'
-                + '<span style="color:var(--muted);font-size:11px;font-family:JetBrains Mono">' + num + '</span>';
+                + '<span class="rd-mbar-lbl">' + num + '/' + totalStores + '</span>';
             }
           }
         } else if (type === 'abc') {
