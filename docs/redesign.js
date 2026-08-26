@@ -661,6 +661,31 @@ function renderStoreRank(){
 function renderOverviewRanks(){
   try { renderCatRank(); } catch(e){ console.warn('rd catRank:', e); }
   try { renderStoreRank(); } catch(e){ console.warn('rd storeRank:', e); }
+  try { replaceAlertIcons(); } catch(e){ console.warn('rd alertIcons:', e); }
+}
+
+// ---------- ЗАМЕНА ЭМОДЗИ В АЛЕРТАХ НА SVG-ИКОНКИ ----------
+const RD_ALERT_ICONS = {
+  '📉': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 18l-9.5-9.5-5 5L1 6"/><polyline points="17 18 23 18 23 12"/></svg>',
+  '🔻': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
+  '⚠':  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"/></svg>',
+  '🧊': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M4.93 4.93l14.14 14.14M2 12h20M19.07 4.93 4.93 19.07"/></svg>',
+  '📦': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-9 5-9-5V8l9-5 9 5z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg>',
+  '📊': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>'
+};
+function replaceAlertIcons(){
+  document.querySelectorAll('#ov_alerts .alert .ic').forEach(el => {
+    if (el.dataset.rdIcon === 'done') return;
+    const emoji = el.textContent.trim();
+    const svg = RD_ALERT_ICONS[emoji];
+    if (svg) {
+      el.innerHTML = svg;
+      el.dataset.rdIcon = 'done';
+      // масштабируем SVG
+      const s = el.querySelector('svg');
+      if (s) { s.setAttribute('width', '18'); s.setAttribute('height', '18'); }
+    }
+  });
 }
 
 // ---------- SPARKLINE + TREND ARROW inject в KPI ----------
