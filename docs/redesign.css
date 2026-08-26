@@ -526,10 +526,45 @@ html[data-theme="light"] .seg button.on{ color: #fff; }
   color: #fff;
 }
 
-/* ==== KPI cards ==== */
-.kpi{
-  background: var(--card);
-  border: 1px solid var(--line);
+/* ==================================================================
+   HERO KPI (Обзор) — со стрелкой тренда и sparkline
+   ================================================================== */
+
+/* KPI wrapper — flex column */
+#ov_kpis{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+
+/* Trend arrow (▲ +12% / ▼ -3% / — ±0%) — рендерится ПОСЛЕ .v на отдельной строке */
+.rd-trend{
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 99px;
+  margin-top: 4px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  width: fit-content;
+}
+.rd-trend.up{ background: var(--a-s); color: var(--a); }
+.rd-trend.down{ background: var(--c-s); color: var(--c); }
+.rd-trend.flat{ background: oklch(from var(--muted) l c h / .12); color: var(--muted); }
+.rd-trend svg{ width: 10px; height: 10px; stroke-width: 3; }
+
+/* KPI cards ==== */
+/* ВАЖНО: используем более специфичные селекторы, чтобы перебить старые правила
+   .kpi { color:#fff; ... } из основного стиля. */
+.kpi, body.rd .kpi{
+  background: var(--card) !important;
+  border: 1px solid var(--line) !important;
   border-radius: var(--radius);
   padding: 14px 16px 12px;
   box-shadow: var(--shadow);
@@ -538,12 +573,12 @@ html[data-theme="light"] .seg button.on{ color: #fff; }
   overflow: hidden;
 }
 .kpi:hover{
-  border-color: var(--acc-line);
+  border-color: var(--acc-line) !important;
   transform: translateY(-1px);
   box-shadow: 0 6px 16px oklch(0.10 0 0 / .3);
 }
-.kpi .t{
-  color: var(--muted);
+.kpi .t, body.rd .kpi .t{
+  color: var(--muted) !important;
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: .05em;
@@ -551,32 +586,65 @@ html[data-theme="light"] .seg button.on{ color: #fff; }
   margin-bottom: 6px;
   margin-top: 0;
 }
-.kpi .v{
+.kpi .v, body.rd .kpi .v{
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -.02em;
-  color: var(--txt);
-  line-height: 1.1;
+  color: var(--txt) !important;
+  line-height: 1.15;
+  /* НЕ обрезаем pr, sparkline теперь под текстом. */
 }
-.kpi .d{
+.kpi .d, body.rd .kpi .d{
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted) !important;
   margin-top: 5px;
   font-weight: 500;
 }
 
-/* Hero KPI (первый в #ov_kpis) */
+/* Hero KPI (первый в #ov_kpis) — выделяем цветным акцентом, без градиента на тексте */
 #ov_kpis .kpi:first-child{
-  background: linear-gradient(160deg, var(--accsoft), var(--card));
-  border-color: var(--acc-line);
+  background: linear-gradient(160deg, var(--accsoft), var(--card)) !important;
+  border-color: var(--acc-line) !important;
 }
 #ov_kpis .kpi:first-child .v{
   font-size: 28px;
-  background: linear-gradient(135deg, var(--acc), var(--vio));
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
+  color: var(--acc2) !important;
+  /* убираем background-clip: text — он в некоторых движках оставляет transparent, если fallback не сработает */
 }
-#ov_kpis .kpi:first-child .t{ color: var(--acc2); }
+html[data-theme="light"] #ov_kpis .kpi:first-child .v{
+  color: var(--acc) !important;
+}
+#ov_kpis .kpi:first-child .t{ color: var(--acc) !important; }
+html[data-theme="dark"] #ov_kpis .kpi:first-child .t{ color: var(--acc2) !important; }
+
+/* На светлой теме карточка должна иметь читаемую тень */
+html[data-theme="light"] .kpi{
+  box-shadow: 0 1px 2px oklch(0.20 0 0 / .04), 0 4px 12px oklch(0.20 0 0 / .05);
+}
+
+/* Явно переопределяем цвета на светлой теме — старый CSS ставит color:#fff */
+html[data-theme="light"] .kpi .v,
+html[data-theme="light"] body.rd .kpi .v{
+  color: oklch(0.20 0.02 260) !important;
+}
+html[data-theme="light"] #ov_kpis .kpi:first-child .v{
+  color: var(--acc) !important;
+  -webkit-text-fill-color: var(--acc) !important;
+}
+/* Suppliers-специфичные .kpi .v тоже — переопределяем в light */
+html[data-theme="light"] #p_suppliers .kpi .v{
+  color: oklch(0.20 0.02 260) !important;
+}
+
+/* Аналогично для .kpi .v в тёмной теме — гарантируем видимость */
+html[data-theme="dark"] .kpi .v,
+html[data-theme="dark"] body.rd .kpi .v{
+  color: oklch(0.97 0.005 260) !important;
+}
+html[data-theme="dark"] #ov_kpis .kpi:first-child .v{
+  color: var(--acc2) !important;
+  -webkit-text-fill-color: var(--acc2) !important;
+}
 
 /* ==== Cards ==== */
 .card{
@@ -816,34 +884,179 @@ footer{
 }
 
 /* ==================================================================
-   SPARKLINE injection на первые KPI-карточки
+   SPARKLINE — теперь ПОД карточкой, не перекрывает числа
    ================================================================== */
 .kpi{ position: relative; }
 .kpi .rd-spark{
-  position: absolute;
-  right: 12px; bottom: 10px;
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin-top: 8px;
   pointer-events: none;
   opacity: .85;
 }
-.kpi:has(.rd-spark) .v{ padding-right: 60px; }
+/* На узких экранах спарклайн скрываем — экономим место */
+@media (max-width: 900px){
+  .kpi .rd-spark{ display: none; }
+}
 
 /* ==== Focus visible ==== */
 :focus-visible{ outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 6px; }
 
-/* прочее: делаем блок ov_alerts красивее */
+/* ==================================================================
+   ALERT-ЦЕНТР (Обзор) — карточки с иконкой, суммой ущерба, CTA
+   ================================================================== */
 #ov_alerts{
-  border: none;
-  background: transparent;
-  padding: 0;
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 10px;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  margin-bottom: 14px !important;
 }
 #ov_alerts:empty{ display: none !important; }
+#ov_alerts h3{
+  background: transparent !important;
+  color: var(--txt) !important;
+  padding: 4px 2px 12px !important;
+  margin: 0 !important;
+  border: none !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: -.005em;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+#ov_alerts h3 span:first-child{
+  display: inline-flex !important;
+  align-items: center;
+  gap: 10px;
+  color: var(--txt);
+}
+#ov_alerts h3 span:first-child::before{
+  content: "";
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 99px;
+  background: var(--c);
+  box-shadow: 0 0 0 4px oklch(from var(--c) l c h / .15);
+  animation: rd-pulse-warn 2s ease-in-out infinite;
+  flex: none;
+}
+@keyframes rd-pulse-warn{
+  50%{ box-shadow: 0 0 0 8px oklch(from var(--c) l c h / 0); }
+}
+#ov_alerts h3 #al_caret{
+  color: var(--muted) !important;
+  font-weight: 500 !important;
+  font-size: 11.5px !important;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--c2);
+  border: 1px solid var(--line);
+  transition: all var(--dur) var(--ease);
+}
+#ov_alerts h3 #al_caret:hover{
+  color: var(--acc) !important;
+  border-color: var(--acc-line);
+}
+#ov_alerts #al_body{
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 10px;
+}
+
 #ov_alerts .alert{
-  margin: 0;
-  border-radius: 12px;
-  padding: 12px 14px;
+  margin: 0 !important;
+  border-radius: 12px !important;
+  padding: 14px 16px !important;
+  display: grid !important;
+  grid-template-columns: 36px 1fr auto !important;
+  gap: 12px !important;
+  align-items: start !important;
+  transition: all .22s cubic-bezier(.32,.72,0,1) !important;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line) !important;
+  background: var(--card) !important;
+}
+#ov_alerts .alert::before{
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+#ov_alerts .alert:hover{
+  transform: translateY(-1px);
+  border-color: var(--line2) !important;
+  box-shadow: 0 6px 16px oklch(0.10 0 0 / .28);
+}
+html[data-theme="light"] #ov_alerts .alert:hover{
+  box-shadow: 0 6px 16px oklch(0.20 0 0 / .08);
+}
+
+/* Красный — критический */
+#ov_alerts .alert.al-r{
+  background: color-mix(in oklch, var(--c) 8%, var(--card)) !important;
+  border-color: oklch(from var(--c) l c h / .3) !important;
+}
+#ov_alerts .alert.al-r::before{ background: var(--c); }
+
+/* Оранжевый — важный */
+#ov_alerts .alert.al-o{
+  background: color-mix(in oklch, var(--orange) 8%, var(--card)) !important;
+  border-color: oklch(from var(--orange) l c h / .3) !important;
+}
+#ov_alerts .alert.al-o::before{ background: var(--orange); }
+
+/* Жёлтый — предупреждение */
+#ov_alerts .alert.al-y{
+  background: color-mix(in oklch, var(--b) 8%, var(--card)) !important;
+  border-color: oklch(from var(--b) l c h / .3) !important;
+}
+#ov_alerts .alert.al-y::before{ background: var(--b); }
+
+#ov_alerts .alert .ic{
+  font-size: 20px !important;
+  line-height: 1 !important;
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  display: grid; place-items: center;
+  flex: none;
+  background: color-mix(in oklch, var(--card) 60%, transparent);
+}
+#ov_alerts .alert.al-r .ic{ background: var(--c-s); }
+#ov_alerts .alert.al-o .ic{ background: oklch(from var(--orange) l c h / .12); }
+#ov_alerts .alert.al-y .ic{ background: var(--b-s); }
+
+#ov_alerts .alert > span:nth-child(2),
+#ov_alerts .alert .rd-alert-body{
+  color: var(--txt) !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  min-width: 0;
+}
+#ov_alerts .alert b{
+  color: var(--txt);
+  font-weight: 700;
+}
+#ov_alerts .alert.al-r b{ color: var(--c); }
+#ov_alerts .alert.al-o b{ color: var(--orange); }
+#ov_alerts .alert.al-y b{ color: var(--b); }
+
+#ov_alerts .alert .x{
+  color: var(--muted) !important;
+  font-size: 18px !important;
+  font-weight: 400 !important;
+  align-self: center !important;
+  transition: transform .22s var(--ease), color .22s var(--ease);
+}
+#ov_alerts .alert:hover .x{
+  color: var(--acc) !important;
+  transform: translateX(3px);
 }
 
 /* Skeleton loading state */

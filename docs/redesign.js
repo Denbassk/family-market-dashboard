@@ -61,9 +61,8 @@ function setTheme(t){
   document.documentElement.setAttribute('data-theme', t);
   lsSet('rd-theme', t);
   updateThemeButtons();
-  // Уведомить ECharts, чтобы перерисовать в новых цветах
+  // Уведомить ECharts + sparkline + heatmap — обработчики выше
   window.dispatchEvent(new CustomEvent('rd-theme-change', { detail: { theme: t }}));
-  reRenderCharts();
 }
 function updateThemeButtons(){
   const cur = document.documentElement.getAttribute('data-theme');
@@ -72,42 +71,150 @@ function updateThemeButtons(){
   });
 }
 
-// Перерисовать все ECharts под новую тему
+// Перерисовать все ECharts под новую тему.
+// charts={} в основном скрипте объявлен как let → недоступен через window.
+// Находим все инстансы через DOM + echarts.getInstanceByDom.
 function reRenderCharts(){
-  if (!window.echarts || !window.charts) return;
-  try{
-    Object.values(window.charts || {}).forEach(c => {
-      if (c && c.getOption && c.setOption){
-        applyEchartsTheme(c);
+  if (!window.echarts || !window.echarts.getInstanceByDom) return;
+  try {
+    // Все div-ы с классом .chart или id, начинающимся с известных префиксов
+    const candidates = document.querySelectorAll('.chart, #ov_dyn, #ov_cat, #ov_store, #rp_chart, #an_abc, #an_turn, #an_turnsup, #an_margin, #an_turnstore, #fr_store, #fr_sup, #hm_chart');
+    candidates.forEach(el => {
+      const inst = window.echarts.getInstanceByDom(el);
+      if (inst && inst.getOption && inst.setOption) {
+        applyEchartsTheme(inst);
       }
     });
   } catch(e){ console.warn('re-theme charts:', e); }
-  // если есть глобальный render — попросим его
-  if (typeof window.render === 'function'){
-    setTimeout(() => { try { window.render(); } catch(e){} }, 50);
-  }
 }
 
-// Применить наш theme к ECharts инстансу
+// Хук на theme-change — с задержкой, чтобы CSS-переменные успели пересчитаться
+window.addEventListener('rd-theme-change', () => {
+  setTimeout(reRenderCharts, 50);
+  // + перерисуем sparkline с новыми цветами
+  setTimeout(() => { try { addSparklines(); } catch(e){} }, 80);
+  // heatmap тоже
+  setTimeout(() => { try { if (typeof window.renderHeatmap === 'function') window.renderHeatmap(); } catch(e){} }, 100);
+});
+
+// Наши цвета — читаем из CSS-переменных (OKLCH → браузер приведёт в rgb)
+function getThemeColors(){
+  const s = getComputedStyle(document.documentElement);
+  return {
+    txt:   s.getPropertyValue('--txt').trim() || '#e4e6f0',
+    muted: s.getPropertyValue('--muted').trim() || '#a0a3b5',
+    faint: s.getPropertyValue('--faint').trim() || '#6b6e80',
+    line:  s.getPropertyValue('--line').trim() || '#2d3044',
+    acc:   s.getPropertyValue('--acc').trim() || '#4a7cff',
+    acc2:  s.getPropertyValue('--acc2').trim() || '#6090ff',
+    pos:   s.getPropertyValue('--a').trim() || '#2ecc71',
+    warn:  s.getPropertyValue('--b').trim() || '#f1c40f',
+    neg:   s.getPropertyValue('--c').trim() || '#e74c3c',
+    vio:   s.getPropertyValue('--vio').trim() || '#9b59b6',
+    orange:s.getPropertyValue('--orange').trim() || '#e67e22',
+    bg:    s.getPropertyValue('--bg').trim() || '#0f1117',
+    card:  s.getPropertyValue('--card').trim() || '#1e2130'
+  };
+}
+
+// Применить наш theme к ECharts инстансу — реально перекрасить, а не только оси
 function applyEchartsTheme(chart){
-  const styles = getComputedStyle(document.documentElement);
-  const txt   = styles.getPropertyValue('--txt').trim() || '#e4e6f0';
-  const muted = styles.getPropertyValue('--muted').trim() || '#a0a3b5';
-  const line  = styles.getPropertyValue('--line').trim() || '#2d3044';
-  try{
+  if (!chart || !chart.getOption) return;
+  const c = getThemeColors();
+  try {
     const opt = chart.getOption();
     if (!opt) return;
-    // обновить оси
+
+    // Наша палитра для серий (bar/line): аккуратный градиент по семантике
+    // Заменим только базовые цвета, чтобы не сломать пользовательские назначения
+    const paletteBar   = [c.acc, c.pos, c.warn, c.orange, c.vio, c.neg];
+    const paletteLine  = [c.acc, c.pos, c.orange, c.vio, c.warn, c.neg];
+
+    // Обновить оси
     ['xAxis','yAxis'].forEach(ax => {
       if (opt[ax]) opt[ax].forEach(a => {
-        if (a.axisLine) a.axisLine.lineStyle = Object.assign(a.axisLine.lineStyle||{}, { color: line });
-        if (a.axisLabel) a.axisLabel.color = muted;
-        if (a.splitLine) a.splitLine.lineStyle = Object.assign(a.splitLine.lineStyle||{}, { color: line });
+        if (!a.axisLine) a.axisLine = { lineStyle: {} };
+        if (!a.axisLine.lineStyle) a.axisLine.lineStyle = {};
+        a.axisLine.lineStyle.color = c.line;
+
+        if (!a.axisLabel) a.axisLabel = {};
+        a.axisLabel.color = c.muted;
+        a.axisLabel.fontFamily = "'Inter Tight',Inter,system-ui,sans-serif";
+        a.axisLabel.fontSize = 11;
+
+        if (!a.splitLine) a.splitLine = { lineStyle: {} };
+        if (!a.splitLine.lineStyle) a.splitLine.lineStyle = {};
+        a.splitLine.lineStyle.color = c.line;
+        a.splitLine.lineStyle.type = 'dashed';
+        a.splitLine.lineStyle.opacity = 0.4;
+
+        if (!a.axisTick) a.axisTick = { lineStyle: {} };
+        if (!a.axisTick.lineStyle) a.axisTick.lineStyle = {};
+        a.axisTick.lineStyle.color = c.line;
       });
     });
-    if (opt.textStyle) opt.textStyle.color = txt;
-    chart.setOption(opt, { replaceMerge: [] });
-  } catch(e){}
+
+    // Textstyle
+    opt.textStyle = { ...(opt.textStyle||{}), color: c.txt, fontFamily: "'Inter Tight',Inter,system-ui,sans-serif" };
+
+    // Обновить серии — цвета
+    if (Array.isArray(opt.series)) {
+      let barI = 0, lineI = 0;
+      opt.series.forEach(s => {
+        if (s.type === 'bar') {
+          const col = paletteBar[barI % paletteBar.length];
+          if (!s.itemStyle) s.itemStyle = {};
+          // Красивый градиент вертикальный
+          s.itemStyle.color = {
+            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: col },
+              { offset: 1, color: col + (col.startsWith('oklch') ? '' : '') }
+            ]
+          };
+          // если ECharts не поддержит градиент со странным цветом — просто цвет
+          if (col.startsWith('oklch')) s.itemStyle.color = col;
+          s.itemStyle.borderRadius = [4, 4, 0, 0];
+          barI++;
+        } else if (s.type === 'line') {
+          const col = paletteLine[lineI % paletteLine.length];
+          if (!s.itemStyle) s.itemStyle = {};
+          if (!s.lineStyle) s.lineStyle = {};
+          s.itemStyle.color = col;
+          s.lineStyle.color = col;
+          s.lineStyle.width = 2.5;
+          s.symbol = 'circle';
+          s.symbolSize = 6;
+          if (s.areaStyle) {
+            s.areaStyle.color = col;
+            s.areaStyle.opacity = 0.15;
+          }
+          lineI++;
+        } else if (s.type === 'pie' || s.type === 'scatter') {
+          // палитра как есть — echarts возьмёт из color[]
+        }
+      });
+    }
+
+    // Легенда
+    if (opt.legend) opt.legend.forEach(l => {
+      l.textStyle = { ...(l.textStyle||{}), color: c.muted, fontFamily: "'Inter Tight',Inter,system-ui,sans-serif", fontSize: 11 };
+      // Сдвинуть легенду наверх, чтобы не перекрывала данные
+      if (l.top === undefined && l.bottom === undefined) l.top = 0;
+    });
+
+    // Tooltip
+    if (opt.tooltip) opt.tooltip.forEach(t => {
+      t.backgroundColor = c.card;
+      t.borderColor = c.line;
+      t.textStyle = { ...(t.textStyle||{}), color: c.txt, fontFamily: "'Inter Tight',Inter,system-ui,sans-serif" };
+    });
+
+    // Дополнительная палитра для чартов, где цвета выбираются из color[]
+    opt.color = paletteBar;
+
+    chart.setOption(opt, { notMerge: false, lazyUpdate: false });
+  } catch(e){ console.warn('applyEchartsTheme:', e); }
 }
 
 // ---------- SHELL: build sidebar + topbar ----------
@@ -368,81 +475,111 @@ function overrideHeatmap(){
   };
 }
 
-// ---------- SPARKLINE inject в KPI ----------
-// Данные для sparkline — из D.monthly (revenue по месяцам)
+// ---------- SPARKLINE + TREND ARROW inject в KPI ----------
+// Данные — из D.monthly. Sparkline рендерится ПОД числом, во всю ширину карточки.
+// Стрелка тренда (▲/▼/±) рисуется рядом со значением — Δ vs предыдущий месяц.
 function addSparklines(){
   const D = window.D;
-  if (!D || !D.monthly) return;
+  if (!D || !D.monthly || D.monthly.length < 2) return;
   const kpis = document.querySelectorAll('#ov_kpis .kpi');
   if (!kpis.length) return;
 
-  const months = D.monthly.slice().sort((a,b) => a.mo - b.mo);
-  if (months.length < 2) return;
+  // Отсортируем месяцы, но исключим неполный последний (если период кончается не в последний день)
+  let months = D.monthly.slice().sort((a,b) => a.mo - b.mo);
+  let partial = false;
+  if (D.period && D.period.end){
+    const ed = String(D.period.end);
+    const eMo = +ed.slice(5,7), eDay = +ed.slice(8,10);
+    const dim = new Date(+ed.slice(0,4), eMo, 0).getDate();
+    if (eDay < dim && months.length && months[months.length-1].mo === eMo) partial = true;
+  }
+  const trendMonths = partial ? months.slice(0, -1) : months;
+  if (trendMonths.length < 2) return;
 
-  const drawSpark = (values, color) => {
+  const drawSpark = (values, color, gradId) => {
     if (!values.length) return '';
     const min = Math.min(...values);
     const max = Math.max(...values);
     const range = max - min || 1;
-    const W = 80, H = 30;
+    const W = 100, H = 28;
     const pts = values.map((v,i) => {
       const x = (i/(values.length-1)) * W;
-      const y = H - ((v - min)/range) * H;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
+      const y = H - ((v - min)/range) * (H - 3) - 1.5;
+      return x.toFixed(1) + ',' + y.toFixed(1);
     }).join(' ');
-    const area = `M0,${H} L${pts.split(' ').join(' L')} L${W},${H} Z`;
-    return `<svg class="rd-spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-      <defs><linearGradient id="rd-sg-${color}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="${color}" stop-opacity=".4"/>
-        <stop offset="1" stop-color="${color}" stop-opacity="0"/>
-      </linearGradient></defs>
-      <path d="${area}" fill="url(#rd-sg-${color})"/>
-      <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>
-    </svg>`;
+    const area = 'M0,' + H + ' L' + pts.split(' ').join(' L') + ' L' + W + ',' + H + ' Z';
+    return '<svg class="rd-spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">'
+      + '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0" stop-color="' + color + '" stop-opacity=".38"/>'
+      + '<stop offset="1" stop-color="' + color + '" stop-opacity="0"/>'
+      + '</linearGradient></defs>'
+      + '<path d="' + area + '" fill="url(#' + gradId + ')"/>'
+      + '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'
+      + '</svg>';
   };
 
-  // Ставим spark на первые 2 карточки (обычно Выручка, Прибыль)
-  const styles = getComputedStyle(document.documentElement);
-  const acc = styles.getPropertyValue('--acc').trim() || 'oklch(0.72 0.16 240)';
-  const green = styles.getPropertyValue('--a').trim() || 'oklch(0.78 0.15 155)';
+  const arrowSvg = (dir) => {
+    if (dir === 'up')   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>';
+    if (dir === 'down') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>';
+  };
 
-  // удалить старые (могут остаться от прошлого рендера)
-  document.querySelectorAll('#ov_kpis .rd-spark').forEach(s => s.remove());
+  const trend = (vals) => {
+    if (vals.length < 2) return null;
+    const last = vals[vals.length-1];
+    const prev = vals[vals.length-2];
+    if (!prev) return null;
+    const pct = (last - prev) / prev * 100;
+    const dir = pct > 2 ? 'up' : pct < -2 ? 'down' : 'flat';
+    return { pct, dir };
+  };
 
-  if (kpis[0]){
-    kpis[0].insertAdjacentHTML('beforeend', drawSpark(months.map(m => +m.revenue || 0), 'a1'));
-    // заменим id в градиенте на уникальный
-    const svg = kpis[0].querySelector('.rd-spark');
-    if (svg){
-      svg.innerHTML = svg.innerHTML.replace(/rd-sg-a1/g, 'rd-sg-rev');
-      svg.querySelectorAll('stop').forEach(s => s.setAttribute('stop-color', acc));
-      svg.querySelectorAll('polyline').forEach(p => p.setAttribute('stroke', acc));
-      svg.querySelectorAll('path[fill^="url"]').forEach(p => p.setAttribute('fill', 'url(#rd-sg-rev)'));
+  // удалить старые sparkline + trend
+  document.querySelectorAll('#ov_kpis .rd-spark, #ov_kpis .rd-trend').forEach(s => s.remove());
+
+  const c = getThemeColors();
+  const uid = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+
+  const injectKpi = (idx, values, color, sparkId) => {
+    const kpi = kpis[idx];
+    if (!kpi || !values.length) return;
+    // trend
+    const t = trend(values);
+    if (t) {
+      const vEl = kpi.querySelector('.v');
+      if (vEl && !vEl.querySelector('.rd-trend')) {
+        const sign = t.pct > 0 ? '+' : '';
+        vEl.insertAdjacentHTML('afterend',
+          '<span class="rd-trend ' + t.dir + '">' + arrowSvg(t.dir) + sign + t.pct.toFixed(1) + '%</span>'
+        );
+      }
     }
-  }
-  if (kpis[1] && D.monthly.some(m => 'gp' in m)){
-    kpis[1].insertAdjacentHTML('beforeend', drawSpark(months.map(m => +m.gp || 0), 'a2'));
-    const svg = kpis[1].querySelector('.rd-spark');
-    if (svg){
-      svg.innerHTML = svg.innerHTML.replace(/rd-sg-a2/g, 'rd-sg-gp');
-      svg.querySelectorAll('stop').forEach(s => s.setAttribute('stop-color', green));
-      svg.querySelectorAll('polyline').forEach(p => p.setAttribute('stroke', green));
-      svg.querySelectorAll('path[fill^="url"]').forEach(p => p.setAttribute('fill', 'url(#rd-sg-gp)'));
-    }
+    // sparkline (все месяцы, включая неполный — показываем реалистичный тренд)
+    kpi.insertAdjacentHTML('beforeend',
+      drawSpark(values, color, sparkId));
+  };
+
+  // Первая карточка: Выручка
+  injectKpi(0, trendMonths.map(m => +m.revenue || 0), c.acc, 'rd-sg-rev-' + uid);
+  // Вторая: Прибыль
+  if (D.monthly.some(m => 'gp' in m)) {
+    injectKpi(1, trendMonths.map(m => +m.gp || 0), c.pos, 'rd-sg-gp-' + uid);
   }
 }
 
-// Хук: перерисовать спарклайны после каждого render()
+// Хук: перерисовать спарклайны и перекрасить ECharts после каждого render()
 function hookRender(){
   if (typeof window.render !== 'function') return;
   const orig = window.render;
   window.render = function(){
     const r = orig.apply(this, arguments);
-    // после отрисовки — обновим спарклайны и синхронизацию
+    // после отрисовки — обновим спарклайны и цветовую тему чартов
     setTimeout(() => {
-      try { if (window.S && window.S.tab === 'overview') addSparklines(); }
-      catch(e){}
-    }, 30);
+      try {
+        if (window.S && window.S.tab === 'overview') addSparklines();
+        reRenderCharts();
+      } catch(e){ console.warn('rd hook:', e); }
+    }, 40);
     return r;
   };
 }
