@@ -692,43 +692,27 @@ body.rd #ov_store.rd-svg-rank > div:not(.rd-rank){
    HERO KPI (Обзор) — со стрелкой тренда и sparkline
    ================================================================== */
 
-/* KPI сетка на Обзоре: 8 карточек, из которых первые 2 (Выручка/Прибыль) — hero (2 колонки).
-   Grid из 8 колонок: 2+2+1+1+1+1+1+1 = 10 (кладём hero через span 2). */
+/* KPI сетка на Обзоре: 8 одинаковых карточек, чуть выделяем первые две акцентом */
 body.rd #ov_kpis{
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin: 14px 0;
 }
-/* Первые две KPI (Выручка, Валовая прибыль) — на всю высоту, во всю ширину блока */
-body.rd #ov_kpis .kpi:nth-child(1),
-body.rd #ov_kpis .kpi:nth-child(2){
-  grid-column: span 3;
-  padding: 18px 22px 16px !important;
-  background: linear-gradient(160deg, var(--card), oklch(from var(--card) calc(l - 0.02) c h)) !important;
-  border: 1px solid var(--line) !important;
-  min-height: 130px;
+body.rd #ov_kpis .kpi{
+  padding: 14px 16px 12px !important;
+  min-height: 106px;
 }
-body.rd #ov_kpis .kpi:nth-child(1){
-  background: linear-gradient(160deg, oklch(from var(--acc) l c h / .10), var(--card)) !important;
-  border-color: var(--acc-line) !important;
+body.rd #ov_kpis .kpi .t{
+  font-size: 10.5px !important;
+  letter-spacing: .06em !important;
+  margin-bottom: 6px !important;
 }
-body.rd #ov_kpis .kpi:nth-child(2){
-  background: linear-gradient(160deg, oklch(from var(--a) l c h / .10), var(--card)) !important;
-  border-color: oklch(from var(--a) l c h / .32) !important;
-}
-body.rd #ov_kpis .kpi:nth-child(1) .t,
-body.rd #ov_kpis .kpi:nth-child(2) .t{
-  font-size: 11px !important;
-  letter-spacing: .08em !important;
-  margin-bottom: 8px !important;
-}
-body.rd #ov_kpis .kpi:nth-child(1) .v,
-body.rd #ov_kpis .kpi:nth-child(2) .v{
-  font-size: 34px !important;
+body.rd #ov_kpis .kpi .v{
+  font-size: 24px !important;
   line-height: 1.1 !important;
   font-weight: 700 !important;
-  letter-spacing: -.025em !important;
+  letter-spacing: -.02em !important;
   color: var(--txt) !important;
   -webkit-text-fill-color: var(--txt) !important;
   background: none !important;
@@ -737,55 +721,40 @@ body.rd #ov_kpis .kpi:nth-child(2) .v{
   gap: 6px;
   flex-wrap: wrap;
 }
-/* Крупное значение имеет sub-подпись "vs пред. период" / "маржа X%" */
-body.rd #ov_kpis .kpi:nth-child(1) .d,
-body.rd #ov_kpis .kpi:nth-child(2) .d{
-  font-size: 12px !important;
+body.rd #ov_kpis .kpi .d{
+  font-size: 11px !important;
   color: var(--muted) !important;
-  margin-top: 8px !important;
+  margin-top: 5px !important;
+  line-height: 1.4;
 }
-/* Sparkline в hero — большой */
-body.rd #ov_kpis .kpi:nth-child(1) .rd-spark,
-body.rd #ov_kpis .kpi:nth-child(2) .rd-spark{
-  height: 42px !important;
-  margin-top: 12px !important;
+/* Первая (Выручка) — синий-акцент */
+body.rd #ov_kpis .kpi:nth-child(1){
+  background: linear-gradient(160deg, oklch(from var(--acc) l c h / .10), var(--card)) !important;
+  border-color: var(--acc-line) !important;
 }
-/* Стрелка тренда в hero крупнее */
-body.rd #ov_kpis .kpi:nth-child(1) .rd-trend,
-body.rd #ov_kpis .kpi:nth-child(2) .rd-trend{
-  font-size: 12px !important;
-  padding: 3px 9px !important;
-  align-self: center;
+/* Вторая (Прибыль) — зелёный акцент */
+body.rd #ov_kpis .kpi:nth-child(2){
+  background: linear-gradient(160deg, oklch(from var(--a) l c h / .10), var(--card)) !important;
+  border-color: oklch(from var(--a) l c h / .32) !important;
 }
-
-/* Остальные 6 KPI — компактнее, 1 колонка */
-body.rd #ov_kpis .kpi:nth-child(n+3){
-  grid-column: span 1;
-  padding: 12px 14px !important;
-}
-body.rd #ov_kpis .kpi:nth-child(n+3) .v{
-  font-size: 20px !important;
+/* Sparkline — компактный (28px) под числом, на всю ширину */
+body.rd #ov_kpis .kpi .rd-spark{
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin-top: 8px;
+  pointer-events: none;
+  opacity: .9;
 }
 
-/* Возвраты (8-я карточка) — на всю ширину, если места хватает */
-body.rd #ov_kpis .kpi:nth-child(8){
-  grid-column: span 2;
+@media (max-width: 1100px){
+  body.rd #ov_kpis{ grid-template-columns: repeat(3, 1fr); }
 }
-
-@media (max-width: 1200px){
-  body.rd #ov_kpis{ grid-template-columns: repeat(4, 1fr); }
-  body.rd #ov_kpis .kpi:nth-child(1),
-  body.rd #ov_kpis .kpi:nth-child(2){ grid-column: span 2; }
-  body.rd #ov_kpis .kpi:nth-child(n+3){ grid-column: span 1; }
-  body.rd #ov_kpis .kpi:nth-child(8){ grid-column: span 2; }
-}
-@media (max-width: 700px){
+@media (max-width: 780px){
   body.rd #ov_kpis{ grid-template-columns: repeat(2, 1fr); }
-  body.rd #ov_kpis .kpi{ grid-column: span 1 !important; }
-  body.rd #ov_kpis .kpi:nth-child(1),
-  body.rd #ov_kpis .kpi:nth-child(2){ grid-column: span 2 !important; }
-  body.rd #ov_kpis .kpi:nth-child(1) .v,
-  body.rd #ov_kpis .kpi:nth-child(2) .v{ font-size: 26px !important; }
+}
+@media (max-width: 460px){
+  body.rd #ov_kpis{ grid-template-columns: 1fr; }
 }
 
 /* Trend arrow (▲ +12% / ▼ -3% / — ±0%) — рендерится ПОСЛЕ .v на отдельной строке */
@@ -1227,10 +1196,11 @@ footer{
 #ov_alerts .alert{
   margin: 0 !important;
   border-radius: 12px !important;
-  padding: 14px 16px !important;
+  padding: 16px 18px !important;
   display: grid !important;
-  grid-template-columns: 36px 1fr auto !important;
-  gap: 12px !important;
+  grid-template-columns: 38px 1fr auto !important;
+  grid-template-rows: auto auto !important;
+  gap: 4px 14px !important;
   align-items: start !important;
   transition: all .22s cubic-bezier(.32,.72,0,1) !important;
   position: relative;
@@ -1238,6 +1208,71 @@ footer{
   border: 1px solid var(--line) !important;
   background: var(--card) !important;
 }
+/* Иконка занимает обе строки слева */
+#ov_alerts .alert .ic{
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+/* Стрелка → уходит вниз-вправо (или прячется — CTA под текстом будет */
+#ov_alerts .alert .x{
+  grid-column: 3;
+  grid-row: 1;
+}
+/* Заголовок алерта — жирный на первой строке */
+#ov_alerts .alert .rd-alert-head{
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--txt);
+  letter-spacing: -.005em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+/* Значение справа сверху — крупно */
+#ov_alerts .alert .rd-alert-val{
+  grid-column: 3;
+  grid-row: 1;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  align-self: center;
+}
+#ov_alerts .alert.al-r .rd-alert-val{ color: var(--c); }
+#ov_alerts .alert.al-o .rd-alert-val{ color: var(--orange); }
+#ov_alerts .alert.al-y .rd-alert-val{ color: var(--b); }
+/* Описание (вторая строка) — обычный текст */
+#ov_alerts .alert .rd-alert-desc{
+  grid-column: 2 / -1;
+  grid-row: 2;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin-top: 2px;
+}
+#ov_alerts .alert .rd-alert-desc b{
+  color: var(--txt);
+  font-weight: 600;
+}
+/* CTA-ссылка */
+#ov_alerts .alert .rd-alert-cta{
+  color: var(--acc);
+  font-weight: 600;
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+#ov_alerts .alert .rd-alert-cta svg{
+  width: 12px; height: 12px;
+  transition: transform .2s var(--ease);
+}
+#ov_alerts .alert:hover .rd-alert-cta svg{ transform: translateX(3px); }
 #ov_alerts .alert::before{
   content: "";
   position: absolute;

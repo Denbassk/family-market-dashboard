@@ -661,10 +661,14 @@ function renderStoreRank(){
 function renderOverviewRanks(){
   try { renderCatRank(); } catch(e){ console.warn('rd catRank:', e); }
   try { renderStoreRank(); } catch(e){ console.warn('rd storeRank:', e); }
-  try { replaceAlertIcons(); } catch(e){ console.warn('rd alertIcons:', e); }
+  try { restyleAlerts(); } catch(e){ console.warn('rd alerts:', e); }
 }
 
-// ---------- ЗАМЕНА ЭМОДЗИ В АЛЕРТАХ НА SVG-ИКОНКИ ----------
+// ---------- КРАСИВАЯ РАЗМЕТКА АЛЕРТОВ ----------
+// Основной скрипт создаёт .alert как:
+//   <div class="alert al-X"><span class="ic">EMOJI</span><span>ТЕКСТ</span><span class="x">→</span></div>
+// Разбираем на: SVG-иконка, заголовок, крупное значение справа, описание, CTA-ссылка.
+
 const RD_ALERT_ICONS = {
   '📉': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 18l-9.5-9.5-5 5L1 6"/><polyline points="17 18 23 18 23 12"/></svg>',
   '🔻': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
@@ -673,29 +677,147 @@ const RD_ALERT_ICONS = {
   '📦': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-9 5-9-5V8l9-5 9 5z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg>',
   '📊': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>'
 };
-function replaceAlertIcons(){
-  document.querySelectorAll('#ov_alerts .alert .ic').forEach(el => {
-    if (el.dataset.rdIcon === 'done') return;
-    const emoji = el.textContent.trim();
-    const svg = RD_ALERT_ICONS[emoji];
-    if (svg) {
-      el.innerHTML = svg;
-      el.dataset.rdIcon = 'done';
-      // масштабируем SVG
-      const s = el.querySelector('svg');
-      if (s) { s.setAttribute('width', '18'); s.setAttribute('height', '18'); }
+
+// Разбираем сообщение алерта на: заголовок, значение справа, описание.
+// Возвращает { head, val, desc, cta }
+function parseAlertMessage(html){
+  // html вида: "Продажа ниже закупки: <b>53</b> позиций (оборот 202 тыс ₴). Проверьте цены/акции."
+  // Простые heuristics:
+  //  - до первого двоеточия — заголовок
+  //  - первая <b>...</b> — значение (может быть числом с ₴, тыс, млн)
+  //  - остаток предложения — описание
+  //  - CTA дефолт "Разобрать →"
+
+  // Заголовок = текст до первого ':' (без запятой)
+  const colonIdx = html.indexOf(':');
+  let head = '';
+  let rest = html;
+  if (colonIdx > 0 && colonIdx < 80) {
+    head = html.slice(0, colonIdx).trim();
+    rest = html.slice(colonIdx + 1).trim();
+  } else {
+    // фолбэк: первое слово + N слов
+    head = html.split(/[.:!?]/)[0].trim().slice(0, 60);
+    rest = html.slice(head.length).replace(/^[.:!?\s]+/, '');
+  }
+  // Убираем HTML-теги из заголовка
+  head = head.replace(/<[^>]+>/g, '').trim();
+
+  // Значение = первая <b>...</b> в rest
+  let val = '';
+  const bMatch = rest.match(/<b>(.*?)<\/b>/);
+  if (bMatch) {
+    val = bMatch[1].replace(/<[^>]+>/g, '').trim();
+    // если у нас в rest есть " ₴", "млн", "SKU", "позиций" сразу после <b> — цепляем к val
+    const after = rest.slice(bMatch.index + bMatch[0].length).match(/^(\s*(₴|млн\s*₴|тыс\s*₴|тыс|млн|SKU|позиций|остатков))/i);
+    if (after) val += after[0];
+    // Уберём эту часть из описания
+    rest = rest.slice(0, bMatch.index) + rest.slice(bMatch.index + bMatch[0].length + (after ? after[0].length : 0));
+  }
+
+  const desc = rest.trim().replace(/^[.,;\s]+/, '');
+  return { head, val, desc };
+}
+
+function restyleAlerts(){
+  const alerts = document.querySelectorAll('#ov_alerts .alert');
+  alerts.forEach(el => {
+    if (el.dataset.rdStyled === 'done') return;
+
+    const ic = el.querySelector('.ic');
+    const x  = el.querySelector('.x');
+    // Основной блок текста — <span> между .ic и .x
+    const spans = el.querySelectorAll(':scope > span');
+    let textSpan = null;
+    spans.forEach(s => {
+      if (s !== ic && s !== x && s.className !== 'ic' && s.className !== 'x') textSpan = s;
+    });
+    if (!textSpan) return;
+
+    // Заменяем эмодзи на SVG
+    if (ic) {
+      const emoji = ic.textContent.trim();
+      const svg = RD_ALERT_ICONS[emoji];
+      if (svg) {
+        ic.innerHTML = svg;
+        const s = ic.querySelector('svg');
+        if (s) { s.setAttribute('width', '18'); s.setAttribute('height', '18'); }
+      }
     }
+
+    // Парсим содержимое span
+    const rawHtml = textSpan.innerHTML;
+    const parsed = parseAlertMessage(rawHtml);
+
+    // Определяем CTA-текст (по классу цвета)
+    let ctaText = 'Разобрать';
+    if (el.classList.contains('al-r')) ctaText = 'Разобрать';
+    else if (el.classList.contains('al-o')) ctaText = 'Перейти';
+    else if (el.classList.contains('al-y')) ctaText = 'План';
+
+    // Строим новую разметку в этом же spanе (заменяем содержимое)
+    // Но структура алерта: .ic → span (текст) → .x
+    // Нам нужны 4 части: .rd-alert-head + .rd-alert-val + .rd-alert-desc + .rd-alert-cta
+    // Кладём .rd-alert-head + .rd-alert-desc + .rd-alert-cta в текстовый span,
+    // .rd-alert-val — отдельным элементом рядом.
+
+    textSpan.className = 'rd-alert-body';
+    textSpan.innerHTML =
+        '<div class="rd-alert-head">' + (parsed.head || '') + '</div>'
+      + '<div class="rd-alert-desc">' + (parsed.desc || '') + '</div>'
+      + '<a class="rd-alert-cta" href="#">' + ctaText
+      + ' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'
+      + '</a>';
+
+    // Значение справа — вставляем перед .x
+    if (parsed.val && x) {
+      const valSpan = document.createElement('span');
+      valSpan.className = 'rd-alert-val';
+      valSpan.textContent = parsed.val;
+      el.insertBefore(valSpan, x);
+      // Прячем стрелку
+      x.style.display = 'none';
+    }
+
+    // CTA-ссылка не должна триггерить нативный переход
+    const cta = textSpan.querySelector('.rd-alert-cta');
+    if (cta) {
+      cta.addEventListener('click', e => { e.preventDefault(); /* клик по всей карточке идёт */ });
+    }
+
+    el.dataset.rdStyled = 'done';
   });
 }
+
+// ---------- ФРЕЙМВОРК ДЛЯ БУДУЩЕГО СРАВНЕНИЯ ПЕРИОДОВ ----------
+// window.RD.compare = {
+//   base: {revenue, gp, ...},          // текущий период (или срез)
+//   prev: {revenue, gp, ...},          // предыдущий (для сравнения)
+//   series: {revenue: [], gp: []}      // помесячные значения для sparkline
+// }
+// Если не задано — sparkline берёт из D.monthly (как сейчас), стрелка — Δ последний/предыдущий месяц.
+// В будущем можно наполнить это извне (например при выборе "vs авг 2025"), и функция addSparklines()
+// перерисует KPI под сравнение.
+window.RD = window.RD || {};
+window.RD.compare = window.RD.compare || null;
+window.RD.setCompare = function(cmp){
+  window.RD.compare = cmp;
+  try { addSparklines(); } catch(e){}
+};
 
 // ---------- SPARKLINE + TREND ARROW inject в KPI ----------
 // Данные — из D.monthly. Sparkline рендерится ПОД числом, во всю ширину карточки.
 // Стрелка тренда (▲/▼/±) рисуется рядом со значением — Δ vs предыдущий месяц.
 function addSparklines(){
-  const D = window.D;
-  if (!D || !D.monthly || D.monthly.length < 2) return;
+  // D объявлен через `let` — доступен и через window.D, и через глобальный eval
+  const D = rdGetD();
+  if (!D) { console.warn('rd sparklines: no D'); return; }
+  if (!D.monthly || !Array.isArray(D.monthly) || D.monthly.length < 2) {
+    console.warn('rd sparklines: no D.monthly', D.monthly);
+    return;
+  }
   const kpis = document.querySelectorAll('#ov_kpis .kpi');
-  if (!kpis.length) return;
+  if (!kpis.length) { console.warn('rd sparklines: no #ov_kpis .kpi'); return; }
 
   // Отсортируем месяцы, но исключим неполный последний (если период кончается не в последний день)
   let months = D.monthly.slice().sort((a,b) => a.mo - b.mo);
@@ -773,10 +895,13 @@ function addSparklines(){
   };
 
   // Первая карточка: Выручка
-  injectKpi(0, trendMonths.map(m => +m.revenue || 0), c.acc, 'rd-sg-rev-' + uid);
-  // Вторая: Прибыль
-  if (D.monthly.some(m => 'gp' in m)) {
-    injectKpi(1, trendMonths.map(m => +m.gp || 0), c.pos, 'rd-sg-gp-' + uid);
+  const revVals = trendMonths.map(m => +m.revenue || 0);
+  injectKpi(0, revVals, c.acc, 'rd-sg-rev-' + uid);
+  // Вторая: Прибыль (поле может называться gp или profit)
+  const hasGp = D.monthly.some(m => 'gp' in m || 'profit' in m);
+  if (hasGp) {
+    const gpVals = trendMonths.map(m => +(m.gp != null ? m.gp : m.profit) || 0);
+    injectKpi(1, gpVals, c.pos, 'rd-sg-gp-' + uid);
   }
 }
 
