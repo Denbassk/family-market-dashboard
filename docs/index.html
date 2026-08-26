@@ -5,6 +5,22 @@
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script>window.echarts||document.write('<scr'+'ipt src="https://unpkg.com/echarts@5.5.1/dist/echarts.min.js"><\/scr'+'ipt>');</script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<!-- Redesign v2.0: OKLCH темы, sidebar, topbar, SVG heatmap. Не изменяет JS-логику. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="redesign.css">
+<script src="redesign.js" defer></script>
+<script>
+  // Ранняя установка темы (до отрисовки), чтобы избежать вспышки
+  (function(){
+    try{
+      var t = localStorage.getItem('rd-theme');
+      if (!t) t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    }catch(e){ document.documentElement.setAttribute('data-theme','dark'); }
+  })();
+</script>
 <style>
 :root{--bg:#0a1017;--bg2:#0d141f;--card:#121c2b;--c2:#1a2740;--txt:#eef3fb;--muted:#a9b8cf;--faint:#7f8ea8;--line:#243247;--line2:#2f3f59;--acc:#4aa8ff;--acc2:#7cc4ff;--accsoft:rgba(74,168,255,.12);
 --a:#34d399;--b:#fbbf24;--c:#f87171;--vio:#a78bfa;--orange:#fb923c;
@@ -6426,5 +6442,6 @@ document.addEventListener('visibilitychange', function () {
 });
 
 </script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 </body>
 </html>
