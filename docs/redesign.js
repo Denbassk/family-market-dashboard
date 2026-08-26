@@ -521,7 +521,33 @@ function rdInSel(v, arr){
   return typeof fn === 'function' ? fn(v, arr) : false;
 }
 function rdGetD(){
-  return rdGetGlobal('D') || window.D;
+  // D в основном скрипте — `let D = null` до fetch, потом присваивается
+  const v = rdGetGlobal('D') || window.D;
+  return v || null;
+}
+function rdIsReady(){
+  // Данные полностью загружены?
+  const D = rdGetD();
+  return !!(D && D.by_category && D.by_store);
+}
+// Ждём готовности данных и пробуем `fn()` до успеха.
+// Возвращает handle таймера — можно отменить через clearInterval.
+function rdWhenReady(fn, opts){
+  opts = opts || {};
+  const maxTries = opts.maxTries || 50;    // 50 * 200 = 10 сек
+  const interval = opts.interval || 200;
+  let tries = 0;
+  const iv = setInterval(() => {
+    tries++;
+    if (rdIsReady()) {
+      clearInterval(iv);
+      try { fn(); } catch(e){ console.warn('rd whenReady fn:', e); }
+    } else if (tries >= maxTries) {
+      clearInterval(iv);
+      console.warn('rd whenReady: timeout waiting for D');
+    }
+  }, interval);
+  return iv;
 }
 function rdGetS(){
   return rdGetGlobal('S') || window.S;
@@ -1114,17 +1140,18 @@ function hookRender(){
     };
   }
 
-  // 3. Обёртка render — SVG-ranks + перекрашивание ECharts + оживление таблиц
+  // 3. Обёртка render — SVG-ranks + перекрашивание ECharts + оживление таблиц.
+  //    Работает только когда D уже загружен, иначе основные функции внутри валятся.
   if (typeof window.render === 'function') {
     const orig = window.render;
     window.render = function(){
       const r = orig.apply(this, arguments);
       setTimeout(() => {
+        if (!rdIsReady()) return;   // D ещё не готов — молча пропускаем
         try {
           if (rdGetTab() === 'overview') {
             renderOverviewRanks();
           }
-          // Таблицы — на всех вкладках
           restyleTables();
           reRenderCharts();
         } catch(e){ console.warn('rd render hook:', e); }
@@ -1167,15 +1194,12 @@ document.addEventListener('DOMContentLoaded', function(){
     if (typeof window.render === 'function' && typeof window.renderHeatmap === 'function'){
       overrideHeatmap();
       hookRender();
-      // добавим первый заход спарклайнов + SVG-ranks (несколько попыток —
-      // основной скрипт может отрендерить с задержкой из-за fetch)
-      const kickInit = () => {
-        try { addSparklines(); } catch(e){}
-        try { if (rdGetTab() === 'overview') renderOverviewRanks(); } catch(e){}
-      };
-      setTimeout(kickInit, 200);
-      setTimeout(kickInit, 600);
-      setTimeout(kickInit, 1200);
+      // Ждём готовности данных (D.by_category и т.д.) и тогда стреляем полным набором
+      rdWhenReady(() => {
+        try { addSparklines(); } catch(e){ console.warn('rd init sparks:', e); }
+        try { if (rdGetTab() === 'overview') renderOverviewRanks(); } catch(e){ console.warn('rd init ranks:', e); }
+        try { restyleTables(); } catch(e){ console.warn('rd init tables:', e); }
+      });
       return;
     }
     setTimeout(waitForApp, 100);
@@ -1183,7 +1207,22 @@ document.addEventListener('DOMContentLoaded', function(){
   waitForApp();
 });
 
-// Экспорт для отладки
-window.RD = { setTheme, addSparklines };
+// Экспорт всех ключевых функций для отладки и внешнего использования
+Object.assign(window.RD, {
+  setTheme,
+  addSparklines,
+  renderCatRank,
+  renderStoreRank,
+  renderOverviewRanks,
+  restyleAlerts,
+  restyleTables,
+  reRenderCharts,
+  rdGetD,
+  rdGetS,
+  rdIsReady,
+  rdWhenReady,
+  // Утилиты для сравнения периодов (заготовка на будущее)
+  // Пример: RD.setCompare({ base: kpiNow(), prev: kpiPrev, series: [...] })
+});
 
 })();
