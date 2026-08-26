@@ -891,13 +891,16 @@ function enhanceParetoChart(){
   // Добавляем markArea в первую серию (заливка зон Парето)
   opt.series[0].markArea = {
     silent: true,
+    emphasis: { disabled: true },
     itemStyle: { opacity: .12 },
     data: [
-      [{ yAxis: 0,  itemStyle: { color: c.pos } },  { yAxis: 80 }],
-      [{ yAxis: 80, itemStyle: { color: c.warn } }, { yAxis: 95 }],
-      [{ yAxis: 95, itemStyle: { color: c.neg } },  { yAxis: 100 }]
+      [{ yAxis: 0,  itemStyle: { color: c.pos, opacity: .14 } },  { yAxis: 80 }],
+      [{ yAxis: 80, itemStyle: { color: c.warn, opacity: .14 } }, { yAxis: 95 }],
+      [{ yAxis: 95, itemStyle: { color: c.neg, opacity: .14 } },  { yAxis: 100 }]
     ]
   };
+  // И серии тоже — отключим emphasis чтобы линия не пропадала
+  opt.series.forEach(s => { s.emphasis = { disabled: true }; });
   chart.setOption(opt);
   chart.__rdEnhanced = true;
 }
