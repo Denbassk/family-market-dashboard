@@ -1048,6 +1048,294 @@ function renderFrozenRanks(){
   buildRank(supEl,   sups,   'supplier', false);
 }
 
+// ---------- МАТРИЦА: chip-фильтры + оживление KPI-карточек статусов ----------
+function enhanceMatrix(){
+  const D = rdGetD();
+  if (!D || !D.matrix || !D.matrix.rows || !D.matrix.rows.length) return;
+  const S = rdGetS();
+  if (!S) return;
+
+  const M = D.matrix;
+  const H = M.cols;
+  const iStatus = H.indexOf('Статус');
+  const iProd = H.indexOf('Товар');
+  const isTot = r => (''+(r[iProd] || '')).trim().startsWith('ИТОГО');
+
+  // statusGroup — копия из основного скрипта
+  const statusGroup = s => {
+    s = s || '';
+    if (s.includes('Прибыльный')) return 'Прибыльный';
+    if (s.includes('Кандидат на вывод')) return 'Кандидат на вывод';
+    if (s.includes('Расширить')) return 'Расширить покрытие';
+    if (s.includes('Новинка')) return 'Новинка';
+    return 'Нет данных';
+  };
+
+  // Считаем количество по группам
+  const real = M.rows.filter(r => !isTot(r));
+  const groupCounts = {};
+  real.forEach(r => {
+    const g = statusGroup(r[iStatus]);
+    groupCounts[g] = (groupCounts[g] || 0) + 1;
+  });
+
+  // 1) Разметить KPI-карточки атрибутом data-mx
+  const kpis = document.querySelectorAll('#mx_kpis .kpi');
+  const statusOrder = ['all', 'Прибыльный', 'Кандидат на вывод', 'Расширить покрытие', 'Новинка'];
+  kpis.forEach((k, i) => {
+    // Первая — "Всего в матрице" = all, дальше по порядку
+    const st = statusOrder[i] || 'other';
+    k.setAttribute('data-mx', st);
+    if (S.mxStatus === st || (st === 'all' && (!S.mxStatus || S.mxStatus === 'all'))) {
+      k.classList.add('rd-mx-active');
+    } else {
+      k.classList.remove('rd-mx-active');
+    }
+    // Клик = фильтр
+    if (!k.dataset.rdMxWired) {
+      k.addEventListener('click', () => {
+        S.mxStatus = st === 'all' ? 'all' : st;
+        // Синхронизируем селект (он скрыт, но основной код к нему обращается)
+        const sel = document.getElementById('mxStatus');
+        if (sel) sel.value = S.mxStatus;
+        const render = window.render;
+        if (typeof render === 'function') render();
+      });
+      k.dataset.rdMxWired = '1';
+    }
+  });
+
+  // 2) Добавить полоску слева в строках таблицы по статусу
+  const tbl = document.getElementById('mx_tab');
+  if (tbl && tbl.tBodies[0]) {
+    [...tbl.tBodies[0].rows].forEach(tr => {
+      if (tr.dataset.rdMxDone) return;
+      // Статус может быть в любой ячейке — ищем по цвету текста, установленному основным
+      // скриптом (statusColor). Проще — по 'Статус' колонке.
+      if (iStatus >= 0 && tr.cells[iStatus]) {
+        const txt = tr.cells[iStatus].textContent || '';
+        const g = statusGroup(txt);
+        tr.setAttribute('data-mx-status', g);
+      }
+      tr.dataset.rdMxDone = '1';
+    });
+  }
+
+  // 3) Chip-фильтры — вставим перед .bar (или в неё)
+  const page = document.getElementById('p_matrix');
+  if (!page) return;
+  let chipsBox = page.querySelector('.rd-mx-chips');
+  if (chipsBox) return;  // уже есть
+
+  const bar = page.querySelector('.bar');
+  if (!bar) return;
+
+  chipsBox = document.createElement('div');
+  chipsBox.className = 'rd-mx-chips';
+  const chips = [
+    { key: 'all',                 label: 'Все',              color: 'var(--acc)',   count: real.length },
+    { key: 'Прибыльный',          label: 'Прибыльные',       color: 'var(--a)',     count: groupCounts['Прибыльный'] || 0 },
+    { key: 'Кандидат на вывод',   label: 'Кандидаты вывод',  color: 'var(--c)',     count: groupCounts['Кандидат на вывод'] || 0 },
+    { key: 'Расширить покрытие',  label: 'Расширить',        color: 'var(--acc2)',  count: groupCounts['Расширить покрытие'] || 0 },
+    { key: 'Новинка',             label: 'Новинки',          color: 'var(--b)',     count: groupCounts['Новинка'] || 0 },
+    { key: 'Нет данных',          label: 'Нет данных',       color: 'var(--faint)', count: groupCounts['Нет данных'] || 0 }
+  ];
+  chipsBox.innerHTML = chips.map(c => {
+    const active = (S.mxStatus === c.key) || (c.key === 'all' && (!S.mxStatus || S.mxStatus === 'all'));
+    return '<button type="button" class="rd-mx-chip ' + (active ? 'on' : '') + '" data-key="' + c.key + '">'
+      + '<span class="dot" style="background:' + c.color + '"></span>'
+      + c.label
+      + '<span class="cnt">' + c.count + '</span>'
+      + '</button>';
+  }).join('');
+  bar.parentNode.insertBefore(chipsBox, bar);
+
+  chipsBox.querySelectorAll('.rd-mx-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.key;
+      S.mxStatus = k;
+      const sel = document.getElementById('mxStatus');
+      if (sel) sel.value = k;
+      const render = window.render;
+      if (typeof render === 'function') render();
+    });
+  });
+}
+
+// ---------- УСЛОВИЯ ПОСТАВЩИКОВ: пилюли для процентов, badge для доставки ----------
+function enhanceSuppliers(){
+  const tbl = document.querySelector('#p_suppliers table');
+  if (!tbl || !tbl.tBodies[0]) return;
+
+  const headers = [...tbl.tHead.querySelectorAll('th')];
+  const findCol = re => headers.findIndex(h => re.test(h.textContent || ''));
+  const iRetro   = findCol(/ретро/i);
+  const iDisc    = findCol(/скидка/i);
+  const iSponsor = findCol(/спонсор|взнос/i);
+  const iEnterFee= findCol(/оплата.*ввод|оплата.*вход/i);
+  const iEnterSku= findCol(/ввод\s*ску|вход\s*sku/i);
+  const iReturn  = findCol(/возврат/i);
+  const iMarkOpt = findCol(/наценка.*опт/i);
+  const iMarkRet = findCol(/наценка.*розн/i);
+  const iDelivery= findCol(/доставк/i);
+
+  // Класс пилюли по проценту (для ретро/скидки/наценки)
+  const pctClass = raw => {
+    const t = (raw || '').toString().trim().toLowerCase();
+    if (!t || t === '-' || t === '—' || t === 'нет') return 'p-none';
+    const n = parseFloat(t.replace(',', '.'));
+    if (isNaN(n)) return 'p-none';
+    if (n >= 20) return 'p-hi';
+    if (n >= 10) return 'p-mid';
+    return 'p-low';
+  };
+  const formatPct = raw => {
+    const t = (raw || '').toString().trim();
+    if (!t || t === '-' || t === '—' || t === 'нет') return '—';
+    return t;
+  };
+
+  const rows = [...tbl.tBodies[0].rows];
+  rows.forEach(tr => {
+    if (tr.dataset.rdSupDone) return;
+
+    const doPct = (i) => {
+      if (i < 0) return;
+      const td = tr.cells[i];
+      if (!td) return;
+      const raw = td.textContent.trim();
+      if (td.querySelector('.rd-sup-pct, .rd-sup-badge, .rd-sup-ret')) return;
+      const cls = pctClass(raw);
+      td.innerHTML = '<span class="rd-sup-pct ' + cls + '">' + formatPct(raw) + '</span>';
+    };
+    [iRetro, iDisc, iSponsor, iEnterFee, iMarkOpt, iMarkRet].forEach(doPct);
+
+    // Доставка → badge
+    if (iDelivery >= 0 && tr.cells[iDelivery]) {
+      const td = tr.cells[iDelivery];
+      if (!td.querySelector('.rd-sup-badge')) {
+        const raw = (td.textContent || '').trim();
+        const lower = raw.toLowerCase();
+        if (lower.includes('тт')) {
+          td.innerHTML = '<span class="rd-sup-badge dlv-tt">ТТ</span>';
+        } else if (lower.includes('рц')) {
+          td.innerHTML = '<span class="rd-sup-badge dlv-rc">РЦ</span>';
+        }
+      }
+    }
+
+    // Возврат → пилюля со статусом
+    if (iReturn >= 0 && tr.cells[iReturn]) {
+      const td = tr.cells[iReturn];
+      if (!td.querySelector('.rd-sup-ret')) {
+        const raw = (td.textContent || '').trim();
+        const lower = raw.toLowerCase();
+        // Если есть готовые badge от основного скрипта — оставляем
+        if (td.querySelector('.badge')) {
+          // уже стилизовано
+        } else if (lower === 'есть' || lower === 'да' || lower === 'yes') {
+          td.innerHTML = '<span class="rd-sup-ret ret-yes">✓ Есть</span>';
+        } else if (lower === 'нет' || lower === 'no') {
+          td.innerHTML = '<span class="rd-sup-ret ret-no">✕ Нет</span>';
+        } else if (raw) {
+          td.innerHTML = '<span class="rd-sup-ret ret-conditional">' + raw + '</span>';
+        }
+      }
+    }
+
+    // Ввод SKU (yes/no)
+    if (iEnterSku >= 0 && tr.cells[iEnterSku]) {
+      const td = tr.cells[iEnterSku];
+      if (!td.querySelector('.rd-sup-pct, .rd-sup-ret')) {
+        const raw = (td.textContent || '').trim().toLowerCase();
+        if (raw === 'есть' || raw === 'да') {
+          td.innerHTML = '<span class="rd-sup-ret ret-yes">✓</span>';
+        } else if (raw === 'нет') {
+          td.innerHTML = '<span class="rd-sup-ret ret-no">✕</span>';
+        }
+      }
+    }
+
+    tr.dataset.rdSupDone = '1';
+  });
+}
+
+// ---------- ОТЧЁТЫ: heatmap ячеек + sparkline итога ----------
+function enhanceReport(){
+  const tbl = document.getElementById('rp_tab');
+  if (!tbl || !tbl.tHead || !tbl.tBodies[0]) return;
+
+  const headers = [...tbl.tHead.querySelectorAll('th')];
+  if (!headers.length) return;
+
+  const MONTHS_SHORT = ['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+
+  // Ищем колонки-месяцы (по короткому названию)
+  const monthColIdx = [];
+  const monthColMo = [];
+  headers.forEach((th, i) => {
+    const t = (th.textContent || '').trim().split(' ')[0];
+    const moIdx = MONTHS_SHORT.indexOf(t);
+    if (moIdx > 0) {
+      monthColIdx.push(i);
+      monthColMo.push(moIdx);
+    }
+  });
+
+  // Ищем колонку "Итого"
+  const totalColIdx = headers.findIndex(h => /итого|всего|total/i.test(h.textContent));
+
+  const rows = [...tbl.tBodies[0].rows];
+  const c = getThemeColors();
+
+  rows.forEach(tr => {
+    if (tr.dataset.rdRpDone) return;
+
+    const isTotalRow = (tr.cells[0] && /итого|всего/i.test(tr.cells[0].textContent || ''));
+    if (isTotalRow) tr.classList.add('rd-rp-total');
+
+    // 1) heatmap-подсветка помесячных ячеек
+    if (monthColIdx.length >= 2) {
+      const values = monthColIdx.map(ci => {
+        const raw = (tr.cells[ci]?.textContent || '').replace(/\s/g, '').replace(',', '.');
+        const n = parseFloat(raw);
+        return isNaN(n) ? 0 : n;
+      });
+      const max = Math.max(...values);
+      if (max > 0) {
+        monthColIdx.forEach((ci, idx) => {
+          const td = tr.cells[ci];
+          if (!td) return;
+          const intens = Math.max(0.05, values[idx] / max);
+          td.classList.add('rd-heat-cell');
+          td.style.setProperty('--intens', intens.toFixed(2));
+        });
+      }
+
+      // 2) Sparkline в колонке "Итого" — только для не-итоговых строк
+      if (!isTotalRow && totalColIdx >= 0 && tr.cells[totalColIdx] && !tr.cells[totalColIdx].querySelector('.rd-rp-spark')) {
+        const td = tr.cells[totalColIdx];
+        const rawText = td.textContent;
+        // Цвет по тренду (последние 3 месяца)
+        const n = values.length;
+        let color = c.acc;
+        if (n >= 3) {
+          const avgFirst = (values[0] + values[1]) / 2;
+          const avgLast  = (values[n-1] + values[n-2]) / 2;
+          if (avgFirst > 0) {
+            const growth = (avgLast - avgFirst) / avgFirst;
+            color = growth > 0.05 ? c.pos : growth < -0.05 ? c.neg : c.acc;
+          }
+        }
+        const spark = drawRowSpark(values, color);
+        td.innerHTML = '<span class="rd-rp-spark" title="Динамика по месяцам">' + spark + '</span>' + rawText;
+      }
+    }
+
+    tr.dataset.rdRpDone = '1';
+  });
+}
+
 // ---------- МАГАЗИНЫ: KPI-карточки с trend-стрелкой (для #st_kpis2) ----------
 function addStoresTrends(){
   const D = rdGetD();
@@ -1617,6 +1905,12 @@ function hookRender(){
             renderFrozenRanks();
           } else if (tab === 'stores') {
             addStoresTrends();
+          } else if (tab === 'matrix') {
+            enhanceMatrix();
+          } else if (tab === 'suppliers') {
+            enhanceSuppliers();
+          } else if (tab === 'report') {
+            enhanceReport();
           }
           restyleTables();
           reRenderCharts();
@@ -1639,8 +1933,10 @@ function hookRender(){
         pending = false;
         try {
           restyleTables();
-          // Для pr_tab — также sparkline тренда
-          if (id === 'pr_tab' && rdGetTab() === 'products') addRowSparklinesProducts();
+          const tab = rdGetTab();
+          if (id === 'pr_tab' && tab === 'products') addRowSparklinesProducts();
+          if (id === 'mx_tab' && tab === 'matrix') enhanceMatrix();
+          if (id === 'rp_tab' && tab === 'report') enhanceReport();
         } catch(e){}
       });
     });
@@ -1665,6 +1961,12 @@ function hookRender(){
         renderFrozenRanks();
       } else if (tab === 'stores') {
         addStoresTrends();
+      } else if (tab === 'matrix') {
+        enhanceMatrix();
+      } else if (tab === 'suppliers') {
+        enhanceSuppliers();
+      } else if (tab === 'report') {
+        enhanceReport();
       }
       restyleTables();
     } catch(e){ console.warn('rd applyTabFeatures:', e); }
@@ -1732,6 +2034,10 @@ Object.assign(window.RD, {
   enhanceParetoChart,
   renderFrozenRanks,
   addStoresTrends,
+  // Приоритет 2 фичи:
+  enhanceMatrix,
+  enhanceSuppliers,
+  enhanceReport,
 });
 
 })();

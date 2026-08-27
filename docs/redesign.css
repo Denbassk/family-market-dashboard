@@ -1044,6 +1044,194 @@ tbody tr.rd-top-3 td:first-child{ box-shadow: inset 3px 0 0 var(--vio); }
 }
 
 /* ==================================================================
+   МАТРИЦА: KPI-плитка статусов + chip-фильтры
+   ================================================================== */
+
+/* KPI карточки Матрицы получают цветную полосу и клик = фильтр */
+body.rd #mx_kpis .kpi{
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform .18s var(--ease), border-color .18s var(--ease);
+}
+body.rd #mx_kpis .kpi::before{
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--muted);
+  transition: width .18s var(--ease);
+}
+body.rd #mx_kpis .kpi:hover{ transform: translateY(-1px); }
+body.rd #mx_kpis .kpi:hover::before{ width: 6px; }
+/* Активная (выбранная) */
+body.rd #mx_kpis .kpi.rd-mx-active{
+  border-color: var(--acc) !important;
+  background: var(--accsoft) !important;
+}
+body.rd #mx_kpis .kpi.rd-mx-active::before{ width: 6px; }
+/* Цвета по статусу */
+body.rd #mx_kpis .kpi[data-mx="all"]::before        { background: var(--acc); }
+body.rd #mx_kpis .kpi[data-mx="Прибыльный"]::before { background: var(--a); }
+body.rd #mx_kpis .kpi[data-mx="Кандидат на вывод"]::before { background: var(--c); }
+body.rd #mx_kpis .kpi[data-mx="Расширить покрытие"]::before { background: var(--acc2); }
+body.rd #mx_kpis .kpi[data-mx="Новинка"]::before    { background: var(--b); }
+body.rd #mx_kpis .kpi[data-mx="Нет данных"]::before { background: var(--faint); }
+/* Число вверху карточки — цвет по статусу */
+body.rd #mx_kpis .kpi[data-mx="Прибыльный"] .v { color: var(--a) !important; }
+body.rd #mx_kpis .kpi[data-mx="Кандидат на вывод"] .v { color: var(--c) !important; }
+body.rd #mx_kpis .kpi[data-mx="Расширить покрытие"] .v { color: var(--acc2) !important; }
+body.rd #mx_kpis .kpi[data-mx="Новинка"] .v { color: var(--b) !important; }
+
+/* Chip-фильтры для Матрицы (вместо селекта) */
+.rd-mx-chips{
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  margin-bottom: 4px;
+}
+.rd-mx-chip{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 99px;
+  background: var(--c2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .18s var(--ease);
+  user-select: none;
+  font-family: inherit;
+}
+.rd-mx-chip:hover{ color: var(--txt); border-color: var(--line2); }
+.rd-mx-chip.on{
+  background: var(--accsoft);
+  color: var(--acc);
+  border-color: var(--acc-line);
+}
+.rd-mx-chip .dot{
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  display: inline-block;
+}
+.rd-mx-chip .cnt{
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  padding: 1px 7px;
+  background: var(--card);
+  border-radius: 99px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.rd-mx-chip.on .cnt{ background: var(--acc); color: oklch(0.15 0 260); }
+html[data-theme="light"] .rd-mx-chip.on .cnt{ color: #fff; }
+
+/* Полоска слева в строках таблицы Матрицы — по статусу */
+body.rd #mx_tab tbody td:first-child{ position: relative; }
+body.rd #mx_tab tbody tr[data-mx-status="Прибыльный"] td:first-child{ box-shadow: inset 3px 0 0 var(--a); }
+body.rd #mx_tab tbody tr[data-mx-status="Кандидат на вывод"] td:first-child{ box-shadow: inset 3px 0 0 var(--c); }
+body.rd #mx_tab tbody tr[data-mx-status="Расширить покрытие"] td:first-child{ box-shadow: inset 3px 0 0 var(--acc2); }
+body.rd #mx_tab tbody tr[data-mx-status="Новинка"] td:first-child{ box-shadow: inset 3px 0 0 var(--b); }
+body.rd #mx_tab tbody tr[data-mx-status="Нет данных"] td:first-child{ box-shadow: inset 3px 0 0 var(--faint); }
+
+/* Прячем оригинальный селект #mxStatus когда chip-фильтры готовы */
+body.rd .ctrl:has(> select#mxStatus){ display: none !important; }
+
+/* ==================================================================
+   УСЛОВИЯ ПОСТАВЩИКОВ: пилюли для условий + badge доставки
+   ================================================================== */
+.rd-sup-badge{
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* Тип доставки */
+.rd-sup-badge.dlv-tt{ background: oklch(0.72 0.16 240 / .18); color: var(--acc2); }
+.rd-sup-badge.dlv-rc{ background: oklch(0.72 0.16 300 / .20); color: oklch(0.82 0.15 300); }
+html[data-theme="light"] .rd-sup-badge.dlv-tt{ color: oklch(0.35 0.18 250); }
+html[data-theme="light"] .rd-sup-badge.dlv-rc{ color: oklch(0.35 0.16 300); }
+
+/* Проценты (Ретро, Скидка, Наценка) */
+.rd-sup-pct{
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 42px;
+  text-align: center;
+}
+.rd-sup-pct.p-none{ background: transparent; color: var(--faint); font-weight: 400; }
+.rd-sup-pct.p-low { background: oklch(0.75 0.16 45 / .18);  color: var(--orange); }
+.rd-sup-pct.p-mid { background: oklch(0.82 0.14 85 / .18);  color: var(--b); }
+.rd-sup-pct.p-hi  { background: oklch(0.78 0.15 155 / .20); color: var(--a); }
+html[data-theme="light"] .rd-sup-pct.p-low{ color: oklch(0.42 0.16 45); }
+html[data-theme="light"] .rd-sup-pct.p-mid{ color: oklch(0.42 0.14 65); }
+html[data-theme="light"] .rd-sup-pct.p-hi { color: oklch(0.36 0.15 155); }
+
+/* Статус возврата */
+.rd-sup-ret{
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px 2px 6px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.rd-sup-ret.ret-yes{ background: var(--a-s); color: var(--a); }
+.rd-sup-ret.ret-no { background: var(--c-s); color: var(--c); }
+.rd-sup-ret.ret-conditional{ background: var(--b-s); color: var(--b); }
+
+/* ==================================================================
+   ОТЧЁТЫ: heatmap ячеек помесячной таблицы + sparkline итога
+   ================================================================== */
+body.rd #rp_tab td.rd-heat-cell{
+  position: relative;
+  padding-right: 16px !important;
+}
+body.rd #rp_tab td.rd-heat-cell::before{
+  content: "";
+  position: absolute;
+  left: 4px; right: 4px;
+  bottom: 3px;
+  height: 3px;
+  background: color-mix(in oklch, var(--acc) calc(var(--intens, 0) * 100%), transparent);
+  border-radius: 99px;
+  pointer-events: none;
+  transition: background .3s;
+}
+/* Sparkline в итоговой колонке отчёта */
+body.rd #rp_tab .rd-rp-spark{
+  display: inline-block;
+  vertical-align: middle;
+  width: 80px;
+  height: 24px;
+  margin-right: 6px;
+}
+/* Итоговая строка отчёта — выделена */
+body.rd #rp_tab tbody tr.rd-rp-total{
+  background: var(--c2) !important;
+  font-weight: 700;
+}
+body.rd #rp_tab tbody tr.rd-rp-total td{
+  color: var(--txt) !important;
+  border-top: 2px solid var(--acc-line);
+  border-bottom: 2px solid var(--acc-line);
+}
+
+/* ==================================================================
    STICKY FIRST COLUMN — закрепление первой колонки при горизонтальной прокрутке
    ================================================================== */
 
