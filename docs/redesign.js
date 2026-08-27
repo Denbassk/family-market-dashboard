@@ -1443,14 +1443,14 @@ function drawCrossNetwork(container, items){
   if (!container || !items || !items.length) return;
   const c = getThemeColors();
 
-  // Топ-25 пар
-  const top = items.slice(0, 25);
+  // Топ-20 пар (меньше = чище)
+  const top = items.slice(0, 20);
   if (!top.length) {
     container.innerHTML = '<div class="rd-network-empty">Нет данных кросс-продаж</div>';
     return;
   }
 
-  // Собираем уникальные товары и подсчёт связей
+  // Собираем узлы и связи
   const nodesMap = new Map();
   const links = [];
   const maxCnt = Math.max(...top.map(x => x.cnt || 0)) || 1;
@@ -1465,27 +1465,53 @@ function drawCrossNetwork(container, items){
   const nodes = [...nodesMap.values()];
   const maxNodeCnt = Math.max(...nodes.map(n => n.cnt)) || 1;
 
-  // Простая force-simulation: раскладываем по кругу + позиционируем связями
   const W = container.clientWidth || 800;
   const H = container.clientHeight || 520;
   const cx = W / 2, cy = H / 2;
-  const R = Math.min(W, H) / 2 - 60;
 
-  // Сортируем по cnt (важные — в центр, остальные по кругу)
+  // Раскладка: 1 хаб в центре + 2 концентрических круга (близкие/дальние)
+  // Больше связей = ближе к центру, меньше = дальше
   nodes.sort((a, b) => b.cnt - a.cnt);
+  const N = nodes.length;
+  const inner = Math.min(6, Math.floor(N / 2));   // внутренний круг
+  const outer = N - 1 - inner;                     // внешний круг
+  const Rin  = Math.min(W, H) * 0.22;
+  const Rout = Math.min(W, H) * 0.42;
+
   nodes.forEach((n, i) => {
     if (i === 0) {
+      // главный хаб в центре
       n.x = cx; n.y = cy;
+    } else if (i <= inner) {
+      // Внутренний круг — крупнейшие соседи
+      const angle = ((i - 1) / inner) * Math.PI * 2 - Math.PI / 2;
+      n.x = cx + Math.cos(angle) * Rin;
+      n.y = cy + Math.sin(angle) * Rin;
     } else {
-      const angle = (i / (nodes.length - 1)) * Math.PI * 2 - Math.PI / 2;
-      const r = R * (0.5 + 0.5 * Math.min(1, i / 10));
-      n.x = cx + Math.cos(angle) * r;
-      n.y = cy + Math.sin(angle) * r;
+      // Внешний круг
+      const angle = ((i - 1 - inner) / Math.max(1, outer)) * Math.PI * 2 - Math.PI / 2 + 0.3;
+      n.x = cx + Math.cos(angle) * Rout;
+      n.y = cy + Math.sin(angle) * Rout;
     }
   });
 
-  // Строим SVG
+  // Подпись — смещаем от узла в сторону от центра (чтобы не наезжала на соседей)
   const trunc = (s, n) => (s && s.length > n) ? s.slice(0, n) + '…' : (s || '');
+  const nodeRadius = n => 5 + (n.cnt / maxNodeCnt) * 10;
+
+  const labelPos = (n) => {
+    if (n === nodes[0]) return { x: 0, y: nodeRadius(n) + 14, anchor: 'middle' };
+    const dx = n.x - cx, dy = n.y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = dx / dist, ny = dy / dist;
+    const r = nodeRadius(n) + 6;
+    // Смещаем подпись на 8px в сторону от центра
+    return {
+      x: nx * (r + 4),
+      y: ny * (r + 4) + 4,
+      anchor: nx > 0.3 ? 'start' : nx < -0.3 ? 'end' : 'middle'
+    };
+  };
 
   let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
 
@@ -1501,32 +1527,32 @@ function drawCrossNetwork(container, items){
 
   // Nodes
   nodes.forEach(n => {
-    const r = 5 + (n.cnt / maxNodeCnt) * 10;
-    const color = c.acc;
+    const r = nodeRadius(n);
+    const lp = labelPos(n);
+    const short = trunc(n.id, 18);
     svg += '<g class="rd-net-node" data-name="' + (n.id || '').replace(/"/g, '&quot;') + '" transform="translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')">'
-      + '<circle r="' + r.toFixed(1) + '" fill="' + color + '" stroke="' + c.bg + '" stroke-width="2"><title>' + (n.id || '') + ' — ' + n.cnt + ' связей</title></circle>'
-      + '<text text-anchor="middle" dy="' + (r + 12).toFixed(0) + '">' + trunc(n.id, 22) + '</text>'
+      + '<circle r="' + r.toFixed(1) + '" fill="' + c.acc + '" stroke="' + c.bg + '" stroke-width="2"><title>' + (n.id || '') + ' — ' + n.cnt + ' связей</title></circle>'
+      + '<text text-anchor="' + lp.anchor + '" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '">' + short + '</text>'
       + '</g>';
   });
 
   svg += '</svg>';
   container.innerHTML = svg;
 
-  // Клик по узлу — открыть карточку товара (переход на «Позиции»)
+  // Клик по узлу — переход на «Позиции» с фильтром по товару (один render)
   container.querySelectorAll('.rd-net-node').forEach(g => {
     g.addEventListener('click', () => {
       const name = g.dataset.name;
       const S = rdGetS();
-      if (S && name) {
-        S.prSel = name;
-        S.q = name;
-        S.tab = 'products';
-        const fQ = document.getElementById('fQ');
-        if (fQ) fQ.value = name;
-        const syncTabs = rdGetGlobal('syncTabs') || window.syncTabs;
-        if (typeof syncTabs === 'function') syncTabs();
-        if (typeof window.render === 'function') window.render();
-      }
+      if (!S || !name) return;
+      S.prSel = name;
+      S.q = name;
+      S.tab = 'products';
+      const fQ = document.getElementById('fQ');
+      if (fQ) fQ.value = name;
+      const syncTabs = rdGetGlobal('syncTabs') || window.syncTabs;
+      if (typeof syncTabs === 'function') syncTabs();
+      if (typeof window.render === 'function') window.render();
     });
     g.style.cursor = 'pointer';
   });
@@ -1710,13 +1736,17 @@ function renderVirtualProducts(card){
     const visEl = document.getElementById('rd-virt-visible');
     if (visEl) visEl.textContent = String(endIdx - startIdx);
 
-    // Клик по строке — открыть карточку
+    // Клик по строке — открыть карточку БЕЗ полного render
+    // (полный render перебирает 10k товаров, лагает; drill self-sufficient — сам рисует)
     body.querySelectorAll('.rd-virt-row').forEach(row => {
       row.addEventListener('click', () => {
         const S = rdGetS();
         if (S) {
           S.prSel = row.dataset.name;
-          if (typeof window.render === 'function') window.render();
+          try { enhanceProductDrill(); } catch(e){}
+          // Скроллим drill в видимость
+          const dr = document.getElementById('pr_drill');
+          if (dr) dr.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       });
     });
@@ -1803,12 +1833,61 @@ function enhanceProductDrill(){
 
   // График динамики
   if (monthly.length >= 2) {
-    const values = monthly.map(m => m.rev || 0);
-    const spark = drawRowSpark(values, c.acc);
     const MONTHS = ['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+    const values = monthly.map(m => m.rev || 0);
+    const maxV = Math.max(...values);
+    const minV = Math.min(...values);
+    const rangeV = maxV - minV || 1;
+    const W = 100, H = 60;
+    const pts = values.map((v, i) => {
+      const x = (i / (values.length - 1)) * W;
+      const y = H - ((v - minV) / rangeV) * (H - 8) - 4;
+      return { x, y, v, mo: monthly[i].mo };
+    });
+
+    // Строим SVG с осью X (метки месяцев) и Y (min/max) — крупный
+    const gradId = 'rd-drill-grad-' + Math.random().toString(36).slice(2, 7);
+    let pathD = 'M' + pts[0].x.toFixed(1) + ',' + pts[0].y.toFixed(1);
+    pts.forEach(p => { pathD += ' L' + p.x.toFixed(1) + ',' + p.y.toFixed(1); });
+    const areaD = pathD + ' L' + W + ',' + H + ' L0,' + H + ' Z';
+
+    const fmtCompact = v => {
+      const a = Math.abs(+v || 0);
+      if (a >= 1e6) return (v/1e6).toFixed(1) + ' млн';
+      if (a >= 1e3) return Math.round(v/1e3) + 'k';
+      return String(Math.round(v));
+    };
+
+    const chartSvg =
+      '<svg viewBox="0 0 100 76" preserveAspectRatio="none" width="100%" height="120" style="display:block;overflow:visible">'
+      + '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1">'
+      +   '<stop offset="0" stop-color="' + c.acc + '" stop-opacity=".28"/>'
+      +   '<stop offset="1" stop-color="' + c.acc + '" stop-opacity="0"/>'
+      + '</linearGradient></defs>'
+      + '<path d="' + areaD + '" fill="url(#' + gradId + ')"/>'
+      + '<path d="' + pathD + '" fill="none" stroke="' + c.acc + '" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'
+      // Точки
+      + pts.map(p => '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="1.6" fill="' + c.acc + '" stroke="' + c.bg + '" stroke-width="0.6" vector-effect="non-scaling-stroke"><title>' + (MONTHS[p.mo] || p.mo) + ': ' + fmtCompact(p.v) + ' ₴</title></circle>').join('')
+      + '</svg>';
+
+    // Метки месяцев под графиком
+    const monthLabels =
+      '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);padding:4px 0 0;font-family:\'JetBrains Mono\',monospace">'
+      + pts.map(p => '<span>' + (MONTHS[p.mo] || p.mo) + '</span>').join('')
+      + '</div>';
+
+    // Мини-статистика: min / max
+    const statsRow =
+      '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:6px">'
+      + '<span>min: <b style="color:var(--txt);font-family:\'JetBrains Mono\',monospace">' + fmtCompact(minV) + ' ₴</b></span>'
+      + '<span>max: <b style="color:var(--txt);font-family:\'JetBrains Mono\',monospace">' + fmtCompact(maxV) + ' ₴</b></span>'
+      + '</div>';
+
     html += '<div class="rd-drill-chart">'
-      + '<h5>Динамика продаж по месяцам · ' + (MONTHS[monthly[0].mo] || monthly[0].mo) + ' – ' + (MONTHS[monthly[monthly.length-1].mo] || '') + '</h5>'
-      + '<div style="height:100px">' + spark + '</div>'
+      + '<h5>Динамика продаж · ' + (MONTHS[monthly[0].mo] || '') + ' – ' + (MONTHS[monthly[monthly.length-1].mo] || '') + '</h5>'
+      + statsRow
+      + chartSvg
+      + monthLabels
       + '</div>';
   }
 
