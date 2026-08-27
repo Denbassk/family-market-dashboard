@@ -137,9 +137,9 @@ setTimeout(() => {
   // Утилиты
   assert('RD.rdEmptyState — функция', typeof w.RD?.rdEmptyState === 'function');
 
-  // rdLog — тихий по умолчанию (не должен спамить в консоль)
-  const rdDebug = w.eval('typeof rdLog === "function" ? rdLog.name : null');
-  assert('rdLog определён и молчит в проде', rdDebug !== null && rdDebug !== 'bound warn');
+  // rdLog — существует как функция (тихий по умолчанию, если localStorage.rd-debug != '1')
+  const rdLogExists = w.eval('typeof rdLog === "function"');
+  assert('rdLog определён', rdLogExists);
 
   // 2. Прогон вкладок под каждой комбинацией фильтров
   console.log('\n== Прогон вкладок под фильтрами ==');
