@@ -887,8 +887,10 @@ function renderAbcSegments(){
   });
 }
 
-// ---------- АНАЛИТИКА: только отключаем hover-мигание для Парето ----------
-// Заливку зон убрали (мигала при hover, ABC-сегмент-бар выше уже даёт ту же информацию).
+// ---------- АНАЛИТИКА: агрессивно отключаем hover-мигание для Парето ----------
+// ECharts применяет blur ко всем сериям/фонам при axisPointer hover — из-за этого
+// areaStyle серии выцветает. Решение: убить axisPointer trigger + downplay состояние
+// сразу после каждого mouseover на chart.
 function enhanceParetoChart(){
   if (!window.echarts || !window.echarts.getInstanceByDom) return;
   const el = document.getElementById('an_abc');
@@ -899,15 +901,41 @@ function enhanceParetoChart(){
   try {
     const opt = chart.getOption();
     if (!opt || !opt.series) return;
+
+    // 1) На всех сериях отключаем emphasis и делаем blur = full-opacity (не выцветать)
     (opt.series || []).forEach(s => {
-      s.emphasis = { disabled: true };
+      s.emphasis = { disabled: true, focus: 'none' };
       s.blur = {
         itemStyle: { opacity: 1 },
         lineStyle: { opacity: 1 },
         areaStyle: { opacity: (s.areaStyle && s.areaStyle.opacity) || 0.12 }
       };
+      s.selectedMode = false;
     });
+
+    // 2) Убираем axisPointer (это он триггерит blur остальных серий/фонов)
+    if (opt.tooltip) {
+      const tooltips = Array.isArray(opt.tooltip) ? opt.tooltip : [opt.tooltip];
+      tooltips.forEach(tt => {
+        // Оставляем trigger='item' — tooltip будет показываться при наведении на саму линию,
+        // но не по всей вертикали (axisPointer убран)
+        tt.axisPointer = { type: 'none' };
+      });
+    }
+
     chart.setOption(opt);
+
+    // 3) Дополнительно: при mouseleave вернуть все элементы в normal state
+    // (иногда ECharts застревает в state 'blur')
+    const zr = chart.getZr && chart.getZr();
+    if (zr) {
+      const dispatchDownplay = () => {
+        try { chart.dispatchAction({ type: 'downplay' }); } catch(e){}
+      };
+      zr.on('mouseout', dispatchDownplay);
+      zr.on('globalout', dispatchDownplay);
+    }
+
     chart.__rdEnhanced = true;
   } catch(e){ console.warn('rd pareto:', e); }
 }
