@@ -1168,48 +1168,50 @@ body.rd #mx_tab tbody tr:hover td:first-child{ background: var(--c2); }
 html[data-theme="light"] body.rd #mx_tab tbody tr:hover td:first-child{ background: oklch(0.94 0.008 260); }
 
 /* ==================================================================
-   УСЛОВИЯ ПОСТАВЩИКОВ — фикс светлой темы через переопределение внутренних переменных
-   Основной index.html имеет :root с --bg-primary, --bg-table-header, --text-primary, ...
-   Переопределяем их для html[data-theme="light"] чтобы вся вкладка стала светлой автоматически.
+   УСЛОВИЯ ПОСТАВЩИКОВ — фикс светлой темы
+   Основной index.html имеет `#p_suppliers { --bg-primary: ..., --bg-card: ..., ... }`,
+   т.е. переменные scope'нуты на id-селектор. Специфичность 0,1,0,0.
+   Чтобы переопределить, используем `html[data-theme="light"] #p_suppliers` (0,1,0,2).
    ================================================================== */
-html[data-theme="light"]{
-  /* Основные фоны вкладки */
+html[data-theme="light"] #p_suppliers{
   --bg-primary:         oklch(0.985 0.003 260);
   --bg-secondary:       oklch(0.965 0.005 260);
   --bg-tertiary:        oklch(0.955 0.007 260);
   --bg-card:            oklch(1 0 0);
   --bg-hover:           oklch(0.94 0.008 260);
   --bg-input:           oklch(0.955 0.007 260);
-  /* Фоны таблицы */
   --bg-table-header:    oklch(0.955 0.007 260);
   --bg-table-row-even:  oklch(0.98 0.005 260);
   --bg-table-row-odd:   oklch(1 0 0);
   --bg-modal:           oklch(1 0 0);
   --bg-overlay:         oklch(0.20 0 0 / .5);
-  /* Текст */
   --text-primary:       oklch(0.20 0.02 260);
   --text-secondary:     oklch(0.45 0.015 260);
   --text-muted:         oklch(0.55 0.014 260);
-  /* Бордеры */
   --border-color:       oklch(0.90 0.008 260);
   --border-light:       oklch(0.82 0.010 260);
-  /* Скролл */
   --scrollbar-track:    oklch(0.965 0.005 260);
   --scrollbar-thumb:    oklch(0.82 0.010 260);
   --scrollbar-thumb-hover: oklch(0.75 0.012 260);
 }
 
-/* Дополнительно — числа в KPI-плитке поставщиков (там жёстко color: #fff) */
+/* KPI-плитка поставщиков — фон и текст на светлой теме */
+html[data-theme="light"] #p_suppliers .kpi{
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+}
 html[data-theme="light"] #p_suppliers .kpi .v{ color: var(--text-primary) !important; }
 html[data-theme="light"] #p_suppliers .kpi .t{ color: var(--text-muted) !important; }
 
-/* Проценты в ячейках (.pct-high, .pct-low) — оставляем цветными, но на светлом фоне
-   белый текст читаемый уже не нужен, оригинальные rgba-фоны работают. */
-
-/* Модалка поставщика — переопределяем фон под светлую тему */
+/* Overlay модалки */
 html[data-theme="light"] #p_suppliers .modal-overlay,
 html[data-theme="light"] #p_suppliers .form-overlay{
   background: oklch(0.20 0 0 / .5) !important;
+}
+
+/* Кнопка "просмотр без сохранения" на светлой теме */
+html[data-theme="light"] #p_suppliers .sup-cloud{
+  color: var(--text-primary);
 }
 
 /* ==================================================================
