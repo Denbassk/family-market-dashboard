@@ -1168,52 +1168,49 @@ body.rd #mx_tab tbody tr:hover td:first-child{ background: var(--c2); }
 html[data-theme="light"] body.rd #mx_tab tbody tr:hover td:first-child{ background: oklch(0.94 0.008 260); }
 
 /* ==================================================================
-   УСЛОВИЯ ПОСТАВЩИКОВ — общий фикс светлой темы
-   Основной index.html имеет много хардкод-цветов (#fff, тёмные фоны) внутри #p_suppliers.
-   Переопределяем на светлой теме.
+   УСЛОВИЯ ПОСТАВЩИКОВ — фикс светлой темы через переопределение внутренних переменных
+   Основной index.html имеет :root с --bg-primary, --bg-table-header, --text-primary, ...
+   Переопределяем их для html[data-theme="light"] чтобы вся вкладка стала светлой автоматически.
    ================================================================== */
-html[data-theme="light"] #p_suppliers .kpi .v{ color: oklch(0.20 0.02 260) !important; }
-html[data-theme="light"] #p_suppliers .kpi .t{ color: var(--muted) !important; }
-html[data-theme="light"] #p_suppliers .card{ background: var(--card); }
-html[data-theme="light"] #p_suppliers table{
-  background: var(--card);
-  color: var(--txt);
+html[data-theme="light"]{
+  /* Основные фоны вкладки */
+  --bg-primary:         oklch(0.985 0.003 260);
+  --bg-secondary:       oklch(0.965 0.005 260);
+  --bg-tertiary:        oklch(0.955 0.007 260);
+  --bg-card:            oklch(1 0 0);
+  --bg-hover:           oklch(0.94 0.008 260);
+  --bg-input:           oklch(0.955 0.007 260);
+  /* Фоны таблицы */
+  --bg-table-header:    oklch(0.955 0.007 260);
+  --bg-table-row-even:  oklch(0.98 0.005 260);
+  --bg-table-row-odd:   oklch(1 0 0);
+  --bg-modal:           oklch(1 0 0);
+  --bg-overlay:         oklch(0.20 0 0 / .5);
+  /* Текст */
+  --text-primary:       oklch(0.20 0.02 260);
+  --text-secondary:     oklch(0.45 0.015 260);
+  --text-muted:         oklch(0.55 0.014 260);
+  /* Бордеры */
+  --border-color:       oklch(0.90 0.008 260);
+  --border-light:       oklch(0.82 0.010 260);
+  /* Скролл */
+  --scrollbar-track:    oklch(0.965 0.005 260);
+  --scrollbar-thumb:    oklch(0.82 0.010 260);
+  --scrollbar-thumb-hover: oklch(0.75 0.012 260);
 }
-html[data-theme="light"] #p_suppliers tbody td{ color: var(--txt); }
-html[data-theme="light"] #p_suppliers thead th{
-  background: var(--c2);
-  color: var(--muted);
-}
-html[data-theme="light"] #p_suppliers tbody tr:hover{ background: oklch(0.94 0.008 260); }
-html[data-theme="light"] #p_suppliers .modal,
-html[data-theme="light"] #p_suppliers .form-modal{
-  background: var(--card);
-  color: var(--txt);
-}
+
+/* Дополнительно — числа в KPI-плитке поставщиков (там жёстко color: #fff) */
+html[data-theme="light"] #p_suppliers .kpi .v{ color: var(--text-primary) !important; }
+html[data-theme="light"] #p_suppliers .kpi .t{ color: var(--text-muted) !important; }
+
+/* Проценты в ячейках (.pct-high, .pct-low) — оставляем цветными, но на светлом фоне
+   белый текст читаемый уже не нужен, оригинальные rgba-фоны работают. */
+
+/* Модалка поставщика — переопределяем фон под светлую тему */
 html[data-theme="light"] #p_suppliers .modal-overlay,
 html[data-theme="light"] #p_suppliers .form-overlay{
   background: oklch(0.20 0 0 / .5) !important;
 }
-html[data-theme="light"] #p_suppliers .btn{
-  background: var(--c2);
-  color: var(--txt);
-  border-color: var(--line);
-}
-html[data-theme="light"] #p_suppliers .btn-primary{
-  background: var(--acc);
-  color: #fff;
-  border-color: transparent;
-}
-html[data-theme="light"] #p_suppliers .btn:hover{ background: var(--card); border-color: var(--line2); }
-html[data-theme="light"] #p_suppliers .form-field label{ color: var(--muted); }
-html[data-theme="light"] #p_suppliers .form-field input,
-html[data-theme="light"] #p_suppliers .form-field select,
-html[data-theme="light"] #p_suppliers .form-field textarea{
-  background: var(--c2);
-  color: var(--txt);
-  border-color: var(--line);
-}
-html[data-theme="light"] #p_suppliers .no-results{ color: var(--muted); }
 
 /* ==================================================================
    УСЛОВИЯ ПОСТАВЩИКОВ: пилюли для условий + badge доставки
