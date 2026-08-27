@@ -846,6 +846,12 @@ html[data-theme="light"] .kpi .v,
 html[data-theme="light"] body.rd .kpi .v{
   color: oklch(0.20 0.02 260) !important;
 }
+/* Общий фикс — все жёстко белые тексты в light-теме заменяем на var(--txt) */
+html[data-theme="light"] .kpi{ color: var(--txt); }
+html[data-theme="light"] .card{ color: var(--txt); }
+html[data-theme="light"] .drill{ color: var(--txt); }
+html[data-theme="light"] .drill h4{ color: var(--txt); }
+html[data-theme="light"] .dstat .v{ color: var(--txt) !important; }
 html[data-theme="light"] #ov_kpis .kpi:first-child .v{
   color: var(--acc) !important;
   -webkit-text-fill-color: var(--acc) !important;
@@ -1141,6 +1147,74 @@ body.rd #mx_tab tbody tr[data-mx-status="Нет данных"] td:first-child{ b
 /* Прячем оригинальный селект #mxStatus когда chip-фильтры готовы */
 body.rd .ctrl:has(> select#mxStatus){ display: none !important; }
 
+/* На Матрице фильтры сверху не работают — скрываем всю панель фильтров (глобальный .bar) */
+body.rd #p_matrix > .bar:first-of-type{ display: none !important; }
+/* Chips + внутренняя bar Матрицы остаются видимыми */
+
+/* Матрица: закрепление первого столбца — уже работает через общий STICKY блок ниже,
+   но #mx_tab использует .scroll не всегда — добавляем явное правило */
+body.rd #mx_tab thead th:first-child,
+body.rd #mx_tab tbody td:first-child{
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--card);
+  box-shadow: 6px 0 8px -6px oklch(0.10 0 0 / .35);
+}
+body.rd #mx_tab thead th:first-child{ z-index: 3; background: var(--c2); }
+html[data-theme="dark"]  body.rd #mx_tab tbody tr:nth-child(even) td:first-child{ background: oklch(0.19 0.014 260); }
+html[data-theme="light"] body.rd #mx_tab tbody tr:nth-child(even) td:first-child{ background: oklch(0.975 0.005 260); }
+body.rd #mx_tab tbody tr:hover td:first-child{ background: var(--c2); }
+html[data-theme="light"] body.rd #mx_tab tbody tr:hover td:first-child{ background: oklch(0.94 0.008 260); }
+
+/* ==================================================================
+   УСЛОВИЯ ПОСТАВЩИКОВ — общий фикс светлой темы
+   Основной index.html имеет много хардкод-цветов (#fff, тёмные фоны) внутри #p_suppliers.
+   Переопределяем на светлой теме.
+   ================================================================== */
+html[data-theme="light"] #p_suppliers .kpi .v{ color: oklch(0.20 0.02 260) !important; }
+html[data-theme="light"] #p_suppliers .kpi .t{ color: var(--muted) !important; }
+html[data-theme="light"] #p_suppliers .card{ background: var(--card); }
+html[data-theme="light"] #p_suppliers table{
+  background: var(--card);
+  color: var(--txt);
+}
+html[data-theme="light"] #p_suppliers tbody td{ color: var(--txt); }
+html[data-theme="light"] #p_suppliers thead th{
+  background: var(--c2);
+  color: var(--muted);
+}
+html[data-theme="light"] #p_suppliers tbody tr:hover{ background: oklch(0.94 0.008 260); }
+html[data-theme="light"] #p_suppliers .modal,
+html[data-theme="light"] #p_suppliers .form-modal{
+  background: var(--card);
+  color: var(--txt);
+}
+html[data-theme="light"] #p_suppliers .modal-overlay,
+html[data-theme="light"] #p_suppliers .form-overlay{
+  background: oklch(0.20 0 0 / .5) !important;
+}
+html[data-theme="light"] #p_suppliers .btn{
+  background: var(--c2);
+  color: var(--txt);
+  border-color: var(--line);
+}
+html[data-theme="light"] #p_suppliers .btn-primary{
+  background: var(--acc);
+  color: #fff;
+  border-color: transparent;
+}
+html[data-theme="light"] #p_suppliers .btn:hover{ background: var(--card); border-color: var(--line2); }
+html[data-theme="light"] #p_suppliers .form-field label{ color: var(--muted); }
+html[data-theme="light"] #p_suppliers .form-field input,
+html[data-theme="light"] #p_suppliers .form-field select,
+html[data-theme="light"] #p_suppliers .form-field textarea{
+  background: var(--c2);
+  color: var(--txt);
+  border-color: var(--line);
+}
+html[data-theme="light"] #p_suppliers .no-results{ color: var(--muted); }
+
 /* ==================================================================
    УСЛОВИЯ ПОСТАВЩИКОВ: пилюли для условий + badge доставки
    ================================================================== */
@@ -1206,11 +1280,15 @@ body.rd #rp_tab td.rd-heat-cell::before{
   position: absolute;
   left: 4px; right: 4px;
   bottom: 3px;
-  height: 3px;
+  height: 4px;
   background: color-mix(in oklch, var(--acc) calc(var(--intens, 0) * 100%), transparent);
   border-radius: 99px;
   pointer-events: none;
   transition: background .3s;
+}
+/* Плюс лёгкий тон фона ячейки */
+body.rd #rp_tab td.rd-heat-cell{
+  background-color: color-mix(in oklch, var(--acc) calc(var(--intens, 0) * 8%), transparent);
 }
 /* Sparkline в итоговой колонке отчёта */
 body.rd #rp_tab .rd-rp-spark{
