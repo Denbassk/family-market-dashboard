@@ -1050,6 +1050,108 @@ tbody tr.rd-top-3 td:first-child{ box-shadow: inset 3px 0 0 var(--vio); }
 }
 
 /* ==================================================================
+   EMPTY STATES — красивые сообщения при отсутствии данных
+   ================================================================== */
+.rd-empty{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: 200px;
+  color: var(--muted);
+  text-align: center;
+  gap: 10px;
+}
+.rd-empty .icon{
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--c2);
+  display: grid;
+  place-items: center;
+  color: var(--faint);
+  opacity: .8;
+}
+.rd-empty .icon svg{ width: 24px; height: 24px; }
+.rd-empty h4{
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--txt);
+  letter-spacing: -.005em;
+}
+.rd-empty p{
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  max-width: 320px;
+  line-height: 1.5;
+}
+.rd-empty .hint{
+  font-size: 11.5px;
+  color: var(--faint);
+  padding: 3px 8px;
+  background: var(--c2);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 4px;
+}
+
+/* ==================================================================
+   МОБИЛЬНАЯ ВЕРСИЯ — дополнительные фиксы для новых компонентов
+   ================================================================== */
+@media (max-width: 900px){
+  /* ABC segment bar — компактнее */
+  .rd-abc-segments{ height: 60px; }
+  .rd-abc-seg .lbl{ font-size: 9.5px; }
+  .rd-abc-seg .val{ font-size: 11px; }
+  .rd-abc-caption{
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+    font-size: 10.5px;
+  }
+
+  /* Network diagram — меньше высота */
+  .rd-network-wrap{ height: 380px; }
+  .rd-net-node text{ font-size: 9px; }
+
+  /* Virtual scroll — компактнее */
+  .rd-virt-wrap{ height: 500px; }
+  .rd-virt-row > div,
+  .rd-virt-header > div{ padding: 6px 8px; font-size: 11.5px; }
+
+  /* Drill v2 — на всю ширину */
+  .rd-drill{ padding: 14px 16px; }
+  .rd-drill-head .title{ font-size: 15px; }
+  .rd-drill-head{ flex-direction: column; }
+  .rd-drill-close{ align-self: flex-start; }
+  .rd-drill-grid{ grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .rd-drill-stat .v{ font-size: 15px; }
+
+  /* Матрица — chip-фильтры компактнее */
+  .rd-mx-chip{ padding: 5px 10px; font-size: 11.5px; }
+
+  /* Поставщики — модалка на всю ширину */
+  body.rd #p_suppliers .modal{ width: 96vw !important; max-width: 96vw !important; }
+  body.rd #p_suppliers .modal-header{ padding: 14px 18px !important; }
+  body.rd #p_suppliers .modal-header h2{ font-size: 16px !important; }
+  body.rd #p_suppliers .modal-body{ padding: 14px 18px !important; }
+  body.rd #p_suppliers .modal-row{
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+  }
+  body.rd #p_suppliers .modal-row .modal-value{ padding-left: 4px; }
+
+  /* Sticky первая колонка — тень поменьше */
+  body.rd .scroll table thead th:first-child,
+  body.rd .scroll table tbody td:first-child{
+    box-shadow: 3px 0 4px -3px oklch(0.10 0 0 / .3);
+  }
+}
+
+/* ==================================================================
    ПРИОРИТЕТ 3: SCATTER LABELS, NETWORK, DRILL v2, MODAL v2
    ================================================================== */
 

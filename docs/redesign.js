@@ -9,6 +9,12 @@
 (function(){
 'use strict';
 
+// Условный логгер: включается через localStorage.setItem('rd-debug', '1')
+const rdLog = (function(){
+  const enabled = (function(){ try { return localStorage.getItem('rd-debug') === '1'; } catch(e){ return false; } })();
+  return enabled ? console.warn.bind(console, '[rd]') : function(){};
+})();
+
 // ---------- утилиты ----------
 // ВНИМАНИЕ: не объявляем глобальные $/$$ — они уже есть в основном скрипте.
 // Используем локальные rd$ / rd$$
@@ -85,7 +91,7 @@ function reRenderCharts(){
         applyEchartsTheme(inst);
       }
     });
-  } catch(e){ console.warn('re-theme charts:', e); }
+  } catch(e){ rdLog('re-theme charts:', e); }
 }
 
 // Хук на theme-change — с задержкой, чтобы CSS-переменные успели пересчитаться
@@ -236,7 +242,7 @@ function applyEchartsTheme(chart){
     opt.color = paletteBar;
 
     chart.setOption(opt, { notMerge: false, lazyUpdate: false });
-  } catch(e){ console.warn('applyEchartsTheme:', e); }
+  } catch(e){ rdLog('applyEchartsTheme:', e); }
 }
 
 // ---------- SHELL: build sidebar + topbar ----------
@@ -415,11 +421,12 @@ function overrideHeatmap(){
 
     const hm = D.heatmap;
     if (!hm || !hm.length){
-      container.innerHTML = `<div style="padding:60px 20px;text-align:center;color:var(--muted);font-size:13px">
-        <div style="font-size:32px;opacity:.5;margin-bottom:10px">📊</div>
-        Тепловая карта появится после пересборки данных.<br>
-        <span style="font-size:11px">Требуется поле D.heatmap (turnover_transactions)</span>
-      </div>`;
+      container.innerHTML = rdEmptyState({
+        icon: 'chart',
+        title: 'Тепловая карта пока недоступна',
+        desc: 'Данные день × час собираются из turnover_transactions при пересборке.',
+        hint: 'Нажмите «Обновить данные»'
+      });
       if (noteEl) noteEl.textContent = '';
       return;
     }
@@ -545,10 +552,10 @@ function rdWhenReady(fn, opts){
     tries++;
     if (rdIsReady()) {
       clearInterval(iv);
-      try { fn(); } catch(e){ console.warn('rd whenReady fn:', e); }
+      try { fn(); } catch(e){ rdLog('rd whenReady fn:', e); }
     } else if (tries >= maxTries) {
       clearInterval(iv);
-      console.warn('rd whenReady: timeout waiting for D');
+      rdLog('rd whenReady: timeout waiting for D');
     }
   }, interval);
   return iv;
@@ -689,10 +696,10 @@ function renderStoreRank(){
 }
 
 function renderOverviewRanks(){
-  try { renderCatRank(); } catch(e){ console.warn('rd catRank:', e); }
-  try { renderStoreRank(); } catch(e){ console.warn('rd storeRank:', e); }
-  try { restyleAlerts(); } catch(e){ console.warn('rd alerts:', e); }
-  try { restyleTables(); } catch(e){ console.warn('rd tables:', e); }
+  try { renderCatRank(); } catch(e){ rdLog('rd catRank:', e); }
+  try { renderStoreRank(); } catch(e){ rdLog('rd storeRank:', e); }
+  try { restyleAlerts(); } catch(e){ rdLog('rd alerts:', e); }
+  try { restyleTables(); } catch(e){ rdLog('rd tables:', e); }
 }
 
 // ---------- УТИЛИТА: sparkline SVG для маленьких графиков в таблицах ----------
@@ -919,7 +926,7 @@ function enhanceParetoChart(){
     });
     chart.setOption(opt);
     chart.__rdEnhanced = true;
-  } catch(e){ console.warn('rd pareto opt:', e); return; }
+  } catch(e){ rdLog('rd pareto opt:', e); return; }
 
   // Создать или обновить SVG-overlay
   const drawOverlay = () => {
@@ -1337,6 +1344,28 @@ function enhanceReport(){
 }
 
 // ==============================================================
+// EMPTY STATE HELPER
+// ==============================================================
+// Стандартный HTML для «Нет данных» с иконкой + описанием + подсказкой.
+function rdEmptyState(opts){
+  opts = opts || {};
+  const icons = {
+    'no-data': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>',
+    'no-filter': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>',
+    'chart': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 4 4 5-6"/></svg>',
+    'refresh': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    'search': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>'
+  };
+  const icon = icons[opts.icon] || icons['no-data'];
+  return '<div class="rd-empty">'
+    + '<div class="icon">' + icon + '</div>'
+    + (opts.title ? '<h4>' + opts.title + '</h4>' : '')
+    + (opts.desc ? '<p>' + opts.desc + '</p>' : '')
+    + (opts.hint ? '<span class="hint">' + opts.hint + '</span>' : '')
+    + '</div>';
+}
+
+// ==============================================================
 // ПРИОРИТЕТ 3
 // ==============================================================
 
@@ -1446,7 +1475,12 @@ function drawCrossNetwork(container, items){
   // Топ-20 пар (меньше = чище)
   const top = items.slice(0, 20);
   if (!top.length) {
-    container.innerHTML = '<div class="rd-network-empty">Нет данных кросс-продаж</div>';
+    container.innerHTML = rdEmptyState({
+      icon: 'chart',
+      title: 'Нет данных кросс-продаж',
+      desc: 'Пары товаров в одном чеке появятся после пересборки данных.',
+      hint: 'Обновить → BigQuery'
+    });
     return;
   }
 
@@ -2324,13 +2358,13 @@ window.RD.setCompare = function(cmp){
 function addSparklines(){
   // D объявлен через `let` — доступен и через window.D, и через глобальный eval
   const D = rdGetD();
-  if (!D) { console.warn('rd sparklines: no D'); return; }
+  if (!D) { rdLog('rd sparklines: no D'); return; }
   if (!D.monthly || !Array.isArray(D.monthly) || D.monthly.length < 2) {
-    console.warn('rd sparklines: no D.monthly', D.monthly);
+    rdLog('rd sparklines: no D.monthly', D.monthly);
     return;
   }
   const kpis = document.querySelectorAll('#ov_kpis .kpi');
-  if (!kpis.length) { console.warn('rd sparklines: no #ov_kpis .kpi'); return; }
+  if (!kpis.length) { rdLog('rd sparklines: no #ov_kpis .kpi'); return; }
 
   // Отсортируем месяцы, но исключим неполный последний (если период кончается не в последний день)
   let months = D.monthly.slice().sort((a,b) => a.mo - b.mo);
@@ -2431,7 +2465,7 @@ function hookRender(){
         pending = false;
         try {
           if (!box.querySelector('.rd-spark')) addSparklines();
-        } catch(e){ console.warn('rd kpi mo:', e); }
+        } catch(e){ rdLog('rd kpi mo:', e); }
       });
     });
     mo.observe(box, { childList: true, subtree: false });
@@ -2492,7 +2526,7 @@ function hookRender(){
           }
           restyleTables();
           reRenderCharts();
-        } catch(e){ console.warn('rd render hook:', e); }
+        } catch(e){ rdLog('rd render hook:', e); }
       }, 60);
       return r;
     };
@@ -2551,7 +2585,7 @@ function hookRender(){
         enhanceReport();
       }
       restyleTables();
-    } catch(e){ console.warn('rd applyTabFeatures:', e); }
+    } catch(e){ rdLog('rd applyTabFeatures:', e); }
   };
   // При смене класса on/off на любой .page — переприменяем фичи вкладки
   pageBoxes.forEach(page => {
@@ -2585,9 +2619,9 @@ document.addEventListener('DOMContentLoaded', function(){
       hookRender();
       // Ждём готовности данных (D.by_category и т.д.) и тогда стреляем полным набором
       rdWhenReady(() => {
-        try { addSparklines(); } catch(e){ console.warn('rd init sparks:', e); }
-        try { if (rdGetTab() === 'overview') renderOverviewRanks(); } catch(e){ console.warn('rd init ranks:', e); }
-        try { restyleTables(); } catch(e){ console.warn('rd init tables:', e); }
+        try { addSparklines(); } catch(e){ rdLog('rd init sparks:', e); }
+        try { if (rdGetTab() === 'overview') renderOverviewRanks(); } catch(e){ rdLog('rd init ranks:', e); }
+        try { restyleTables(); } catch(e){ rdLog('rd init tables:', e); }
       });
       return;
     }
@@ -2625,6 +2659,8 @@ Object.assign(window.RD, {
   renderCrossNetwork,
   enableProductsVirtualScroll,
   enhanceProductDrill,
+  // Утилиты:
+  rdEmptyState,
 });
 
 })();

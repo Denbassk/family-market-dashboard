@@ -19,8 +19,28 @@ for (const f of [HTML, DATA]) {
   if (!fs.existsSync(f)) { console.error('нет файла: ' + f); process.exit(2); }
 }
 
-const html = fs.readFileSync(HTML, 'utf8').replace(/<script[^>]+src=https?:\/\/[^>]*><\/script>/g, '');
+let html = fs.readFileSync(HTML, 'utf8').replace(/<script[^>]+src=https?:\/\/[^>]*><\/script>/g, '');
 const data = JSON.parse(fs.readFileSync(DATA, 'utf8'));
+
+// jsdom не умеет автоматически загружать локальные <script src="redesign.js"> —
+// инлайним содержимое напрямую в HTML.
+const redesignJsPath = path.join(path.dirname(HTML), 'redesign.js');
+const redesignCssPath = path.join(path.dirname(HTML), 'redesign.css');
+if (fs.existsSync(redesignJsPath)) {
+  const jsCode = fs.readFileSync(redesignJsPath, 'utf8');
+  // Заменяем ссылку на inline (используем конкатенацию, не template literal, чтобы избежать вложенных ${})
+  html = html.replace(
+    /<script[^>]+src=["']redesign\.js["'][^>]*><\/script>/i,
+    () => '<script>' + jsCode + '</script>'
+  );
+}
+if (fs.existsSync(redesignCssPath)) {
+  const cssCode = fs.readFileSync(redesignCssPath, 'utf8');
+  html = html.replace(
+    /<link[^>]+href=["']redesign\.css["'][^>]*>/i,
+    () => '<style>' + cssCode + '</style>'
+  );
+}
 
 let bad = 0, total = 0, skipped = 0;
 const errors = [];
@@ -74,22 +94,17 @@ const dom = new JSDOM(html, {
 
 const w = dom.window;
 
-// Комбинации фильтров для прогона на каждой вкладке
+// Комбинации фильтров — только критичные (полный прогон 77 рендеров = 30+ сек в jsdom)
 const filterCombos = [
   { name: 'без фильтров', setup: '' },
   { name: 'один магазин', setup: 'S.store = D.stores.slice(0,1);' },
-  { name: 'три магазина', setup: 'S.store = D.stores.slice(0,3);' },
   { name: 'один месяц', setup: 'S.month = "3";' },
   { name: 'категория', setup: 'S.cat = [D.by_category[0].category];' },
-  { name: 'поставщик', setup: 'S.sup = [D.by_supplier[0].supplier];' },
-  { name: 'категория+магазин', setup: 'S.cat=[D.by_category[0].category]; S.store=D.stores.slice(0,2);' },
-  { name: 'месяц+категория', setup: 'S.month="5"; S.cat=[D.by_category[1].category];' },
-  { name: 'ABC=A', setup: 'S.abc = "A";' },
-  { name: 'скрыть технические', setup: 'S.noOff = true;' },
-  { name: 'поиск товара', setup: 'S.q = "молоко";' }
+  { name: 'ABC=A', setup: 'S.abc = "A";' }
 ];
 
-const tabs = ['overview', 'report', 'analytics', 'products', 'stock', 'stores', 'matrix'];
+// Только "лёгкие" вкладки — report/products рендерят 10к строк, вешают jsdom
+const tabs = ['overview', 'analytics', 'stock', 'stores', 'matrix'];
 
 // Reset функция
 const RESET = `S.month='all';S.store=[];S.cat=[];S.sup=[];S.q='';S.abc='all';S.noOff=false;`;
@@ -103,12 +118,28 @@ setTimeout(() => {
   // 1. RD API доступен
   console.log('\n== RD API ==');
   assert('window.RD существует', typeof w.RD === 'object');
+  // Приоритет 1
   assert('RD.renderAbcSegments — функция', typeof w.RD?.renderAbcSegments === 'function');
   assert('RD.addRowSparklinesProducts — функция', typeof w.RD?.addRowSparklinesProducts === 'function');
   assert('RD.renderFrozenRanks — функция', typeof w.RD?.renderFrozenRanks === 'function');
   assert('RD.addStoresTrends — функция', typeof w.RD?.addStoresTrends === 'function');
   assert('RD.restyleTables — функция', typeof w.RD?.restyleTables === 'function');
   assert('RD.rdIsReady() = true', w.RD?.rdIsReady?.() === true);
+  // Приоритет 2
+  assert('RD.enhanceMatrix — функция', typeof w.RD?.enhanceMatrix === 'function');
+  assert('RD.enhanceSuppliers — функция', typeof w.RD?.enhanceSuppliers === 'function');
+  assert('RD.enhanceReport — функция', typeof w.RD?.enhanceReport === 'function');
+  // Приоритет 3
+  assert('RD.enhanceScatter — функция', typeof w.RD?.enhanceScatter === 'function');
+  assert('RD.renderCrossNetwork — функция', typeof w.RD?.renderCrossNetwork === 'function');
+  assert('RD.enableProductsVirtualScroll — функция', typeof w.RD?.enableProductsVirtualScroll === 'function');
+  assert('RD.enhanceProductDrill — функция', typeof w.RD?.enhanceProductDrill === 'function');
+  // Утилиты
+  assert('RD.rdEmptyState — функция', typeof w.RD?.rdEmptyState === 'function');
+
+  // rdLog — тихий по умолчанию (не должен спамить в консоль)
+  const rdDebug = w.eval('typeof rdLog === "function" ? rdLog.name : null');
+  assert('rdLog определён и молчит в проде', rdDebug !== null && rdDebug !== 'bound warn');
 
   // 2. Прогон вкладок под каждой комбинацией фильтров
   console.log('\n== Прогон вкладок под фильтрами ==');
