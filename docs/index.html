@@ -5,6 +5,21 @@
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script>window.echarts||document.write('<scr'+'ipt src="https://unpkg.com/echarts@5.5.1/dist/echarts.min.js"><\/scr'+'ipt>');</script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<!-- Redesign v2.0: OKLCH темы, sidebar, topbar, SVG heatmap. Не изменяет JS-логику. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="redesign.js?v=2026-08-27" defer></script>
+<script>
+  // Ранняя установка темы (до отрисовки), чтобы избежать вспышки
+  (function(){
+    try{
+      var t = localStorage.getItem('rd-theme');
+      if (!t) t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    }catch(e){ document.documentElement.setAttribute('data-theme','dark'); }
+  })();
+</script>
 <style>
 :root{--bg:#0a1017;--bg2:#0d141f;--card:#121c2b;--c2:#1a2740;--txt:#eef3fb;--muted:#a9b8cf;--faint:#7f8ea8;--line:#243247;--line2:#2f3f59;--acc:#4aa8ff;--acc2:#7cc4ff;--accsoft:rgba(74,168,255,.12);
 --a:#34d399;--b:#fbbf24;--c:#f87171;--vio:#a78bfa;--orange:#fb923c;
@@ -1434,7 +1449,10 @@ mark{
   #p_suppliers .modal-row{grid-template-columns:1fr;gap:2px}
 }
 
-</style></head>
+</style>
+<!-- Redesign CSS — ПОСЛЕДНИМ в <head>, чтобы гарантированно переопределять inline-стили -->
+<link rel="stylesheet" href="redesign.css?v=2026-08-27">
+</head>
 <body><div class="wrap">
 
 <div class="top">

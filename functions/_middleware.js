@@ -2,15 +2,28 @@
 // Пароль НЕ хранится в коде: он берётся из переменной окружения DASH_PASSWORD,
 // которую ты задаёшь в настройках Cloudflare Pages (Settings → Environment variables).
 // Логин фиксированный: family. Пароль — тот, что ты выдашь собственнику и директору.
+//
+// ВАЖНО: preview-деплои (ветки, отличные от production) пропускаются без пароля,
+// если для них не задан DASH_PASSWORD. Это удобно для быстрой проверки редизайна
+// в feature-ветках. Production-деплой всегда требует пароль.
 
 const USERNAME = "family";
 
 export async function onRequest(context) {
   const { request, env, next } = context;
 
-  // Если пароль не задан в настройках — не пускаем никого (защита от случайной публикации).
   const expectedPass = env.DASH_PASSWORD;
+  // CF_PAGES_BRANCH автоматически выставляется Cloudflare Pages.
+  // Для production он равен основной ветке (main/master). Всё остальное — preview.
+  const branch = env.CF_PAGES_BRANCH || "";
+  const isPreview = branch && branch !== "main" && branch !== "master";
+
+  // Если пароль не задан — пускаем только preview, production блокируем.
   if (!expectedPass) {
+    if (isPreview) {
+      // Preview без пароля: полезно для тестирования feature-веток
+      return next();
+    }
     return new Response("DASH_PASSWORD не задан в настройках Cloudflare Pages.", { status: 500 });
   }
 
