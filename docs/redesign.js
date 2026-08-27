@@ -887,10 +887,10 @@ function renderAbcSegments(){
   });
 }
 
-// ---------- АНАЛИТИКА: агрессивно отключаем hover-мигание для Парето ----------
-// ECharts применяет blur ко всем сериям/фонам при axisPointer hover — из-за этого
-// areaStyle серии выцветает. Решение: убить axisPointer trigger + downplay состояние
-// сразу после каждого mouseover на chart.
+// ---------- АНАЛИТИКА: HTML overlay поверх canvas Парето ----------
+// ECharts 5.5.1 упорно мигает при hover, невозможно отключить. Решение:
+// 1) Убираем areaStyle из ECharts (пусть будет только линия)
+// 2) Рисуем свой SVG-overlay поверх, который не связан с ECharts hover
 function enhanceParetoChart(){
   if (!window.echarts || !window.echarts.getInstanceByDom) return;
   const el = document.getElementById('an_abc');
@@ -898,46 +898,93 @@ function enhanceParetoChart(){
   const chart = window.echarts.getInstanceByDom(el);
   if (!chart) return;
   if (chart.__rdEnhanced) return;
+
+  const D = rdGetD();
+  const curve = D && D.abc && D.abc.curve ? D.abc.curve : null;
+  if (!curve || !curve.length) return;
+
+  const c = getThemeColors();
+
   try {
     const opt = chart.getOption();
     if (!opt || !opt.series) return;
 
-    // 1) На всех сериях отключаем emphasis и делаем blur = full-opacity (не выцветать)
+    // Отключаем areaStyle в ECharts — рисуем свой overlay
     (opt.series || []).forEach(s => {
-      s.emphasis = { disabled: true, focus: 'none' };
-      s.blur = {
-        itemStyle: { opacity: 1 },
-        lineStyle: { opacity: 1 },
-        areaStyle: { opacity: (s.areaStyle && s.areaStyle.opacity) || 0.12 }
-      };
-      s.selectedMode = false;
+      if (s.type === 'line' && s.areaStyle) {
+        s.areaStyle = { opacity: 0 };  // невидимо, но структура сохранена
+      }
+      s.emphasis = { disabled: true };
+      s.silent = false;   // tooltip оставим работать
     });
-
-    // 2) Убираем axisPointer (это он триггерит blur остальных серий/фонов)
-    if (opt.tooltip) {
-      const tooltips = Array.isArray(opt.tooltip) ? opt.tooltip : [opt.tooltip];
-      tooltips.forEach(tt => {
-        // Оставляем trigger='item' — tooltip будет показываться при наведении на саму линию,
-        // но не по всей вертикали (axisPointer убран)
-        tt.axisPointer = { type: 'none' };
-      });
-    }
-
     chart.setOption(opt);
+    chart.__rdEnhanced = true;
+  } catch(e){ console.warn('rd pareto opt:', e); return; }
 
-    // 3) Дополнительно: при mouseleave вернуть все элементы в normal state
-    // (иногда ECharts застревает в state 'blur')
-    const zr = chart.getZr && chart.getZr();
-    if (zr) {
-      const dispatchDownplay = () => {
-        try { chart.dispatchAction({ type: 'downplay' }); } catch(e){}
-      };
-      zr.on('mouseout', dispatchDownplay);
-      zr.on('globalout', dispatchDownplay);
+  // Создать или обновить SVG-overlay
+  const drawOverlay = () => {
+    // Убедимся что контейнер имеет position: relative
+    if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+
+    let overlay = el.querySelector('.rd-pareto-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'rd-pareto-overlay';
+      overlay.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:1;';
+      el.appendChild(overlay);
     }
 
-    chart.__rdEnhanced = true;
-  } catch(e){ console.warn('rd pareto:', e); }
+    const w = el.clientWidth;
+    const h = el.clientHeight;
+    if (!w || !h) return;
+
+    // Получим пиксельные координаты кривой из ECharts
+    // Формат curve: [[rank, cumPct], ...]
+    let pts = [];
+    try {
+      pts = curve.map(pt => {
+        const px = chart.convertToPixel({ xAxisIndex: 0 }, pt[0]);
+        const py = chart.convertToPixel({ yAxisIndex: 0 }, pt[1]);
+        return [px, py];
+      }).filter(p => isFinite(p[0]) && isFinite(p[1]));
+    } catch(e){ return; }
+    if (pts.length < 2) return;
+
+    // Найдём baseline — нижний край grid (y для value=0)
+    let yBase;
+    try {
+      yBase = chart.convertToPixel({ yAxisIndex: 0 }, 0);
+    } catch(e){ yBase = h - 30; }
+
+    // Построим path area
+    let pathD = 'M' + pts[0][0].toFixed(1) + ',' + yBase.toFixed(1);
+    pts.forEach(p => { pathD += ' L' + p[0].toFixed(1) + ',' + p[1].toFixed(1); });
+    pathD += ' L' + pts[pts.length-1][0].toFixed(1) + ',' + yBase.toFixed(1) + ' Z';
+
+    // SVG контент
+    overlay.innerHTML =
+      '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" style="display:block">'
+      + '<defs>'
+      +   '<linearGradient id="rd-pareto-grad" x1="0" y1="0" x2="0" y2="1">'
+      +     '<stop offset="0" stop-color="' + c.pos + '" stop-opacity=".22"/>'
+      +     '<stop offset="1" stop-color="' + c.pos + '" stop-opacity="0"/>'
+      +   '</linearGradient>'
+      + '</defs>'
+      + '<path d="' + pathD + '" fill="url(#rd-pareto-grad)"/>'
+      + '</svg>';
+  };
+
+  // Первая отрисовка (даём чарту закончить layout)
+  setTimeout(drawOverlay, 100);
+  // При завершении рендера
+  chart.on('finished', drawOverlay);
+  // При ресайзе
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => setTimeout(drawOverlay, 50));
+    ro.observe(el);
+  } else {
+    window.addEventListener('resize', () => setTimeout(drawOverlay, 100));
+  }
 }
 
 // ---------- ЗАПАСЫ: заменить ECharts на SVG rank для frozen ----------
