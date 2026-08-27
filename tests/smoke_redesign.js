@@ -100,11 +100,11 @@ testHtml = testHtml.replace(/<link[^>]+fonts\.googleapis[^>]*>/gi, '');
 // ссылки → SyntaxError. Функциональный replacer защищает от этого, но template literal с ${js}
 // НЕ защищает — внутренние ${...} снова парсятся движком. Только строковая конкатенация даёт полную изоляцию.
 testHtml = testHtml.replace(
-  /<link[^>]+href=["']redesign\.css["'][^>]*>/i,
+  /<link[^>]+href=["']redesign\.css(?:\?[^"']*)?["'][^>]*>/i,
   () => '<style>' + css + '</style>'
 );
 testHtml = testHtml.replace(
-  /<script[^>]+src=["']redesign\.js["'][^>]*><\/script>/i,
+  /<script[^>]+src=["']redesign\.js(?:\?[^"']*)?["'][^>]*><\/script>/i,
   () => '<script>' + js + '</script>'
 );
 

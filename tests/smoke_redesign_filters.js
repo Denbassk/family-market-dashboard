@@ -26,18 +26,18 @@ const data = JSON.parse(fs.readFileSync(DATA, 'utf8'));
 // инлайним содержимое напрямую в HTML.
 const redesignJsPath = path.join(path.dirname(HTML), 'redesign.js');
 const redesignCssPath = path.join(path.dirname(HTML), 'redesign.css');
+// Regex ловит и redesign.js, и redesign.js?v=2026-08-27 (cache-bust)
 if (fs.existsSync(redesignJsPath)) {
   const jsCode = fs.readFileSync(redesignJsPath, 'utf8');
-  // Заменяем ссылку на inline (используем конкатенацию, не template literal, чтобы избежать вложенных ${})
   html = html.replace(
-    /<script[^>]+src=["']redesign\.js["'][^>]*><\/script>/i,
+    /<script[^>]+src=["']redesign\.js(?:\?[^"']*)?["'][^>]*><\/script>/i,
     () => '<script>' + jsCode + '</script>'
   );
 }
 if (fs.existsSync(redesignCssPath)) {
   const cssCode = fs.readFileSync(redesignCssPath, 'utf8');
   html = html.replace(
-    /<link[^>]+href=["']redesign\.css["'][^>]*>/i,
+    /<link[^>]+href=["']redesign\.css(?:\?[^"']*)?["'][^>]*>/i,
     () => '<style>' + cssCode + '</style>'
   );
 }
