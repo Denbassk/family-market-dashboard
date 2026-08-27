@@ -887,108 +887,29 @@ function renderAbcSegments(){
   });
 }
 
-// ---------- АНАЛИТИКА: заливка зон под кривой Парето ----------
-// Отказались от markArea (она гаснет при hover в ECharts).
-// Вместо этого рисуем 3 постоянные фоновые полосы как отдельные bar-серии типа "background".
+// ---------- АНАЛИТИКА: только отключаем hover-мигание для Парето ----------
+// Заливку зон убрали (мигала при hover, ABC-сегмент-бар выше уже даёт ту же информацию).
 function enhanceParetoChart(){
   if (!window.echarts || !window.echarts.getInstanceByDom) return;
   const el = document.getElementById('an_abc');
   if (!el) return;
   const chart = window.echarts.getInstanceByDom(el);
   if (!chart) return;
-  const opt = chart.getOption();
-  if (!opt || !opt.series || !opt.series.length) return;
   if (chart.__rdEnhanced) return;
-
-  const c = getThemeColors();
-
-  // Отключить hover-состояния глобально
-  opt.stateAnimation = { duration: 0 };
-  opt.animation = false;
-
-  // Убираем сложную markArea — рисуем через SVG overlay поверх canvas
-  // (canvas не подлежит SVG-миксу, но можем нарисовать три графических элемента через
-  // API graphic — они не участвуют в hover и не мигают)
-  opt.graphic = [
-    { type: 'group', silent: true, invisible: false,
-      children: [
-        // Три полосы; координаты через yAxis pixel: используем positions относительно grid
-        // ECharts позволит нарисовать через 'rect' с bounding относительно grid
-      ]
-    }
-  ];
-
-  // Более надёжный подход — dataZoom-style фон через yAxis splitArea
-  opt.yAxis = opt.yAxis || [];
-  const yAxes = Array.isArray(opt.yAxis) ? opt.yAxis : [opt.yAxis];
-  yAxes.forEach(ya => {
-    ya.splitArea = {
-      show: true,
-      // ECharts по умолчанию чередует. Мы задаём три цвета по интервалам через areaStyle
-      areaStyle: {
-        colors: [
-          'transparent',   // 0-20
-          'transparent',   // 20-40
-          'transparent',   // 40-60
-          'transparent',   // 60-80
-        ]
-      }
-    };
-  });
-
-  // Для настоящей заливки зон — используем markLine + фоновые полосы через series типа line с areaStyle,
-  // но самый надёжный вариант — plotBands через custom series.
-  // Используем graphic по пиксельным координатам (после setOption инстанс знает размеры).
-  chart.setOption(opt);
-
-  const drawZones = () => {
-    const w = chart.getWidth();
-    const h = chart.getHeight();
-    if (!w || !h) return;
-    // Получаем pixel координаты для y=0,80,95,100
-    const y0   = chart.convertToPixel({ yAxisIndex: 0 }, 0);
-    const y80  = chart.convertToPixel({ yAxisIndex: 0 }, 80);
-    const y95  = chart.convertToPixel({ yAxisIndex: 0 }, 95);
-    const y100 = chart.convertToPixel({ yAxisIndex: 0 }, 100);
-    // Левая/правая границы grid
-    const xL = chart.convertToPixel({ xAxisIndex: 0 }, chart.getModel().getComponent('xAxis',0).axis.scale.getExtent()[0]);
-    const xR = chart.convertToPixel({ xAxisIndex: 0 }, chart.getModel().getComponent('xAxis',0).axis.scale.getExtent()[1]);
-
-    chart.setOption({
-      graphic: [
-        // Зона A (0-80) — зелёная
-        { type: 'rect', z: 0, silent: true, invisible: false,
-          shape: { x: xL, y: y80, width: xR - xL, height: y0 - y80 },
-          style: { fill: c.pos, opacity: 0.10 } },
-        // Зона B (80-95) — жёлтая
-        { type: 'rect', z: 0, silent: true, invisible: false,
-          shape: { x: xL, y: y95, width: xR - xL, height: y80 - y95 },
-          style: { fill: c.warn, opacity: 0.14 } },
-        // Зона C (95-100) — красная
-        { type: 'rect', z: 0, silent: true, invisible: false,
-          shape: { x: xL, y: y100, width: xR - xL, height: y95 - y100 },
-          style: { fill: c.neg, opacity: 0.18 } },
-      ]
+  try {
+    const opt = chart.getOption();
+    if (!opt || !opt.series) return;
+    (opt.series || []).forEach(s => {
+      s.emphasis = { disabled: true };
+      s.blur = {
+        itemStyle: { opacity: 1 },
+        lineStyle: { opacity: 1 },
+        areaStyle: { opacity: (s.areaStyle && s.areaStyle.opacity) || 0.12 }
+      };
     });
-  };
-  // Рисуем зоны сразу и при ресайзе
-  setTimeout(drawZones, 50);
-  chart.on('finished', drawZones);
-  // ResizeObserver на контейнер — перерисуем при смене размера
-  if (window.ResizeObserver) {
-    const ro = new ResizeObserver(() => setTimeout(drawZones, 50));
-    ro.observe(el);
-  }
-
-  // Отключить hover-эффекты серий
-  const opt2 = chart.getOption();
-  (opt2.series || []).forEach(s => {
-    s.emphasis = { disabled: true };
-    s.blur = { itemStyle: { opacity: 1 }, lineStyle: { opacity: 1 }, areaStyle: { opacity: (s.areaStyle && s.areaStyle.opacity) || 0.12 } };
-  });
-  chart.setOption(opt2);
-
-  chart.__rdEnhanced = true;
+    chart.setOption(opt);
+    chart.__rdEnhanced = true;
+  } catch(e){ console.warn('rd pareto:', e); }
 }
 
 // ---------- ЗАПАСЫ: заменить ECharts на SVG rank для frozen ----------
