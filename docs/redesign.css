@@ -1050,6 +1050,463 @@ tbody tr.rd-top-3 td:first-child{ box-shadow: inset 3px 0 0 var(--vio); }
 }
 
 /* ==================================================================
+   ПРИОРИТЕТ 3: SCATTER LABELS, NETWORK, DRILL v2, MODAL v2
+   ================================================================== */
+
+/* ---------- Аналитика: подписи топ-пузырей на scatter ---------- */
+.rd-scatter-labels{
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.rd-scatter-label{
+  position: absolute;
+  transform: translate(-50%, -110%);
+  background: color-mix(in oklch, var(--card) 92%, transparent);
+  border: 1px solid var(--line);
+  color: var(--txt);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 8px oklch(0.10 0 0 / .25);
+  pointer-events: none;
+}
+.rd-scatter-label::after{
+  content: "";
+  position: absolute;
+  left: 50%; bottom: -4px;
+  width: 6px; height: 6px;
+  background: var(--card);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transform: translateX(-50%) rotate(45deg);
+}
+html[data-theme="light"] .rd-scatter-label{
+  box-shadow: 0 2px 8px oklch(0.20 0 0 / .10);
+}
+
+/* ---------- Аналитика: кросс-продажи как network ---------- */
+.rd-network-wrap{
+  position: relative;
+  width: 100%;
+  height: 520px;
+  background: color-mix(in oklch, var(--bg) 70%, transparent);
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.rd-network-wrap svg{
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+.rd-network-wrap svg:active{ cursor: grabbing; }
+.rd-net-link{
+  stroke: var(--muted);
+  stroke-opacity: .35;
+  transition: stroke-opacity .2s, stroke .2s;
+}
+.rd-net-link.hi{ stroke: var(--acc); stroke-opacity: .8; }
+.rd-net-node circle{
+  transition: r .18s, stroke-width .18s;
+}
+.rd-net-node text{
+  fill: var(--txt);
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  pointer-events: none;
+  user-select: none;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+html[data-theme="light"] .rd-net-node text{ stroke: oklch(1 0 0); }
+.rd-net-node:hover circle{
+  r: 12;
+  stroke: var(--acc);
+  stroke-width: 2;
+}
+.rd-network-empty{
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Toggle таблица/сеть */
+.rd-cross-toggle{
+  display: inline-flex;
+  gap: 2px;
+  background: var(--c2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px;
+  margin-left: 8px;
+}
+.rd-cross-toggle button{
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+.rd-cross-toggle button:hover{ color: var(--txt); }
+.rd-cross-toggle button.on{
+  background: var(--acc);
+  color: oklch(0.15 0.01 260);
+  font-weight: 600;
+}
+html[data-theme="light"] .rd-cross-toggle button.on{ color: #fff; }
+
+/* ---------- Позиции: виртуальная прокрутка ---------- */
+.rd-virt-wrap{
+  position: relative;
+  overflow: auto;
+  height: 620px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+}
+.rd-virt-header{
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--c2);
+  display: grid;
+  border-bottom: 1px solid var(--line);
+}
+.rd-virt-header > div{
+  padding: 10px 12px;
+  font-size: 10.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  border-right: 1px solid var(--line-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rd-virt-header > div:hover{ color: var(--txt); }
+.rd-virt-header > div.num{ text-align: right; }
+.rd-virt-header > div.rd-virt-sorted::after{ content: " ▼"; color: var(--acc); }
+.rd-virt-header > div.rd-virt-sorted-asc::after{ content: " ▲"; color: var(--acc); }
+.rd-virt-body{
+  position: relative;
+}
+.rd-virt-row{
+  display: grid;
+  border-bottom: 1px solid var(--line-soft);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+  contain: layout style paint;
+}
+.rd-virt-row:hover{ background: var(--c2); }
+.rd-virt-row.rd-virt-even{ background: oklch(from var(--card) l c h / .5); }
+.rd-virt-row.rd-virt-even:hover{ background: var(--c2); }
+html[data-theme="light"] .rd-virt-row.rd-virt-even{ background: oklch(0.98 0.005 260); }
+html[data-theme="light"] .rd-virt-row:hover{ background: oklch(0.94 0.008 260); }
+.rd-virt-row > div{
+  padding: 8px 12px;
+  font-size: 12.5px;
+  border-right: 1px solid var(--line-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+.rd-virt-row > div.num{
+  justify-content: flex-end;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.rd-virt-row > div.muted{ color: var(--muted); }
+.rd-virt-stats{
+  display: flex;
+  gap: 14px;
+  padding: 8px 14px;
+  color: var(--muted);
+  font-size: 11.5px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg2);
+  align-items: center;
+}
+.rd-virt-stats b{ color: var(--txt); font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; }
+.rd-virt-toggle{
+  background: var(--c2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: auto;
+}
+.rd-virt-toggle:hover{ color: var(--txt); border-color: var(--acc-line); }
+.rd-virt-toggle.on{ background: var(--accsoft); color: var(--acc); border-color: var(--acc-line); }
+
+/* ---------- Позиции: новая drill-панель товара ---------- */
+.rd-drill{
+  background: linear-gradient(160deg, var(--accsoft), var(--card));
+  border: 1px solid var(--acc-line);
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.rd-drill::before{
+  content: "";
+  position: absolute;
+  right: -40px; top: -40px;
+  width: 140px; height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--acc) 0%, transparent 70%);
+  opacity: .08;
+  pointer-events: none;
+}
+.rd-drill-head{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.rd-drill-head .title{
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+  color: var(--txt);
+  flex: 1;
+}
+.rd-drill-head .meta{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.rd-drill-head .meta span{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.rd-drill-close{
+  background: var(--c2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  transition: all .18s;
+}
+.rd-drill-close:hover{ color: var(--txt); border-color: var(--c); }
+.rd-drill-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.rd-drill-stat{
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.rd-drill-stat .v{
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--txt);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.rd-drill-stat .v.pos{ color: var(--a); }
+.rd-drill-stat .v.neg{ color: var(--c); }
+.rd-drill-stat .t{
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-top: 4px;
+  font-weight: 600;
+}
+.rd-drill-chart{
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.rd-drill-chart h5{
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 600;
+}
+.rd-drill-chart svg{ display: block; width: 100%; height: 100px; }
+.rd-drill-stores{
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 12.5px;
+}
+.rd-drill-stores h5{
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 600;
+}
+.rd-drill-store-row{
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.rd-drill-store-row:last-child{ border: none; }
+.rd-drill-store-row .rk{
+  color: var(--faint);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+}
+.rd-drill-store-row .name{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--txt);
+}
+.rd-drill-store-row .val{
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--txt);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.rd-drill-warn{
+  background: var(--c-s);
+  border: 1px solid oklch(from var(--c) l c h / .3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: var(--txt);
+  margin-bottom: 12px;
+}
+.rd-drill-warn b{ color: var(--c); }
+
+/* ---------- Поставщики: полный редизайн модалки ---------- */
+body.rd #p_suppliers .modal-overlay{
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+body.rd #p_suppliers .modal{
+  border-radius: 16px !important;
+  overflow: hidden;
+  box-shadow: 0 24px 60px -12px oklch(0.10 0 0 / .5) !important;
+  border: 1px solid var(--border-color) !important;
+}
+body.rd #p_suppliers .modal-header{
+  background: linear-gradient(135deg, var(--accsoft), transparent) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  padding: 20px 26px !important;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+body.rd #p_suppliers .modal-header h2{
+  margin: 0 !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  letter-spacing: -.015em;
+  color: var(--text-primary) !important;
+  line-height: 1.2;
+}
+body.rd #p_suppliers .modal-close{
+  background: var(--bg-hover) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-muted) !important;
+  width: 32px; height: 32px;
+  border-radius: 8px !important;
+  cursor: pointer;
+  font-size: 16px;
+  display: grid;
+  place-items: center;
+  padding: 0 !important;
+  transition: all .2s;
+}
+body.rd #p_suppliers .modal-close:hover{
+  background: var(--c-s) !important;
+  color: var(--c) !important;
+  border-color: oklch(from var(--c) l c h / .3) !important;
+}
+body.rd #p_suppliers .modal-body{
+  padding: 20px 26px !important;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+body.rd #p_suppliers .modal-row{
+  display: grid !important;
+  grid-template-columns: 180px 1fr !important;
+  gap: 14px !important;
+  padding: 10px 0 !important;
+  border-bottom: 1px solid var(--line-soft) !important;
+  align-items: center;
+}
+body.rd #p_suppliers .modal-row:last-child{ border: none !important; }
+body.rd #p_suppliers .modal-label{
+  color: var(--text-muted) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+body.rd #p_suppliers .modal-value{
+  color: var(--text-primary) !important;
+  font-size: 13px !important;
+  line-height: 1.5;
+}
+body.rd #p_suppliers .modal-actions{
+  padding: 16px 26px !important;
+  border-top: 1px solid var(--border-color) !important;
+  background: var(--bg-secondary) !important;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+body.rd #p_suppliers .modal-actions .btn{
+  padding: 9px 16px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+/* ==================================================================
    МАТРИЦА: KPI-плитка статусов + chip-фильтры
    ================================================================== */
 
