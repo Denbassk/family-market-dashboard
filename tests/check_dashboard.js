@@ -348,6 +348,24 @@ function redesignSuite() {
   add('Оборачиваемость: дни на полке пересчитаны на обороты за период',
       months > 1 && worst > 0 && worst < 200, worst + ' дн (макс по сети, ' + months + ' мес)', '<200');
 
+  // 4-бис) Закупки должны включать централизованный склад. Сеть закупается через
+  //   «Полевая-Склад» (66 млн ₴ из 246 млн за 2026); пока в fetch_incoming.py стоял фильтр
+  //   `store IN keep`, дашборд показывал 181 млн, а по «Водке» — 284 тыс вместо 11,5 млн.
+  const buyStores = new Set(w.eval('(D.in_store_month||[]).map(r=>r.store)'));
+  const netStores = new Set(w.eval('D.stores'));
+  const central = [...buyStores].filter(x => !netStores.has(x));
+  if (central.length) {
+    const cov = w.eval(`(function(){
+      var buys=(D.in_cat_month||[]).reduce(function(a,r){return a+(r.revenue||0);},0);
+      var cogs=(D.kpi.revenue||0)-(D.kpi.gp||0);
+      return cogs? Math.round(buys/cogs*100):0; })()`);
+    add('Закупки: централизованный склад учтён', true, central.join(', '), 'есть');
+    add('Закупки: сходятся с себестоимостью продаж (60–130%)', cov >= 60 && cov <= 130, cov + '%', '60–130%');
+  } else {
+    skip('Закупки: централизованный склад учтён',
+         'данные собраны прежним fetch_incoming.py — нажмите «Обновить данные»');
+  }
+
   // 5) Отчёт по закупкам честно пишет покрытие: приходов по «Водке» 1,9% от продаж.
   w.eval(`${CL}S.tab='report';S.rpBuilt=true;S.rpDim='products';S.rpSource='incoming';S.cat=['Водка'];msSyncAll();render();`);
   const rps = (d.getElementById('rp_s') || {}).textContent || '';

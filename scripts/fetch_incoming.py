@@ -1,12 +1,27 @@
 #!/usr/bin/env python3
 """Приходы/закупки (incoming_transactions) помесячно — для отчётов «Закупки».
-revenue = сумма закупки (amount_purchase), gp = потенц. наценка (retail-purchase), qty = кол-во."""
+revenue = сумма закупки (amount_purchase), gp = потенц. наценка (retail-purchase), qty = кол-во.
+
+ВАЖНО (исправлено 2026-08-27): здесь НЕЛЬЗЯ фильтровать по `store IN keep`.
+Сеть закупается централизованно: 66 млн ₴ из 246 млн (26,5% всех закупок 2026) приходят
+не в магазины, а на «Полевая-Склад», и оттуда расходятся по точкам. Пока стоял фильтр
+по 38 торговым точкам, дашборд показывал 181 млн вместо 246 млн, а по акцизным категориям
+терял почти всё: «Водка» 284 тыс ₴ вместо 11,5 млн (2,5%), «Бренди/Коньяк» — 0 из 5,87 млн.
+Владелец видел продажи водки на 14,8 млн при закупках 284 тыс и справедливо не верил глазам.
+
+Задвоения при этом нет — проверено: внутренних перемещений в incoming_transactions
+практически не бывает (поставщик «Магазин» — 7,7 тыс ₴ за год), а сумма закупок по всем
+объектам (246,0 млн) сходится с себестоимостью продаж за 2026 (243,5 млн) — 101,0%.
+Все крупные поставщики водки («Баядера», «Трейдінг Продакт Компані», «Глобал-Сервіс»)
+везут 100% объёма на склад.
+"""
 import os, json, datetime
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import sys
 sys.path.append(os.path.dirname(__file__))
-from fetch_data import NORM, YEAR
+from fetch_data import YEAR
+from domain import NORM, sql_case, sql_case_full, sql_keep
 
 creds = service_account.Credentials.from_service_account_file(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
 client = bigquery.Client(credentials=creds, project=creds.project_id)
@@ -15,8 +30,8 @@ REF = "`family-market-analytics.family_market.torgsoft_incoming_ref_2026`"
 MX = "`family-market-analytics.family_market.assortment_matrix_full`"
 IS = "`family-market-analytics.family_market._dash_in26`"
 SM = "`family-market-analytics.family_market.supplier_mapping`"
-cases = " ".join(f"WHEN store='{k}' THEN '{v}'" for k, v in NORM.items())
-keep = "(" + ",".join(f"'{k}'" for k in NORM) + ")"
+cases = sql_case()
+keep = sql_keep()
 
 
 def run(sql): return [dict(r) for r in client.query(sql).result()]
@@ -29,7 +44,7 @@ def main():
     WITH m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
          sm AS (SELECT incoming_supplier, ANY_VALUE(matrix_supplier) ms FROM {SM}
                 WHERE matrix_supplier IS NOT NULL GROUP BY incoming_supplier)
-    SELECT CASE {cases} END store, i.barcode, i.product_name,
+    SELECT {sql_case_full('i.store')} store, i.barcode, i.product_name,
       i.supplier supplier_ts,
       -- поставщик в терминах МАТРИЦЫ: сначала по штрих-коду (иначе мультибрендовый
       -- дистрибьютор вроде «ДЛ Солюшн» схлопывает 67 млн ₴ сигарет в одно имя),
@@ -42,14 +57,14 @@ def main():
            WHEN STARTS_WITH(TRIM(i.product_name),'Хот-Дог') THEN 'Хот-дог'
            ELSE COALESCE(m.cat,'Прочее (нет в матрице)') END category
     FROM {IN} i LEFT JOIN m USING(barcode) LEFT JOIN sm ON i.supplier = sm.incoming_supplier
-    WHERE EXTRACT(YEAR FROM i.incoming_datetime)={YEAR} AND store IN {keep}
+    WHERE EXTRACT(YEAR FROM i.incoming_datetime)={YEAR}
     """).result()
 
     out = {}
     # Магазины и Поставщики — из ЭТАЛОНА (torgsoft_incoming_ref_2026), уровень накладных, без задвоений.
-    out["in_store_month"] = run(f"""SELECT CASE {cases} END store, EXTRACT(MONTH FROM doc_date) mo,
+    out["in_store_month"] = run(f"""SELECT {sql_case_full('store')} store, EXTRACT(MONTH FROM doc_date) mo,
       ROUND(SUM(amount),0) revenue, ROUND(SUM(amount_retail-amount),0) gp, 0 qty
-      FROM {REF} WHERE store IN {keep} AND EXTRACT(YEAR FROM doc_date)={YEAR} GROUP BY store, mo""")
+      FROM {REF} WHERE EXTRACT(YEAR FROM doc_date)={YEAR} GROUP BY store, mo""")
     # ПОСТАВЩИКИ — из staging (позиции), а НЕ из эталона.
     # В эталоне поставщик = контрагент Торгсофта («ДЛ Солюшн», «Союз (Оболонь)»), а фильтр
     # «Поставщик» на дашборде построен на именах МАТРИЦЫ («Сигарети_PM», «Оболонь»):
@@ -66,8 +81,9 @@ def main():
       SELECT ROUND(SUM(s.amt),0) total,
              ROUND(SUM(IF(s.supplier IN (SELECT supplier FROM mx), s.amt, 0)),0) matched
       FROM {IS} s""")[0]
+    # эталон берём по ТЕМ ЖЕ границам, что и staging (все объекты), иначе диагностика врёт
     ref_total = run(f"""SELECT ROUND(SUM(amount),0) a FROM {REF}
-      WHERE store IN {keep} AND EXTRACT(YEAR FROM doc_date)={YEAR}""")[0]["a"]
+      WHERE EXTRACT(YEAR FROM doc_date)={YEAR}""")[0]["a"]
     out["in_cat_month"] = run(f"""SELECT category, mo, ROUND(SUM(amt),0) revenue, ROUND(SUM(amt_ret-amt),0) gp, ROUND(SUM(qty),0) qty
       FROM {IS} GROUP BY category, mo""")
     out["in_prod_month"] = run(f"""
