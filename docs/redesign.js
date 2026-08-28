@@ -412,8 +412,11 @@ function overrideHeatmap(){
   if (typeof oldRender !== 'function') return;
 
   window.renderHeatmap = function(){
-    const D = window.D;
-    const S = window.S;
+    // D и S объявлены в основном скрипте через let/const, поэтому свойствами window
+    // они НЕ становятся: window.D тут всегда undefined, и функция выходила на этой
+    // строке — теплокарта не рисовалась никогда. Берём их так же, как остальной файл.
+    const D = rdGetD();
+    const S = rdGetS();
     if (!D || !S) return;
     const container = document.getElementById('hm_chart');
     const noteEl = document.getElementById('hm_note');
@@ -2356,18 +2359,25 @@ window.RD.setCompare = function(cmp){
 // Данные — из D.monthly. Sparkline рендерится ПОД числом, во всю ширину карточки.
 // Стрелка тренда (▲/▼/±) рисуется рядом со значением — Δ vs предыдущий месяц.
 function addSparklines(){
-  // D объявлен через `let` — доступен и через window.D, и через глобальный eval
+  // D объявлен через `let`, поэтому НА window ЕГО НЕТ — только через глобальный eval (rdGetD)
   const D = rdGetD();
   if (!D) { rdLog('rd sparklines: no D'); return; }
-  if (!D.monthly || !Array.isArray(D.monthly) || D.monthly.length < 2) {
-    rdLog('rd sparklines: no D.monthly', D.monthly);
+  // Ряд ТЕКУЩЕГО среза: основной скрипт кладёт его в OV_SERIES при каждом рендере «Обзора».
+  // Раньше здесь всегда стоял D.monthly — сеть целиком, поэтому проценты «к прошлому месяцу»
+  // не реагировали ни на магазин, ни на категорию, ни на поставщика.
+  const slice = rdGetGlobal('OV_SERIES');
+  const useSlice = Array.isArray(slice) && slice.length >= 2;
+  if (!useSlice && (!D.monthly || !Array.isArray(D.monthly) || D.monthly.length < 2)) {
+    rdLog('rd sparklines: нет ни OV_SERIES, ни D.monthly');
     return;
   }
   const kpis = document.querySelectorAll('#ov_kpis .kpi');
   if (!kpis.length) { rdLog('rd sparklines: no #ov_kpis .kpi'); return; }
 
   // Отсортируем месяцы, но исключим неполный последний (если период кончается не в последний день)
-  let months = D.monthly.slice().sort((a,b) => a.mo - b.mo);
+  let months = useSlice
+    ? slice.map(x => ({ mo: x[0], revenue: x[1], gp: x[2] })).sort((a,b) => a.mo - b.mo)
+    : D.monthly.slice().sort((a,b) => a.mo - b.mo);
   let partial = false;
   if (D.period && D.period.end){
     const ed = String(D.period.end);

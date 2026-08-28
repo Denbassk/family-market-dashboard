@@ -29,7 +29,14 @@ const TRUTH = path.join(__dirname, 'truth.json');
 for (const f of [HTML, DATA]) {
   if (!fs.existsSync(f)) { console.error('нет файла: ' + f); process.exit(2); }
 }
-const html = fs.readFileSync(HTML, 'utf8').replace(/<script[^>]+src=[^>]*><\/script>/g, '');
+let html = fs.readFileSync(HTML, 'utf8').replace(/<script[^>]+src=[^>]*><\/script>/g, '');
+// Слой редизайна (docs/redesign.js) подключён как внешний <script defer> и вырезается
+// строкой выше вместе с CDN. Без него харнесс проверял только ядро и не видел ничего,
+// что редизайн ломает поверх. Грузим его отдельно и исполняем как классический скрипт
+// ПОСЛЕ разбора документа — ровно там, где его выполняет браузер (defer).
+// Отключается переменной окружения NO_REDESIGN=1.
+const RD_FILE = path.join(path.dirname(HTML), 'redesign.js');
+const REDESIGN = (!process.env.NO_REDESIGN && fs.existsSync(RD_FILE)) ? fs.readFileSync(RD_FILE, 'utf8') : null;
 const data = JSON.parse(fs.readFileSync(DATA, 'utf8'));
 const truth = fs.existsSync(TRUTH) ? JSON.parse(fs.readFileSync(TRUTH, 'utf8')) : null;
 
@@ -299,6 +306,56 @@ function revisionSuite() {
   add('Кнопки ⬇ Excel указывают на существующие таблицы', badExp.length === 0, badExp.join(',') || '—', '—');
 }
 
+// Регрессии, найденные после редизайна (2026-08-27). Все восемь ловятся только при
+// ЗАГРУЖЕННОМ redesign.js — до этого харнесс вырезал внешние скрипты и слоя не видел.
+function redesignSuite() {
+  const d = w.document;
+  const CL = `${CLEAR}msSyncAll();`;
+
+  // 1) Тепловая карта. Её SVG-версия из redesign.js читала window.D/window.S, а D и S
+  //    объявлены через let/const и свойствами window не становятся -> выходила сразу.
+  w.eval(`${CL}S.tab='stores';render();`);
+  const hm = d.getElementById('hm_chart');
+  add('Тепловая карта: SVG отрисован', !!hm && hm.innerHTML.length > 1000, hm ? hm.innerHTML.length : 0, '>1000');
+  add('Тепловая карта: подпись с пиком', /Пик/.test((d.getElementById('hm_note') || {}).textContent || ''),
+      ((d.getElementById('hm_note') || {}).textContent || '').slice(0, 30), 'Пик …');
+
+  // 2) Каскад категория->поставщик. setFilter/чипы/пресет звали msSync(один ключ),
+  //    и счётчик на соседней кнопке застревал: «Все поставщиков (4)» при пустых фильтрах.
+  const allSup = w.eval('D.by_supplier.length');
+  w.eval(`${CL}setFilter('cat', D.by_category[0].category);`);
+  const narrowed = w.eval("msOptions('sup').length");
+  w.eval(`${CL}`);
+  const restored = w.eval("msSummary('sup')");
+  add('Каскад: список поставщиков сужается под категорию', narrowed < allSup, narrowed, '<' + allSup);
+  add('Каскад: после сброса счётчик поставщиков возвращается', restored.includes(String(allSup)), restored, allSup);
+
+  // 3) Аналитика считается под срез (раньше ABC/покрытие брались по всей сети).
+  w.eval(`${CL}S.tab='analytics';render();`);
+  const abc0 = d.getElementById('an_abc_k').textContent;
+  const cov0 = d.querySelectorAll('#an_cov thead th').length;
+  w.eval(`S.store=[D.stores[0]];msSyncAll();render();`);
+  const abc1 = d.getElementById('an_abc_k').textContent;
+  const cov1 = d.querySelectorAll('#an_cov thead th').length;
+  add('Аналитика: ABC пересчитывается под фильтр', abc0 !== abc1, abc0 === abc1 ? 'та же сводка' : 'меняется', 'меняется');
+  add('Аналитика: покрытие сужается до выбранных точек', cov1 < cov0, cov0 + ' -> ' + cov1, 'меньше');
+  w.eval(`${CL}`);
+
+  // 4) Оборачиваемость. avg_stock — СУММА месячных средних, значит turnover_rate это
+  //    обороты в месяц; деление периода на него завышало срок в monthsCount() раз.
+  const months = w.eval('monthsCount()');
+  const worst = w.eval(`(function(){var m=0;(D.turnover_store||[]).forEach(function(t){var v=shelfDays(t.turnover_rate);if(v>m)m=v;});return m;})()`);
+  add('Оборачиваемость: дни на полке пересчитаны на обороты за период',
+      months > 1 && worst > 0 && worst < 200, worst + ' дн (макс по сети, ' + months + ' мес)', '<200');
+
+  // 5) Отчёт по закупкам честно пишет покрытие: приходов по «Водке» 1,9% от продаж.
+  w.eval(`${CL}S.tab='report';S.rpBuilt=true;S.rpDim='products';S.rpSource='incoming';S.cat=['Водка'];msSyncAll();render();`);
+  const rps = (d.getElementById('rp_s') || {}).textContent || '';
+  add('Отчёт «Закупки»: подписано покрытие относительно продаж', /закупки =/.test(rps),
+      rps.slice(0, 60), 'есть подпись');
+  w.eval(`${CL}S.rpSource='sales';S.rpBuilt=false;`);
+}
+
 function returnsSuite() {
   if (!w.eval('!!(D.returns_fact&&D.returns_dim)')) {
     skip('Возвраты: аддитивность куба и карточка на «Обзоре»',
@@ -345,8 +402,20 @@ function returnsSuite() {
   add('Обзор: ровно один активный сегмент ползунка', seg === 1, seg, 1);
 }
 
+function bootRedesign() {
+  if (!REDESIGN) return;
+  try {
+    const el = w.document.createElement('script');
+    el.textContent = REDESIGN;
+    w.document.body.appendChild(el);
+    // redesign.js подписывается на DOMContentLoaded; в jsdom оно уже прошло, шлём заново
+    w.document.dispatchEvent(new w.Event('DOMContentLoaded', { bubbles: true }));
+  } catch (e) { errors.push('redesign.js не выполнился: ' + (e.stack || e)); }
+}
+
 setTimeout(() => {
   if (!w.eval('typeof D!=="undefined" && !!D')) { console.error('ДАННЫЕ НЕ ЗАГРУЗИЛИСЬ'); process.exit(2); }
+  bootRedesign();
 
   // Что вообще есть в этом full_data.json. Если данные собраны прежним скриптом,
   // часть проверок физически нечем выполнить — они идут как «пропущено», а не «провалено».
@@ -362,6 +431,7 @@ setTimeout(() => {
   }
 
   tabsSuite(); crossSuite(); returnsSuite(); revisionSuite();
+  if (REDESIGN) redesignSuite(); else skip('Регрессии слоя редизайна', 'нет docs/redesign.js');
 
   const num = v => typeof v === 'number' ? v.toLocaleString('ru-RU') : String(v);
   let bad = 0, skipped = 0;

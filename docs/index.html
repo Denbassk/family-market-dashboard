@@ -1796,6 +1796,20 @@ let D=null, charts={};
 const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null,retScope:'rp'};
 function monthSel(){return S.month&&S.month!=='all';}
 function monthN(){return +S.month;}
+// Число месяцев в периоде. Нужно для оборачиваемости: `turnover_*.avg_stock` собирается
+// как SUM((start_cost+end_cost)/2) по turnover_monthly, то есть это СУММА месячных средних,
+// а не средний запас за период. Значит turnover_rate = оборотов В МЕСЯЦ, и пересчёт
+// «дни на полке = период / rate» завышал срок ровно во столько раз, сколько месяцев
+// в периоде (в августе 2026 — в 8 раз: 138 дней вместо 17). Проверено независимо:
+// снимок остатков сети ~20 млн ₴ при себестоимости продаж 907 тыс ₴/день ≈ 22 дня запаса.
+function monthsCount(){return ((D&&D.monthly)||[]).length||1;}
+// Помесячный ряд ТЕКУЩЕГО среза [[месяц, выручка, прибыль], …]. Заполняется в renderOverview.
+// Нужен слою редизайна: спарклайны и проценты «к прошлому месяцу» на карточках он раньше
+// считал из D.monthly, то есть всегда по всей сети — под фильтром цифра не менялась вовсе.
+let OV_SERIES=[];
+// Обороты ЗА ВЕСЬ ПЕРИОД и дни на полке — единственно верный пересчёт.
+function turnsPeriod(rate){return (+rate||0)*monthsCount();}
+function shelfDays(rate){const t=turnsPeriod(rate);const d=(D&&D.period&&D.period.days)||0;return t>0?Math.round(d/t):null;}
 const MONTHS=['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
 const AX='#223047', TXT='#aab9d0';
 const fmtAxis=n=>{n=+n||0;const a=Math.abs(n);return a>=1e6?(+(n/1e6).toFixed(1))+' млн':a>=1e3?Math.round(n/1e3)+' тыс':Math.round(n);};
@@ -1993,6 +2007,10 @@ function msBuild(key){
   box._draw=draw;box._btn=btn;msSync(key);
 }
 function msSync(key){const box=$(MSBOX[key]);if(!box||!box._btn)return;box._btn.textContent=msSummary(key);box._btn.classList.toggle('act',S[key].length>0);if(box.classList.contains('open')&&box._draw)box._draw();}
+// ВАЖНО: после любой смены выбора звать msSyncAll(), а не msSync(один_ключ).
+// Списки категорий и поставщиков связаны каскадом (msOptions), поэтому смена категории
+// меняет и число доступных поставщиков. Если обновить только свою кнопку, соседняя
+// останется с прошлым счётчиком — «Все поставщиков (4)» при пустых фильтрах.
 function msSyncAll(){['store','cat','sup'].forEach(msSync);}
 function initMS(){MSDATA.store=(D.stores||[]).slice();MSDATA.cat=(D.by_category||[]).map(c=>c.category);MSDATA.sup=(D.by_supplier||[]).map(s=>s.supplier);buildCascade();['store','cat','sup'].forEach(msBuild);}
 document.addEventListener('click',e=>{if(!e.target.closest('.ms'))document.querySelectorAll('.ms.open').forEach(o=>o.classList.remove('open'));});
@@ -2074,7 +2092,7 @@ async function load(){
 }
 
 // клик по графику/строке = выбрать один вариант (заменяет текущий выбор фильтра)
-function setFilter(k,v){ if(k==='store'||k==='cat'||k==='sup'){S[k]=[v];msSync(k);} else {S[k]=v;} S.prSel=null; render();}
+function setFilter(k,v){ if(k==='store'||k==='cat'||k==='sup'){S[k]=[v];msSyncAll();} else {S[k]=v;} S.prSel=null; render();}
 // ---------- ПРЕСЕТ «Собственное производство» (Кулинария + Выпечка + Хот-дог) ----------
 // Раньше это была отдельная вкладка со своим запросом в fetch_data.py, который молча исключал
 // опт («Полевая магазин») и не знал про «Хот-дог»: 2 896 785 ₴ против 3 527 919 ₴ по тем же
@@ -2083,7 +2101,7 @@ function setFilter(k,v){ if(k==='store'||k==='cat'||k==='sup'){S[k]=[v];msSync(k
 const OWN_PROD=['Кулинария','Выпечка','Хот-дог'];
 function ownProdCats(){const have=new Set(((D&&D.by_category)||[]).map(c=>c.category));return OWN_PROD.filter(c=>have.has(c));}
 function ownProdOn(){const o=ownProdCats();return !!o.length&&S.cat.length===o.length&&o.every(c=>S.cat.includes(c));}
-function toggleOwnProd(){S.cat=ownProdOn()?[]:ownProdCats();msSync('cat');S.prSel=null;render();}
+function toggleOwnProd(){S.cat=ownProdOn()?[]:ownProdCats();msSyncAll();S.prSel=null;render();}
 function chips(){
   const c=[]; const mk=(lbl,val,key)=>`<div class="chip">${lbl}: <b>${val}</b><span data-k="${key}">✕</span></div>`;
   const many=arr=>arr.length===1?arr[0]:arr.length+' выбр.';
@@ -2101,7 +2119,7 @@ function chips(){
   $('chips').querySelectorAll('span').forEach(s=>s.onclick=()=>{const k=s.dataset.k;
     if(k==='q'){S.q='';$('fQ').value='';}
     else if(k==='noOff'){S.noOff=false;const o=$('fOff');if(o)o.checked=false;}
-    else if(k==='store'||k==='cat'||k==='sup'){S[k]=[];msSync(k);}
+    else if(k==='store'||k==='cat'||k==='sup'){S[k]=[];msSyncAll();}
     else if(k==='month'){S.month='all';$('fMonth').value='all';}
     else{S[k]='all';}
     render();});
@@ -2222,7 +2240,20 @@ function reportPivot(dim,months){
 function renderReport(){
   if(!S.rpBuilt){$('rp_tab').innerHTML='<tbody><tr><td class="l muted">Выберите группировку, метрику и период — нажмите «📊 Сформировать отчёт».</td></tr></tbody>';$('rp_kpis').innerHTML='';if(charts.rp_chart)charts.rp_chart.clear();$('rp_cs').textContent='';$('rp_s').textContent='';return;}
   const dim=S.rpDim, months=monthsInRange();
+  // ПОКРЫТИЕ ЗАКУПОК. Приходы и продажи — разные источники, и по некоторым категориям
+  // приходов в данных почти нет: замер 2026-08-27 по «Водке» — закупки 284 тыс ₴ против
+  // продаж 14,82 млн ₴ (1,9%), у «Бренди/Коньяк» и «Готового напитка» приходов ноль.
+  // Отчёт не «обрезает» — столько лежит в incoming_transactions. Молчать об этом нельзя:
+  // человек видит три строки вместо девяноста одной и считает, что сломался дашборд.
+  let rpCov=null;
+  if(S.rpSource==='incoming'){
+    const sv=S.rpSource; S.rpSource='sales';
+    try{ rpCov={sales:reportPivot(dim,months).reduce((a,o)=>a+(o.rev||0),0)}; }catch(e){ rpCov=null; }
+    S.rpSource=sv;
+  }
   let rows=reportPivot(dim,months);
+  if(rpCov){ rpCov.buys=rows.reduce((a,o)=>a+(o.rev||0),0);
+    rpCov.pct=rpCov.sales?rpCov.buys/rpCov.sales*100:null; }
   if(S.rpMode==='total'&&rows.length){
     const dn={products:'позициям',category:'категориям',store:'магазинам',supplier:'поставщикам'}[dim];
     const agg={name:'ИТОГО (сумма по всем '+dn+', с учётом фильтров)',by:{},q:{},total:0,qtot:0,rev:0,gp:0};
@@ -2237,7 +2268,13 @@ function renderReport(){
   const plabel=months.length?MONTHS[months[0]]+'–'+MONTHS[months[months.length-1]]:'—', dimN={products:'Товары',category:'Категории',store:'Магазины',supplier:'Поставщики'}[dim];
   const srcN=S.rpSource==='incoming'?'Закупки':'Продажи';
   $('rp_cs').textContent=srcN+' · '+rpMetricLabel()+' · '+dimN+' · '+plabel;
-  $('rp_s').textContent=rows.length+' строк · '+srcN+' · '+rpMetricLabel()+' · '+plabel+(RP_NOTE?' · '+RP_NOTE:'');
+  let covTxt='';
+  if(rpCov&&rpCov.pct!=null){
+    covTxt=' · закупки = '+rpCov.pct.toFixed(1)+'% от продаж этого среза';
+    if(rpCov.pct<25)covTxt+=' — приходов в данных почти нет, отчёт неполный';
+  }
+  $('rp_s').innerHTML=rows.length+' строк · '+srcN+' · '+rpMetricLabel()+' · '+plabel+(RP_NOTE?' · '+RP_NOTE:'')
+    +(covTxt?'<span class="'+(rpCov.pct<25?'neg':'muted')+'">'+covTxt+'</span>':'');
   kpiCards('rp_kpis',[['Итого',fmt(gtot)],['Данные',srcN],['Метрика',rpMetricLabel()],['Строк',fmt(rows.length)],['Месяцев',fmt(months.length)]]);
   const top=rows.slice(0,8);
   chart('rp_chart').setOption({grid:{...baseGrid,bottom:30,right:20,top:34},tooltip:tt({trigger:'axis',valueFormatter:v=>fmt(v)}),
@@ -2336,6 +2373,7 @@ function renderOverview(){
   let partIdx=-1, partLbl='';
   if(D.period&&D.period.end){const ed=D.period.end,eMo=+ed.slice(5,7),eDay=+ed.slice(8,10),dim=new Date(+ed.slice(0,4),eMo,0).getDate();
     if(eDay<dim){partIdx=series.findIndex(x=>x[0]===eMo);partLbl=MONTHS[eMo]+' — неполный (до '+fmtD(ed)+')';}}
+  OV_SERIES=series;
   $('ov_dyn_s').textContent=note+(partLbl?' · '+partLbl:'');
   const mos=series.map(x=>MONTHS[x[0]]);
   const revData=series.map((x,i)=>i===partIdx?{value:x[1],itemStyle:{color:'#4aa8ff',opacity:.4,borderColor:'#4aa8ff',borderWidth:1,borderType:'dashed',borderRadius:[4,4,0,0]}}:x[1]);
@@ -2490,11 +2528,11 @@ function renderSlice(k){
            :dim==='sup'?(D.turnover_supplier||[]).find(t=>t.supplier===val)
                        :(D.turnover_store||[]).find(t=>t.store===val);
   const pdays=(D.period&&D.period.days)||0;
-  const turnTxt=turn?turn.turnover_rate.toFixed(2)+' об.'+(turn.turnover_rate>0?' · '+Math.round(pdays/turn.turnover_rate)+'дн':''):'—';
+  const turnTxt=turn?turnsPeriod(turn.turnover_rate).toFixed(1)+' об.'+(shelfDays(turn.turnover_rate)!=null?' · '+shelfDays(turn.turnover_rate)+'дн':''):'—';
   const fz=frozenNow();
   const oosN=(D.oos||[]).filter(r=>dim==='cat'?inSel(r.category,S.cat):dim==='sup'?inSel(r.supplier,S.sup):inSel(r.store,S.store)).length;
   box.innerHTML=`<div class="drill"><h4>🔎 Срез: ${label} — ${val}
-      <span class="btn" style="float:right;padding:3px 10px" onclick="S.${dim}=[];msSync('${dim}');S.prSel=null;render();">✕ сбросить срез</span></h4>
+      <span class="btn" style="float:right;padding:3px 10px" onclick="S.${dim}=[];msSyncAll();S.prSel=null;render();">✕ сбросить срез</span></h4>
     <div class="dgrid">
       <div class="dstat"><div class="v">${(((k&&k.revenue)||0)/totalRev*100).toFixed(1)}%</div><div class="t">Доля в обороте</div></div>
       <div class="dstat"><div class="v">${turnTxt}</div><div class="t">Оборачиваемость</div></div>
@@ -2507,8 +2545,27 @@ function renderSlice(k){
 }
 
 // ============ АНАЛИТИКА ============
+// ABC под ТЕКУЩИЙ срез. Раньше брался готовый D.abc — он посчитан по всей сети за весь
+// период, поэтому при выборе магазина или месяца сводка и кривая Парето не менялись вовсе.
+// Считаем из workProducts(): те же 80/15/5% выручки, но от выбранного среза.
+function abcNow(){
+  const w=workProducts().slice().sort((a,b)=>(b.rev||0)-(a.rev||0));
+  const tot=w.reduce((a,x)=>a+(+x.rev||0),0);
+  const cl={A:{abc:'A',skus:0,revenue:0},B:{abc:'B',skus:0,revenue:0},C:{abc:'C',skus:0,revenue:0}};
+  const curve=[]; let acc=0;
+  // кривую прореживаем до ~200 точек, иначе на 4 тыс позиций график тяжелеет без пользы
+  const step=Math.max(1,Math.round(w.length/200));
+  w.forEach((x,i)=>{
+    acc+=(+x.rev||0);
+    const share=tot?acc/tot*100:0;
+    const k=share<=80?'A':(share<=95?'B':'C');
+    cl[k].skus++; cl[k].revenue+=(+x.rev||0);
+    if(i%step===0||i===w.length-1)curve.push([i+1,+share.toFixed(2)]);
+  });
+  return {cl,tot,total_sku:w.length,curve};
+}
 function renderAnalytics(){
-  const cl={};(D.abc.classes||[]).forEach(c=>cl[c.abc]=c);const tot=D.abc.total_sku||0;
+  const AB=abcNow(), cl=AB.cl, tot=AB.total_sku;
   kpiCards('an_abc_k',[
     ['Класс A (80%)',(cl.A?.skus||0)+' SKU',fmt(cl.A?.revenue)+' ₴'],
     ['Класс B (15%)',(cl.B?.skus||0)+' SKU',fmt(cl.B?.revenue)+' ₴'],
@@ -2516,8 +2573,8 @@ function renderAnalytics(){
     ['Всего позиций',fmt(tot),'']
   ]);
   $('an_abc_k').querySelectorAll('.kpi').forEach((el,i)=>{if(i<3){el.style.cursor='pointer';el.title='Открыть список позиций класса '+['A','B','C'][i];
-    el.onclick=()=>{S.abc=['A','B','C'][i];S.store=[];msSync('store');S.tab='products';syncTabs();render();setTimeout(resizeAll,30);};}});
-  const cur=D.abc.curve||[];
+    el.onclick=()=>{S.abc=['A','B','C'][i];S.store=[];msSyncAll();S.tab='products';syncTabs();render();setTimeout(resizeAll,30);};}});
+  const cur=AB.curve;
   chart('an_abc').setOption({grid:{...baseGrid,bottom:34,top:16},tooltip:tt({trigger:'axis',
     formatter:p=>`Позиций: ${p[0].data[0]}<br>Кумул. выручка: ${p[0].data[1]}%`}),
     xAxis:{type:'value',name:'ранг товара',nameLocation:'middle',nameGap:22,nameTextStyle:{color:TXT},axisLine:{lineStyle:{color:AX}},splitLine:{show:false},axisLabel:{color:TXT},max:cur.length?cur[cur.length-1][0]:100},
@@ -2525,17 +2582,20 @@ function renderAnalytics(){
     series:[{type:'line',data:cur,smooth:true,showSymbol:false,lineStyle:{width:3,color:'#38bdf8'},areaStyle:{color:'rgba(56,189,248,.12)'},
       markLine:{silent:true,symbol:'none',data:[{yAxis:80,lineStyle:{color:'#22c55e'},label:{formatter:'A · 80%',color:'#4ade80'}},{yAxis:95,lineStyle:{color:'#eab308'},label:{formatter:'B · 95%',color:'#facc15'}}]}}]},true);
   const paretoPct=cl.A?Math.round(cl.A.skus/tot*100):0;
-  $('an_abc_note').innerHTML=`<b>Как читать:</b> товары отсортированы по убыванию выручки. Класс <b class="pos">A</b> — ${cl.A?.skus||0} позиций дают 80% выручки (правило Парето: всего ${paretoPct}% ассортимента). Класс <b style="color:#facc15">B</b> — следующие 15%, класс <b class="neg">C</b> — «длинный хвост» (${cl.C?.skus||0} позиций, лишь 5% выручки — кандидаты на вывод). Список конкретных позиций с классом — на вкладке «Позиции». Товары вне матрицы попадают в категорию «Прочее (нет в матрице)».${monthSel()?' <b class="neg">При выбранном месяце:</b> ABC, оборачиваемость, покрытие и маржа-скаттер считаются за весь период; помесячно пересчитываются KPI, категории, магазины, поставщики и позиции.':''}`;
+  $('an_abc_note').innerHTML=`<b>Как читать:</b> товары отсортированы по убыванию выручки <b>в текущем срезе</b>. Класс <b class="pos">A</b> — ${cl.A.skus} позиций дают 80% выручки (правило Парето: всего ${tot?Math.round(cl.A.skus/tot*100):0}% ассортимента). Класс <b style="color:#facc15">B</b> — следующие 15%, класс <b class="neg">C</b> — «длинный хвост» (${cl.C.skus} позиций, лишь 5% выручки — кандидаты на вывод). Список позиций с классом — на вкладке «Позиции». Товары вне матрицы попадают в «Прочее (нет в матрице)».`;
+
   // оборачиваемость: показываем и обороты, и «дни на складе» = период / оборачиваемость (pdays определён выше)
   const pdays=(D.period&&D.period.days)||0, pmon=(pdays/30.4).toFixed(1);
-  const tvf=v=>v.toFixed(2)+' об. · '+(v>0?Math.round(pdays/v):'∞')+' дн. на складе';
+  const tvf=v=>turnsPeriod(v).toFixed(1)+' об. за период · '+(shelfDays(v)!=null?shelfDays(v):'∞')+' дн. на полке';
   hbar('an_turn', D.turnover.filter(t=>allSel(S.cat)||inSel(t.category,S.cat)).slice().sort((a,b)=>b.turnover_rate-a.turnover_rate).slice(0,15).reverse(),
     'category','turnover_rate','#a78bfa',tvf,p=>setFilter('cat',p.name),'');
   hbar('an_turnsup', (D.turnover_supplier||[]).filter(t=>allSel(S.sup)||inSel(t.supplier,S.sup)).slice(0,15).reverse(),
     'supplier','turnover_rate','#38bdf8',tvf,p=>setFilter('sup',p.name),'');
-  $('an_turn_note').innerHTML=`<b>Что это:</b> оборачиваемость = продажи по себестоимости ÷ средний складской остаток по себестоимости, за весь период (${D.period?fmtD(D.period.start)+'–'+fmtD(D.period.end)+', ~'+pmon+' мес':''}). Показывает, <b>сколько раз запас полностью обернулся</b> (продался и пополнился) за период. Выше — быстрее продаётся, меньше денег «заморожено» в остатках. Пример: 3 = товар распродан и завезён ~3 раза за период; в пересчёте на месяц ≈ ${pmon>0?(3/pmon).toFixed(2):'—'}. <b>«Дни на складе»</b> = период ÷ оборачиваемость — сколько дней в среднем товар лежит до продажи (меньше = лучше; видно в подсказке на графике).`;
+  $('an_turn_note').innerHTML=`<b>Что это:</b> оборачиваемость = продажи по себестоимости ÷ средний складской остаток по себестоимости. Показывает, <b>сколько раз запас полностью обернулся</b> за период (${D.period?fmtD(D.period.start)+'–'+fmtD(D.period.end)+', '+monthsCount()+' мес':''}). Выше — быстрее продаётся, меньше денег «заморожено». <b>«Дни на полке»</b> = период ÷ обороты за период — сколько дней в среднем товар лежит до продажи (меньше = лучше). <b>Важно:</b> в данных «turnover_monthly» лежит сумма месячных средних остатков, поэтому исходный коэффициент — это обороты В МЕСЯЦ; здесь он умножен на ${monthsCount()} мес. До 27.08.2026 интерфейс делил период на месячный коэффициент и завышал срок на полке в ${monthsCount()} раз. Разрез по месяцу к оборачиваемости не применяется — помесячных остатков по точкам в данных нет.`;
+
   // маржа vs выручка (scatter)
-  const bc=D.by_category.filter(c=>c.revenue>0);
+  // catAgg() уже считает под текущий срез (по магазинам — точно, через куб prod_store)
+  const bc=catAgg().filter(c=>c.revenue>0).map(c=>({...c,skus:c.skus||(D.by_category.find(x=>x.category===c.category)||{}).skus||1}));
   chart('an_margin').setOption({grid:{...baseGrid,bottom:40},tooltip:tt({formatter:p=>`<b>${p.data[3]}</b><br>Выручка: ${fmt(p.data[0])} ₴<br>Маржа: ${p.data[1]}%<br>SKU: ${p.data[2]}`}),
     xAxis:{type:'log',name:'выручка ₴',nameLocation:'middle',nameGap:24,nameTextStyle:{color:TXT},axisLine:{lineStyle:{color:AX}},splitLine:{lineStyle:{color:AX}},axisLabel:{color:TXT,formatter:v=>fmt(v)}},
     yAxis:{type:'value',name:'маржа %',axisLine:{lineStyle:{color:AX}},splitLine:{lineStyle:{color:AX}},axisLabel:{color:TXT,formatter:'{value}%'}},
@@ -2544,7 +2604,7 @@ function renderAnalytics(){
       itemStyle:{color:p=>mColor(p.data[1]),opacity:.8}}]},true);
   chart('an_margin').off('click');chart('an_margin').on('click',p=>setFilter('cat',p.data[3]));
   // оборачиваемость магазины
-  hbar('an_turnstore', D.turnover_store.slice().sort((a,b)=>a.turnover_rate-b.turnover_rate),
+  hbar('an_turnstore', (D.turnover_store||[]).filter(t=>inSel(t.store,S.store)).slice().sort((a,b)=>a.turnover_rate-b.turnover_rate),
     'store','turnover_rate','#fb923c',tvf,p=>setFilter('store',p.name),'',600);
   // кросс-продажи: пары товаров в одном чеке (переехали с «Дефицита» — там они были не по теме).
   // Таблица поставщиков отсюда убрана: то же самое, но с помесячной разбивкой, даёт
@@ -2576,14 +2636,20 @@ function hbar(id,rows,nameK,valK,color,vf,onclick,unit,h){
   chart(id).resize();
   chart(id).off('click');if(onclick)chart(id).on('click',onclick);
 }
+// Матрица покрытия под текущий срез: строки — категории выборки (по убыванию выручки среза),
+// столбцы — выбранные магазины. Раньше и то и другое бралось из by_category/D.stores целиком,
+// поэтому таблица не реагировала ни на магазин, ни на категорию.
 function coverage(){
-  const cats=D.by_category.slice(0,20).map(c=>c.category), stores=D.stores;
+  const agg=catAgg();
+  const cats=agg.filter(c=>allSel(S.cat)||inSel(c.category,S.cat)).slice(0,20).map(c=>c.category);
+  const stores=(D.stores||[]).filter(st=>inSel(st,S.store));
   const cell={};D.cat_store.forEach(r=>cell[r.category+'|'+r.store]=r.revenue);
-  const catTot={};D.by_category.forEach(c=>catTot[c.category]=c.revenue);
+  // знаменатель — сумма по ПОКАЗАННЫМ точкам, иначе доли не сложатся в 100% при фильтре магазина
+  const catTot={};cats.forEach(c=>{catTot[c]=stores.reduce((a,st)=>a+(cell[c+'|'+st]||0),0);});
   let h='<table><thead><tr><th class="l">Категория ↓ / Магазин →</th>'+stores.map(s=>`<th style="writing-mode:vertical-rl;font-size:9px;cursor:pointer" data-st="${s}">${s}</th>`).join('')+'</tr></thead><tbody>';
   cats.forEach(cat=>{h+=`<tr><td class="l" data-cat="${cat}" style="cursor:pointer">${cat}</td>`+stores.map(st=>{
     const v=cell[cat+'|'+st];if(!v)return '<td class="muted" style="text-align:center">·</td>';
-    const sh=v/catTot[cat],t=Math.min(1,sh/0.08);
+    const sh=catTot[cat]?v/catTot[cat]:0,t=Math.min(1,sh/0.08);
     return `<td style="text-align:center;background:rgba(56,189,248,${(0.08+t*0.75).toFixed(2)});color:#fff">${(sh*100).toFixed(0)}</td>`;}).join('')+'</tr>';});
   h+='</tbody></table>';$('an_cov').innerHTML=h;
   $('an_cov').querySelectorAll('[data-cat]').forEach(e=>e.onclick=()=>setFilter('cat',e.dataset.cat));
@@ -2681,7 +2747,7 @@ function renderStores(){
   const rows=base.map(r=>{const t=turn[r.store]||{},dd=dead[r.store]||{};const tr=t.turnover_rate||0;
     return {store:r.store,revenue:r.revenue,gp:r.gp,margin:r.margin,receipts:r.receipts,
       avgcheck:r.receipts?Math.round(r.revenue/r.receipts):0,revsku:r.skus?Math.round(r.revenue/r.skus):0,
-      skus:r.skus,turndays:tr?Math.round(period/tr):null,dead:dd.dead_value||0};});
+      skus:r.skus,turndays:shelfDays(tr),dead:dd.dead_value||0};});
   const tR=sum(rows,x=>x.revenue),tDead=sum(rows,x=>x.dead);
   // сводный средний чек — по рознице: опт с чеком ~1292 ₴ перекашивает его на десятки процентов.
   // В таблице ниже у самой оптовой точки её собственный средний чек остаётся как есть.
