@@ -388,6 +388,70 @@ function redesignSuite() {
   w.eval(`${CL}S.rpSource='sales';S.rpBuilt=false;`);
 }
 
+// Фичи, добавленные 2026-08-28: GMROI, дефицит в гривнах, «продаётся у соседей».
+// Все три считаются на фронте из уже имеющихся ключей, пайплайн не трогают.
+function featuresSuite() {
+  const d = w.document;
+  const CL = `${CLEAR}msSyncAll();`;
+
+  // ---- GMROI = прибыль / (avg_stock / число месяцев).
+  // avg_stock в turnover_* — СУММА месячных средних, без деления GMROI занижен в monthsCount() раз.
+  const g = w.eval(`(function(){
+    var m=monthsCount(), gp={}, out={n:0,min:1e9,max:0,med:0,vals:[]};
+    D.by_store.forEach(function(r){gp[r.store]=r.gp;});
+    (D.turnover_store||[]).forEach(function(t){
+      var v=gmroi(gp[t.store],t);
+      if(v!=null){out.n++;out.vals.push(v);if(v<out.min)out.min=v;if(v>out.max)out.max=v;}
+    });
+    out.vals.sort(function(a,b){return a-b;});
+    out.med=out.vals[Math.floor(out.vals.length/2)];
+    out.months=m;
+    return out;})()`);
+  add('GMROI: посчитан для всех точек', g.n === w.eval('D.by_store.length'), g.n, w.eval('D.by_store.length'));
+  add('GMROI: значения в разумном диапазоне (0,3–15)', g.min > 0.3 && g.max < 15,
+      g.min.toFixed(2) + '…' + g.max.toFixed(2) + ' (медиана ' + g.med.toFixed(2) + ')', '0,3–15');
+  w.eval(`${CL}S.tab='stores';render();`);
+  const th = [...d.querySelectorAll('#stf_tab thead th')].map(x => x.textContent.replace(/[▼▲⇅\s]/g, ''));
+  add('GMROI: колонка в таблице магазинов', th.includes('GMROI'), th.join(','), 'есть GMROI');
+  w.eval(`${CL}S.tab='analytics';render();`);
+  add('GMROI: график на «Аналитике» с подписью',
+      !!d.getElementById('an_gmroi') && (d.getElementById('an_gmroi_note').textContent || '').length > 100,
+      (d.getElementById('an_gmroi_note').textContent || '').length + ' симв.', '>100');
+
+  // ---- Дефицит в гривнах: норма/мес × средняя цена позиции из products
+  const o = w.eval(`(function(){
+    var rev=0, gp=0, hit=0;
+    (D.oos||[]).forEach(function(r){var m=oosMoney(r);rev+=m.rev;gp+=m.gp;if(m.rev>0)hit++;});
+    return {rev:Math.round(rev), gp:Math.round(gp), hit:hit, n:(D.oos||[]).length,
+            mrev:Math.round((D.kpi.revenue||0)/monthsCount())};})()`);
+  add('Дефицит: цена известна почти для всех позиций', o.hit >= o.n * 0.9, o.hit + ' из ' + o.n, '≥90%');
+  add('Дефицит: упущенная выручка меньше месячного оборота', o.rev > 0 && o.rev < o.mrev,
+      o.rev.toLocaleString('ru-RU') + ' ₴/мес против оборота ' + o.mrev.toLocaleString('ru-RU'), '<оборота');
+  add('Дефицит: прибыль меньше выручки', o.gp > 0 && o.gp < o.rev, o.gp.toLocaleString('ru-RU'), '<' + o.rev.toLocaleString('ru-RU'));
+  w.eval(`${CL}S.tab='stock';render();`);
+  const oth = [...d.querySelectorAll('#fr_oos thead th')].map(x => x.textContent.replace(/[▼▲⇅\s]/g, ''));
+  add('Дефицит: колонка «Упущено ₴/мес» в таблице', oth.some(x => /Упущено/.test(x)), oth.join(','), 'есть');
+
+  // ---- «Продаётся у соседей, но не у нас»
+  w.eval(`${CL}S.tab='stock';render();`);
+  add('Ассортимент: без выбранного магазина блок скрыт',
+      d.getElementById('gap_card').style.display === 'none', d.getElementById('gap_card').style.display, 'none');
+  const s1 = w.eval('D.stores[0]');
+  w.eval(`${CL}S.store=['${s1.replace(/'/g, "\\'")}'];msSyncAll();S.tab='stock';render();`);
+  const gapN = d.querySelectorAll('#gap_tab tbody tr').length;
+  add('Ассортимент: при одном магазине блок показан и заполнен',
+      d.getElementById('gap_card').style.display !== 'none' && gapN > 0, gapN + ' строк', '>0');
+  // ни одна найденная позиция не должна продаваться в выбранной точке — иначе это не «дыра»
+  const bad = w.eval(`(function(){
+    var st='${s1.replace(/'/g, "\\'")}', si=D.stores.indexOf(st), rows=assortmentGaps(st,25);
+    if(!rows)return -1;
+    var idx={}; D.products.forEach(function(p,i){idx[p.p]=i;});
+    var sold={}; D.prod_store.forEach(function(r){ if(r[1]===si&&r[2]>0) sold[r[0]]=1; });
+    return rows.filter(function(x){return sold[idx[x.p]];}).length;})()`);
+  add('Ассортимент: в списке нет позиций, которые в этой точке продаются', bad === 0, bad, 0);
+  w.eval(`${CL}`);
+}
+
 function returnsSuite() {
   if (!w.eval('!!(D.returns_fact&&D.returns_dim)')) {
     skip('Возвраты: аддитивность куба и карточка на «Обзоре»',
@@ -464,6 +528,7 @@ setTimeout(() => {
 
   tabsSuite(); crossSuite(); returnsSuite(); revisionSuite();
   if (REDESIGN) redesignSuite(); else skip('Регрессии слоя редизайна', 'нет docs/redesign.js');
+  featuresSuite();
 
   const num = v => typeof v === 'number' ? v.toLocaleString('ru-RU') : String(v);
   let bad = 0, skipped = 0;

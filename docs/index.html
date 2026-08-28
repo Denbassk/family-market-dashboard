@@ -1544,6 +1544,9 @@ mark{
     <div class="card"><h3>Оборачиваемость по поставщикам <span>оборотов за период · клик = фильтр</span></h3><div id="an_turnsup" class="chart tall"></div></div>
     <div class="card"><h3>Маржа vs выручка по категориям <span>размер — SKU</span></h3><div id="an_margin" class="chart"></div></div>
     <div class="card"><h3>Оборачиваемость по магазинам <span>выше = быстрее</span></h3><div id="an_turnstore" class="chart"></div></div>
+    <div class="card full"><h3>💵 GMROI по категориям <span>сколько ₴ валовой прибыли приносит ₴, вложенная в запас · клик = фильтр</span></h3>
+      <div id="an_gmroi" class="chart tall"></div>
+      <div class="note" id="an_gmroi_note"></div></div>
     <div class="card full"><h3>🔴 Убыточные и низкомаржинальные позиции <span>маржа ≤5% или продажа ниже закупки · клик = карточка</span><button class="csvbtn" data-t="an_loss">⬇ Excel</button></h3>
       <div class="kpis" id="an_loss_k" style="margin:4px 0"></div>
       <div class="scroll"><table id="an_loss"></table></div></div>
@@ -1566,6 +1569,15 @@ mark{
   <div class="kpis" id="fr_kpis"></div>
   <div class="card full" style="margin-bottom:12px"><h3>⚠ Дефицит: упущенные продажи <span>продаётся, но остаток 0 · «есть в др. точках» = кандидат на перемещение, иначе — дозаказ</span><button class="csvbtn" data-t="fr_oos">⬇ Excel</button></h3>
     <div class="scroll"><table id="fr_oos"></table></div></div>
+  <div class="card full" id="gap_card" style="margin-bottom:12px;display:none">
+    <h3>🧩 Продаётся у соседей, но не у нас <span id="gap_s"></span><button class="csvbtn" data-t="gap_tab">⬇ Excel</button></h3>
+    <div class="bar" style="margin:2px 0 10px">
+      <div class="ctrl"><label>Продаётся минимум в</label><select id="gapMin"><option value="15">15 точках</option><option value="20">20 точках</option><option value="25" selected>25 точках</option><option value="30">30 точках</option><option value="34">34 точках</option></select></div>
+      <div class="note" style="align-self:flex-end;margin:0">Позиции, которые идут в остальной сети, но в выбранной точке не продавались ни разу. Выберите один магазин в фильтре сверху.</div>
+    </div>
+    <div class="scroll"><table id="gap_tab"></table></div>
+    <div class="note" id="gap_note"></div>
+  </div>
   <div class="grid" style="margin-bottom:12px">
     <div class="card"><h3>Замороженный капитал по магазинам <span>остаток есть, продаж 90 дней нет</span></h3><div id="fr_store" class="chart tall"></div></div>
     <div class="card"><h3>Замороженный капитал по поставщикам <span>топ-40</span></h3><div id="fr_sup" class="chart tall"></div></div>
@@ -1600,7 +1612,7 @@ mark{
     <div class="note" id="hm_note"></div></div>
   <div class="card full"><h3>Эффективность магазинов <span>сортируйте по любому столбцу · клик = фильтр по магазину</span><button class="csvbtn" data-t="stf_tab">⬇ Excel</button></h3>
     <div class="scroll tall"><table id="stf_tab"></table></div>
-    <div class="note">Оборот, дн — за сколько дней распродаётся средний остаток (меньше = лучше). Неликвид ₴ — заморожено в товарах без движения (нет продаж 90 дней).</div></div>
+    <div class="note">Оборот, дн — за сколько дней распродаётся средний остаток (меньше = лучше). Неликвид ₴ — заморожено в товарах без движения (нет продаж 90 дней). <b>GMROI</b> — сколько гривен валовой прибыли принесла гривна, вложенная в запас (прибыль ÷ средний остаток по себестоимости). Ниже 1,5 — деньги в этой точке работают плохо.</div></div>
 </div>
 
 <!-- МАТРИЦА (зеркало Google-таблицы) -->
@@ -1803,6 +1815,32 @@ function monthN(){return +S.month;}
 // в периоде (в августе 2026 — в 8 раз: 138 дней вместо 17). Проверено независимо:
 // снимок остатков сети ~20 млн ₴ при себестоимости продаж 907 тыс ₴/день ≈ 22 дня запаса.
 function monthsCount(){return ((D&&D.monthly)||[]).length||1;}
+// GMROI = валовая прибыль / средний запас по себестоимости. Единственная метрика, которая
+// связывает маржу и оборачиваемость: по отдельности они обманывают — табак крутится быстро,
+// но зарабатывает мало (GMROI 0,71 при 6,2 млн ₴ среднего запаса).
+// ВАЖНО: avg_stock в turnover_* — это СУММА месячных средних, поэтому делим на monthsCount().
+function avgStock(t){const a=(t&&t.avg_stock)||0;return a>0?a/monthsCount():0;}
+// Справочник «название -> средняя цена и маржа» для перевода штук в гривны.
+// Строится один раз на загрузку: 4 тыс позиций, пересчитывать на каждый рендер незачем.
+let PMETA=null;
+function pmeta(){
+  if(PMETA)return PMETA;
+  PMETA={};
+  for(const p of (D.products||[])){
+    PMETA[p.p]={price:p.qty?p.rev/p.qty:0, mrg:+p.mrg||0, c:p.c, s:p.s};
+  }
+  return PMETA;
+}
+// Упущенные продажи по позиции: месячная норма × средняя цена. Это «сколько теряем в МЕСЯЦ,
+// пока держится ноль», а не «сколько потеряли с начала года» — для второго нужны исторические
+// снимки остатков, а stock_matrix перезаписывается при каждой загрузке.
+function oosMoney(r){
+  const m=pmeta()[r.product];
+  if(!m||!m.price)return {rev:0,gp:0};
+  const rev=(+r.need_month||0)*m.price;
+  return {rev, gp:rev*m.mrg/100};
+}
+function gmroi(gp,t){const a=avgStock(t);return a>0?gp/a:null;}
 // Помесячный ряд ТЕКУЩЕГО среза [[месяц, выручка, прибыль], …]. Заполняется в renderOverview.
 // Нужен слою редизайна: спарклайны и проценты «к прошлому месяцу» на карточках он раньше
 // считал из D.monthly, то есть всегда по всей сети — под фильтром цифра не менялась вовсе.
@@ -2130,7 +2168,7 @@ function render(){ if(!D)return; chips(); applyFilterVis();
   else if(S.tab==='report')renderReport();
   else if(S.tab==='analytics')renderAnalytics();
   else if(S.tab==='products')renderProducts();
-  else if(S.tab==='stock'){renderFrozen();renderMoves();renderStale();}
+  else if(S.tab==='stock'){renderFrozen();renderGaps();renderMoves();renderStale();}
   else if(S.tab==='stores')renderStores();
   else if(S.tab==='matrix')renderMatrix();
   else if(S.tab==='suppliers')supEnter();
@@ -2324,10 +2362,12 @@ function renderAlerts(){
   if(dt.v){const ts=(D.dead_by_store||[])[0];A.push({c:'o',ic:'🧊',t:`Заморожено в неликвидах: <b>${fmt(dt.v)} ₴</b> (${fmt(dt.n)} остатков)${ts?', больше всего: '+ts.store+' — '+fmt(ts.dead_value):''}.`,
     act:()=>{S.tab='stock';syncTabs();render();setTimeout(resizeAll,60);}});}
   const oos=(D.oos||[]);
-  if(oos.length)A.push({c:'y',ic:'📦',t:`Дефицит: <b>${oos.length}</b> ходовых позиций с нулевым остатком (${oos.filter(o=>o.elsewhere).length} закрываются перемещением).`,
-    act:()=>{S.tab='stock';syncTabs();render();setTimeout(resizeAll,60);}});
+  if(oos.length){
+    const lost=oos.reduce((a,o)=>a+oosMoney(o).rev,0);
+    A.push({c:'y',ic:'📦',t:`Дефицит: <b>${fmt(lost)} ₴/мес</b> упущенной выручки; ${oos.length} ходовых позиций стоят с нулевым остатком, ${oos.filter(o=>o.elsewhere).length} закрываются перемещением.`,
+    act:()=>{S.tab='stock';syncTabs();render();setTimeout(resizeAll,60);}});}
   const lowcat=(D.by_category||[]).filter(c=>c.revenue>1e6&&c.margin<8);
-  if(lowcat.length)A.push({c:'y',ic:'📊',t:`Категории с низкой маржой (&lt;8%): ${lowcat.slice(0,5).map(c=>c.category+' '+c.margin+'%').join(', ')}.`,act:()=>{}});
+  if(lowcat.length)A.push({c:'y',ic:'📊',t:`Категории с низкой маржой: <b>${lowcat.length}</b> при обороте от 1 млн ₴ — ${lowcat.slice(0,5).map(c=>c.category+' '+c.margin+'%').join(', ')}.`,act:()=>{}});
   if(!A.length){box.style.display='none';return;}
   box.style.display='block';
   const collapsed=lsGet('fm_alerts_collapsed')==='1';
@@ -2626,6 +2666,30 @@ function renderAnalytics(){
   tableSort('an_loss',[['Товар','p','l'],['Категория','c','l'],['Поставщик','s','l'],['Выручка ₴','rev'],['Прибыль ₴','gp'],['Маржа %','mrg'],['ABC','abc']],lossItems,'mrg',
     r=>{S.prSel=r.p;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);},
     r=>`<td class="l" title="${r.p}">${r.p}</td><td class="l muted">${r.c}</td><td class="l muted">${r.s}</td><td>${fmtF(r.rev)}</td><td class="${r.gp<0?'neg':''}">${fmtF(r.gp)}</td><td class="${r.mrg<=0?'neg':''}">${r.mrg}</td><td><span class="badge b${r.abc}">${r.abc}</span></td>`);
+  // GMROI по категориям. Порог по запасу обязателен: там, где средний остаток близок к нулю
+  // (например «Овощи и фрукты» — товар приезжает и в тот же день продаётся), отношение
+  // улетает в сотни и график становится нечитаемым.
+  const gpc={};catAgg().forEach(c=>gpc[c.category]=c.gp);
+  const gm=(D.turnover||[]).filter(t=>inSel(t.category,S.cat)&&avgStock(t)>1000&&gpc[t.category]!=null)
+    .map(t=>({category:t.category,v:gmroi(gpc[t.category],t),stock:avgStock(t),gp:gpc[t.category]}))
+    .filter(x=>x.v!=null).sort((a,b)=>b.v-a.v);
+  const gmTop=gm.slice(0,18).reverse();
+  chart('an_gmroi').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>{const d=gmTop[p.dataIndex];
+      return `<b>${d.category}</b><br>GMROI: ${d.v.toFixed(2)}<br>Прибыль: ${fmtF(d.gp)} ₴<br>Средний запас: ${fmtF(d.stock)} ₴`;}}),
+    xAxis:axV(),yAxis:axCat(gmTop.map(x=>x.category)),
+    series:[{type:'bar',barMaxWidth:16,data:gmTop.map(x=>({value:+x.v.toFixed(2),
+      itemStyle:{color:x.v<1?'#ef4444':(x.v<2?'#fb923c':(x.v<4?'#eab308':'#22c55e')),borderRadius:[0,4,4,0]}})),
+      markLine:{silent:true,symbol:'none',data:[{xAxis:1,lineStyle:{color:'#ef4444'},label:{formatter:'1,0',color:'#f87171'}}]}}]},true);
+  chart('an_gmroi').resize();chart('an_gmroi').off('click');
+  chart('an_gmroi').on('click',p=>setFilter('cat',gmTop[p.dataIndex].category));
+  {const worst=gm.slice(-3).reverse(), best=gm.slice(0,3);
+   $('an_gmroi_note').innerHTML='<b>Как читать:</b> GMROI = валовая прибыль ÷ средний складской остаток по себестоимости. '
+    +'2,0 значит, что каждая гривна в запасе принесла две гривны прибыли за период. Оборачиваемость и маржа по отдельности '
+    +'обманывают: быстрый товар с нулевой наценкой и жирный неликвид выглядят одинаково хорошо по одному из двух показателей. '
+    +'Красная черта — единица: ниже неё запас не отбивает себя. '
+    +(best.length?'<b>Лучшие:</b> '+best.map(x=>x.category+' '+x.v.toFixed(1)).join(', ')+'. ':'')
+    +(worst.length?'<b>Худшие:</b> '+worst.map(x=>x.category+' '+x.v.toFixed(2)).join(', ')+'. ':'')
+    +'Категории со средним запасом меньше 1 000 ₴ скрыты — на них отношение неустойчиво.';}
   coverage();
 }
 function hbar(id,rows,nameK,valK,color,vf,onclick,unit,h){
@@ -2710,6 +2774,59 @@ function frozenNow(){
   if(ct)return {v:sum((D.dead_by_cat||[]).filter(r=>inSel(r.category,S.cat)),x=>x.dead_value),n:null,note:''};
   return {v:sum((D.dead_by_supplier||[]).filter(r=>inSel(r.supplier,S.sup)),x=>x.dead_value),n:null,note:'≈ топ-40 поставщиков'};
 }
+// ---------- «Продаётся у соседей, но не у нас» ----------
+// Считается на фронте из куба prod_store, новых данных не нужно: позиция идёт в N точках,
+// а в выбранной её нет вообще. Медиана по точкам, где товар продаётся, — осторожная оценка
+// потенциала: среднее задирают точки-лидеры, медиана ближе к тому, что даст обычный магазин.
+function assortmentGaps(store,minStores){
+  if(!(D.prod_store&&D.products&&D.stores))return null;
+  const si=D.stores.indexOf(store);
+  if(si<0)return null;
+  const P=D.products, n=P.length;
+  const cnt=new Int32Array(n), here=new Uint8Array(n);
+  const revs=new Array(n);
+  for(const r of D.prod_store){
+    if(!(r[2]>0))continue;
+    const i=r[0];
+    if(r[1]===si){here[i]=1;continue;}
+    cnt[i]++; (revs[i]||(revs[i]=[])).push(r[2]);
+  }
+  const out=[];
+  for(let i=0;i<n;i++){
+    if(here[i]||cnt[i]<minStores)continue;
+    const a=revs[i]; a.sort((x,y)=>x-y);
+    const mid=a.length%2?a[(a.length-1)/2]:(a[a.length/2-1]+a[a.length/2])/2;
+    const d=P[i];
+    if(S.noOff&&isTech(d.p))continue;
+    if(!inSel(d.c,S.cat)||!inSel(d.s,S.sup))continue;
+    if(S.q&&!(''+d.p).toLowerCase().includes(S.q.toLowerCase()))continue;
+    out.push({p:d.p,c:d.c,s:d.s,stores:cnt[i],med:Math.round(mid),abc:d.abc||'—'});
+  }
+  return out.sort((a,b)=>b.med-a.med);
+}
+function renderGaps(){
+  const card=$('gap_card'); if(!card)return;
+  const one=S.store.length===1?S.store[0]:null;
+  if(!one){card.style.display='none';return;}
+  const min=+(($('gapMin')||{}).value||25);
+  const rows=assortmentGaps(one,min);
+  if(!rows){card.style.display='none';return;}
+  card.style.display='';
+  const tot=rows.reduce((a,x)=>a+x.med,0);
+  $('gap_s').innerHTML=one+' · <b>'+rows.length+'</b> позиций · потенциал ≈ '+fmt(tot)+' ₴ за период';
+  tableSort('gap_tab',
+    [['Товар','p','l'],['Категория','c','l'],['Поставщик','s','l'],['Продаётся в точках','stores'],['Медиана по точке ₴','med'],['ABC','abc']],
+    rows.slice(0,300),'med',
+    r=>{S.prSel=r.p;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);},
+    r=>`<td class="l" title="${r.p}">${r.p}</td><td class="l muted">${r.c}</td><td class="l muted">${r.s}</td><td>${r.stores}</td><td><b>${fmtF(r.med)}</b></td><td><span class="badge b${r.abc}">${r.abc}</span></td>`);
+  $('gap_note').innerHTML='<b>Как читать:</b> в «'+one+'» этих позиций не продавалось ни разу за период, '
+    +'хотя в остальной сети они идут минимум в '+min+' точках. «Медиана по точке» — сколько такая позиция '
+    +'приносит в типичном магазине, где она есть; это осторожная оценка, среднее было бы выше. '
+    +'Суммарный потенциал ≈ '+fmt(tot)+' ₴ за период — это потолок, часть позиций в конкретной точке не пойдёт. '
+    +(rows.length>300?'<b>В таблице топ-300 по медиане, полный список — в выгрузке Excel.</b> ':'')
+    +'Клик по строке — карточка позиции.';
+  if(EXP['gap_tab'])EXP['gap_tab'].rows=rows;
+}
 function renderFrozen(){
   // дефицит (out-of-stock): товар продаётся, но остаток 0
   let oosR=(D.oos||[]).slice();
@@ -2718,13 +2835,19 @@ function renderFrozen(){
   if(!allSel(S.sup))oosR=oosR.filter(r=>inSel(r.supplier,S.sup));
   if(S.noOff)oosR=oosR.filter(r=>!isTech(r.product));
   if(S.q)oosR=oosR.filter(r=>r.product.toLowerCase().includes(S.q.toLowerCase()));
-  tableSort('fr_oos',[['Товар','product','l'],['Категория','category','l'],['Поставщик','supplier','l'],['Магазин','store','l'],['Продажи 90д','sold90'],['Норма/мес','need_month'],['Где взять','elsewhere']],oosR.slice(0,300),'sold90',
+  // деньги: норма/мес × средняя цена позиции; сортировка по умолчанию — по потерям, а не по штукам
+  oosR=oosR.map(r=>{const m=oosMoney(r);return {...r,lost_rev:Math.round(m.rev),lost_gp:Math.round(m.gp)};});
+  sortState['fr_oos']=sortState['fr_oos']||{key:'lost_rev',desc:true};
+  tableSort('fr_oos',[['Товар','product','l'],['Категория','category','l'],['Поставщик','supplier','l'],['Магазин','store','l'],['Упущено ₴/мес','lost_rev'],['в т.ч. прибыль ₴','lost_gp'],['Продажи 90д','sold90'],['Норма/мес','need_month'],['Где взять','elsewhere']],oosR.slice(0,300),'lost_rev',
     r=>{S.q=r.product;$('fQ').value=r.product;S.tab='products';syncTabs();render();setTimeout(resizeAll,30);},
-    r=>`<td class="l" title="${r.product}">${r.product}</td><td class="l muted">${r.category}</td><td class="l muted">${r.supplier}</td><td class="l">${r.store}</td><td>${fmtF(r.sold90)}</td><td>${fmtF(r.need_month)}</td><td class="${r.elsewhere?'pos':'muted'}">${r.elsewhere?'есть в др. точках':'дозаказ у поставщика'}</td>`);
+    r=>`<td class="l" title="${r.product}">${r.product}</td><td class="l muted">${r.category}</td><td class="l muted">${r.supplier}</td><td class="l">${r.store}</td><td class="neg"><b>${fmtF(r.lost_rev)}</b></td><td class="muted">${fmtF(r.lost_gp)}</td><td>${fmtF(r.sold90)}</td><td>${fmtF(r.need_month)}</td><td class="${r.elsewhere?'pos':'muted'}">${r.elsewhere?'есть в др. точках':'дозаказ у поставщика'}</td>`);
   const fz=frozenNow();
+  const lostRev=sum(oosR,x=>x.lost_rev), lostGp=sum(oosR,x=>x.lost_gp);
+  const mRev=(D.kpi&&D.kpi.revenue?D.kpi.revenue/monthsCount():0);
   kpiCards('fr_kpis',[
     ['Заморожено ₴',fz.v!=null?fmt(fz.v):'—','нет продаж 90 дней'+(fz.note?' · '+fz.note:'')],
-    ['Позиций-остатков',fz.n!=null?fmt(fz.n):'—'],
+    ['Упущенная выручка ₴/мес',fmt(lostRev),mRev?(lostRev/mRev*100).toFixed(1)+'% месячного оборота':''],
+    ['Упущенная прибыль ₴/мес',fmt(lostGp),'пока держится ноль'],
     ['Дефицит, позиций',fmt(oosR.length),oosR.length>300?'в таблице топ-300':''],
     ['Остатки на',D.stock_as_of||'—','снимок Торгсофта']
   ]);
@@ -2745,7 +2868,7 @@ function renderStores(){
   let base=(D.by_store||[]).slice();
   if(!allSel(S.store))base=base.filter(r=>inSel(r.store,S.store));
   const rows=base.map(r=>{const t=turn[r.store]||{},dd=dead[r.store]||{};const tr=t.turnover_rate||0;
-    return {store:r.store,revenue:r.revenue,gp:r.gp,margin:r.margin,receipts:r.receipts,
+    return {store:r.store,revenue:r.revenue,gp:r.gp,margin:r.margin,receipts:r.receipts,gmroi:gmroi(r.gp,t),
       avgcheck:r.receipts?Math.round(r.revenue/r.receipts):0,revsku:r.skus?Math.round(r.revenue/r.skus):0,
       skus:r.skus,turndays:shelfDays(tr),dead:dd.dead_value||0};});
   const tR=sum(rows,x=>x.revenue),tDead=sum(rows,x=>x.dead);
@@ -2757,9 +2880,9 @@ function renderStores(){
     ['Средний чек ₴',aRe?fmt(aR/aRe):'—',retRows.length!==rows.length?'без опта':''],
     ['Заморожено в неликвидах ₴',fmt(tDead),'нет продаж 90 дней']]);
   tableSort('stf_tab',
-    [['Магазин','store','l'],['Выручка ₴','revenue'],['Прибыль ₴','gp'],['Маржа %','margin'],['Ср.чек ₴','avgcheck'],['Выр/SKU ₴','revsku'],['Чеков','receipts'],['SKU','skus'],['Оборот, дн','turndays'],['Неликвид ₴','dead']],
+    [['Магазин','store','l'],['Выручка ₴','revenue'],['Прибыль ₴','gp'],['Маржа %','margin'],['Ср.чек ₴','avgcheck'],['Выр/SKU ₴','revsku'],['Чеков','receipts'],['SKU','skus'],['Оборот, дн','turndays'],['GMROI','gmroi'],['Неликвид ₴','dead']],
     rows,'revenue',r=>setFilter('store',r.store),
-    r=>`<td class="l">${r.store}${WH.has(r.store)?' <span class="muted" style="font-size:11px">(опт)</span>':''}</td><td>${fmt(r.revenue)}</td><td>${fmt(r.gp)}</td><td class="${r.margin<8?'neg':(r.margin>=18?'pos':'')}">${(r.margin||0)}%</td><td>${fmtF(r.avgcheck)}</td><td>${fmtF(r.revsku)}</td><td>${fmtF(r.receipts)}</td><td>${fmtF(r.skus)}</td><td>${r.turndays!=null?fmtF(r.turndays):'—'}</td><td>${fmt(r.dead)}</td>`);
+    r=>`<td class="l">${r.store}${WH.has(r.store)?' <span class="muted" style="font-size:11px">(опт)</span>':''}</td><td>${fmt(r.revenue)}</td><td>${fmt(r.gp)}</td><td class="${r.margin<8?'neg':(r.margin>=18?'pos':'')}">${(r.margin||0)}%</td><td>${fmtF(r.avgcheck)}</td><td>${fmtF(r.revsku)}</td><td>${fmtF(r.receipts)}</td><td>${fmtF(r.skus)}</td><td>${r.turndays!=null?fmtF(r.turndays):'—'}</td><td class="${r.gmroi==null?'':(r.gmroi<1.5?'neg':(r.gmroi>=3?'pos':''))}">${r.gmroi!=null?r.gmroi.toFixed(2):'—'}</td><td>${fmt(r.dead)}</td>`);
   renderHeatmap();
 }
 function renderHeatmap(){
@@ -2946,6 +3069,7 @@ $('fOff').onchange=e=>{S.noOff=e.target.checked;S.prSel=null;render();};
 $('fOwnProd').onclick=toggleOwnProd;
 $('mxStatus').onchange=e=>{S.mxStatus=e.target.value;render();};
 $('hmMetric').onchange=()=>{renderHeatmap();setTimeout(resizeAll,20);};
+(()=>{const g=$('gapMin');if(g)g.onchange=()=>renderGaps();})();
 $('rpDim').onchange=e=>{S.rpDim=e.target.value;};
 $('rpMetric').onchange=e=>{S.rpMetric=e.target.value;};
 $('rpSource').onchange=e=>{S.rpSource=e.target.value;};
