@@ -175,6 +175,20 @@ function crossSuite() {
       push('Куб prod_store == by_store по всем точкам', 'skip', NOCUBE, '');
     }
 
+    // Сверка с BigQuery имеет смысл, только если truth.json посчитан по ТОМУ ЖЕ периоду,
+    // что описан в проверяемом full_data.json. Staging _dash_tx26 пересобирается Action'ом
+    // по своему расписанию, и между сборкой JSON и запуском truth.py в него доезжают новые
+    // дни продаж — тогда итоги за весь период расходятся на 1–2% и четыре проверки падают
+    // при исправном дашборде. Расходятся периоды — не врём «провалено», а честно пропускаем.
+    var DEND=(D.period||{}).end, TEND=T.period_end;
+    if(has&&!TEND){
+      push('Сверка срезов с BigQuery','skip','truth.json собран прежней версией скрипта (нет period_end) — пересчитайте: python tests/truth.py','');
+      has=false;
+    }
+    if(has&&TEND&&DEND&&TEND!==DEND){
+      push('Сверка срезов с BigQuery','skip','truth.json посчитан по '+TEND+', а данные по '+DEND+' — пересчитайте: python tests/truth.py','');
+      has=false;
+    }
     if(has&&CUBE){
       CLEAR(); S.cat=[T.cat]; S.sup=[T.sup];
       var both=storeAgg().reduce(function(a,r){return a+r.revenue;},0);

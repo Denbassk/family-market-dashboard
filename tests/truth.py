@@ -48,6 +48,21 @@ def main():
 
     s1, s2 = full["stores"][0], full["stores"][1]
     mo = 3
+    # ВЕРХНЯЯ ГРАНИЦА ПО ДАТЕ — обязательна.
+    # `_dash_tx26` пересобирается при каждом прогоне fetch_data.py, а docs/full_data.json
+    # на диске может быть от ПРЕДЫДУЩЕЙ сборки: GitHub Action обновляет данные по своему
+    # расписанию, и между «сборка JSON» и «запуск truth.py» в staging успевают доехать
+    # новые дни продаж. Тогда все итоги за ВЕСЬ период расходятся на доли процента,
+    # и четыре проверки «== BigQuery» падают на ровном месте — при полностью исправном
+    # дашборде (замер 2026-08-27: расхождение 1,3–1,9%, ровно на несколько дней продаж;
+    # при этом помесячные проверки проходили, потому что март давно закрыт).
+    # Ограничиваем выборку тем же периодом, что описан в самом JSON.
+    end = (full.get("period") or {}).get("end")
+    bound = f" AND d <= DATE('{end}')" if end else ""
+    if end:
+        print("период JSON:", (full["period"].get("start"), end), "- сверяем BigQuery по эту дату")
+    else:
+        print("ВНИМАНИЕ: в full_data.json нет period.end, сверка идёт по всему staging")
     # поставщик, который лежит в НЕСКОЛЬКИХ категориях — иначе тест «категория+поставщик»
     # вырождается: срез по одному поставщику совпадёт со срезом по паре просто потому,
     # что других категорий у него нет
@@ -56,15 +71,15 @@ def main():
     cat = one(f"""SELECT category FROM {ST} WHERE supplier='{esc(sup)}'
       GROUP BY category ORDER BY SUM(qty*pr) DESC LIMIT 1""")["category"]
 
-    t = {"s1": s1, "s2": s2, "cat": cat, "sup": sup, "mo": mo}
-    q = lambda where: one(f"SELECT ROUND(SUM(qty*pr),0) v FROM {ST} WHERE {where}")["v"] or 0
+    t = {"s1": s1, "s2": s2, "cat": cat, "sup": sup, "mo": mo, "period_end": end}
+    q = lambda where: one(f"SELECT ROUND(SUM(qty*pr),0) v FROM {ST} WHERE {where}{bound}")["v"] or 0
     t["cat_sup_rev"]     = q(f"category='{esc(cat)}' AND supplier='{esc(sup)}'")
     t["sup_rev"]         = q(f"supplier='{esc(sup)}'")
     t["store_cat_rev"]   = q(f"store='{esc(s1)}' AND category='{esc(cat)}'")
     t["store_sup_rev"]   = q(f"store='{esc(s1)}' AND supplier='{esc(sup)}'")
     t["store_month_rev"] = q(f"store='{esc(s1)}' AND mo={mo}")
     t["store_rev"]       = q(f"store='{esc(s1)}'")
-    t["net_rev"]         = one(f"SELECT ROUND(SUM(qty*pr),0) v FROM {ST}")["v"] or 0
+    t["net_rev"]         = one(f"SELECT ROUND(SUM(qty*pr),0) v FROM {ST} WHERE TRUE{bound}")["v"] or 0
 
     json.dump(t, open(OUT, "w", encoding="utf-8"), ensure_ascii=False)
     print(json.dumps(t, ensure_ascii=False, indent=1))
