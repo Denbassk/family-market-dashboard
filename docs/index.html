@@ -1478,6 +1478,7 @@ mark{
 
 <div class="bar">
   <div class="ctrl" id="cMonth"><label>Месяц</label><select id="fMonth"></select></div>
+  <div class="ctrl" id="cCmp"><label>Сравнить с</label><select id="fCmp"></select></div>
   <div class="ctrl" id="cStore"><label>Магазин</label><div class="ms" id="msStore"></div></div>
   <div class="ctrl" id="cCat"><label>Категория</label><div class="ms" id="msCat"></div></div>
   <div class="ctrl" id="cSup"><label>Поставщик</label><div class="ms" id="msSup"></div></div>
@@ -1810,7 +1811,7 @@ mark{
 <script>
 const GH_OWNER="Denbassk", GH_REPO="family-market-dashboard";
 let D=null, charts={};
-const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null,retScope:'rp'};
+const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null,retScope:'rp',cmp:'prev'};
 function monthSel(){return S.month&&S.month!=='all';}
 function monthN(){return +S.month;}
 // Число месяцев в периоде. Нужно для оборачиваемости: `turnover_*.avg_stock` собирается
@@ -2093,6 +2094,31 @@ function kpiNow(){
       const r=roll(rows,rows.length===1,true); if(r)return r;
     }
   }
+  // ТОЧНЫЙ СРЕЗ ДЛЯ ПАРЫ ФИЛЬТРОВ (магазин + категория ИЛИ магазин + поставщик),
+  // в том числе вместе с месяцем. С 2026-09-03 в данных лежат кубы store_cat_month /
+  // store_sup_month. Раньше эта комбинация уходила в workProducts(), где связка
+  // месяц x магазин считается разнесением ГОДОВОГО куба по доле месяца — то есть оценкой.
+  // На январе по одной точке и одной категории оценка давала 129 042 ₴ против точных
+  // 152 832 ₴: карточка расходилась со спарклайном на 15-20%.
+  if(!S.q&&(S.abc==='all'||!S.abc)&&!S.noOff&&!allSel(S.store)){
+    const pair=(!allSel(S.cat)&&allSel(S.sup))?{rows:D.store_cat_month,names:D.scm_cats,sel:S.cat}
+              :(!allSel(S.sup)&&allSel(S.cat))?{rows:D.store_sup_month,names:D.ssm_sups,sel:S.sup}:null;
+    if(pair&&(pair.rows||[]).length&&(pair.names||[]).length){
+      const okS={},okD={};
+      (D.stores||[]).forEach((st,i)=>{if(inSel(st,S.store))okS[i]=1;});
+      let nd=0; pair.names.forEach((n,i)=>{if(inSel(n,pair.sel)){okD[i]=1;nd++;}});
+      let revenue=0,gp=0,qty=0,receipts=0,any=false;
+      for(const r of pair.rows){
+        if(!okS[r[1]]||!okD[r[2]])continue;
+        if(m&&r[0]!==m)continue;
+        revenue+=r[3];gp+=r[4];qty+=r[5];receipts+=r[6];any=true;
+      }
+      // чеки складываются по магазинам и месяцам, но НЕ по категориям: один чек лежит
+      // сразу в нескольких. Отдаём их только когда выбрана ровно одна категория/поставщик.
+      if(any)return {revenue,gp,margin:revenue?+(gp/revenue*100).toFixed(1):0,qty,
+        receipts:nd===1?receipts:undefined, skus:workProducts().length, exact:true};
+    }
+  }
   const w=workProducts();
   const rev=sum(w,x=>x.rev),gp=sum(w,x=>x.gp),qty=sum(w,x=>x.qty);
   // чеки суммируемы только по магазинам/месяцам (чек принадлежит одному магазину и месяцу);
@@ -2222,6 +2248,9 @@ async function load(){
   $('prodList').innerHTML=(D.products||[]).slice(0,2000).map(p=>`<option value="${(p.p||'').replace(/"/g,'&quot;')}"></option>`).join('');
   // фильтры
   $('fMonth').innerHTML='<option value="all">Весь период</option>'+(D.monthly||[]).map(m=>`<option value="${m.mo}">${MONTHS[m.mo]} ${D.year||''}</option>`).join('');
+  // База сравнения для стрелок на KPI. «Предыдущий» — это предыдущий относительно
+  // ВЫБРАННОГО месяца, а при «Весь период» — предпоследний полный месяц ряда.
+  $('fCmp').innerHTML='<option value="prev">Предыдущий месяц</option>'+(D.monthly||[]).map(m=>`<option value="${m.mo}">${MONTHS[m.mo]} ${D.year||''}</option>`).join('');
   $('rpFrom').innerHTML='<option value="all">весь период</option>'+(D.monthly||[]).map(m=>`<option value="${m.mo}">${MONTHS[m.mo]}</option>`).join('');
   $('rpTo').innerHTML='<option value="all">по последний</option>'+(D.monthly||[]).map(m=>`<option value="${m.mo}">${MONTHS[m.mo]}</option>`).join('');
   initMS(); // мультиселект Магазин/Категория/Поставщик (с каскадом)
@@ -2263,7 +2292,105 @@ function chips(){
     render();});
 }
 
-function render(){ if(!D)return; chips(); applyFilterVis();
+// ============ ПОМЕСЯЧНЫЙ РЯД ТЕКУЩЕГО СРЕЗА (для спарклайнов и сравнения месяцев) ============
+// Раньше ряд строился по ОДНОМУ измерению с приоритетом категория -> поставщик -> магазин,
+// поэтому при «Пиво + Байрона 156» спарклайн показывал «Пиво» по всей сети, а число в
+// карточке — по срезу. С 2026-09-03 в данных есть кубы store_cat_month и store_sup_month
+// (месяц x магазин x категория/поставщик), и пары фильтров считаются точно.
+//
+// ЧТО СКЛАДЫВАЕТСЯ, А ЧТО НЕТ. Выручка, прибыль и количество аддитивны всегда.
+// Чеки и SKU — нет: один чек лежит в нескольких категориях, один штрих-код продаётся
+// в нескольких точках. Складывать их можно только по магазинам (чек принадлежит одной
+// точке). Поэтому при выборе НЕСКОЛЬКИХ категорий/поставщиков эти две метрики помечаются
+// приблизительными и стрелка на них не рисуется.
+function sliceSeries(){
+  const hasSt=!allSel(S.store), hasCat=!allSel(S.cat), hasSup=!allSel(S.sup);
+  const why=[];
+  if(S.abc&&S.abc!=='all')why.push('ABC');
+  if(S.noOff)why.push('скрытие технических');
+  if(S.q)why.push('поиск');
+  const acc={}, seen={};
+  const add=(mo,rev,gp,qty,rec,sku,gkey)=>{
+    const a=acc[mo]||(acc[mo]={mo:+mo,revenue:0,gp:0,qty:0,receipts:0,skus:0});
+    a.revenue+=+rev||0; a.gp+=+gp||0; a.qty+=+qty||0; a.receipts+=+rec||0; a.skus+=+sku||0;
+    if(gkey!=null)(seen[gkey]=1);
+  };
+  let src='вся сеть', softCnt=false;
+  const CATS=D.scm_cats||[], SUPS=D.ssm_sups||[], STS=D.stores||[];
+  const cube=(rows,names,sel)=>{
+    const okS={}, okD={};
+    STS.forEach((st,i)=>{if(inSel(st,S.store))okS[i]=1;});
+    names.forEach((n,i)=>{if(inSel(n,sel))okD[i]=1;});
+    let nd=0; names.forEach((n,i)=>{if(okD[i])nd++;});
+    softCnt = nd>1;
+    for(const r of rows){ if(okS[r[1]]&&okD[r[2]]) add(r[0],r[3],r[4],r[5],r[6],r[7]); }
+  };
+  if(hasSt&&hasCat&&(D.store_cat_month||[]).length){
+    cube(D.store_cat_month,CATS,S.cat); src='магазин × категория';
+    if(hasSup)why.push('поставщик');
+  } else if(hasSt&&hasSup&&(D.store_sup_month||[]).length){
+    cube(D.store_sup_month,SUPS,S.sup); src='магазин × поставщик';
+  } else if(hasCat){
+    (D.cat_month||[]).filter(r=>inSel(r.category,S.cat)).forEach(r=>add(r.mo,r.revenue,r.gp,r.qty,r.receipts,r.skus));
+    softCnt=S.cat.length>1; src='категория'; if(hasSup)why.push('поставщик');
+    // Кубы пар появились 2026-09-03. Если данные собраны прежним скриптом, ряд по паре
+    // фильтров построить не из чего — он уедет по одному измерению и разойдётся
+    // с карточкой в разы. Тогда честнее не рисовать стрелку вовсе.
+    if(hasSt)why.push('магазин (нужна пересборка данных)');
+  } else if(hasSup){
+    (D.supplier_month||[]).filter(r=>inSel(r.supplier,S.sup)).forEach(r=>add(r.mo,r.revenue,r.gp,r.qty,r.receipts,r.skus));
+    softCnt=S.sup.length>1; src='поставщик';
+    if(hasSt)why.push('магазин (нужна пересборка данных)');
+  } else if(hasSt){
+    (D.store_month||[]).filter(r=>inSel(r.store,S.store)).forEach(r=>add(r.mo,r.revenue,r.gp,r.qty,r.receipts,r.skus));
+    src='магазин';
+  } else {
+    (D.monthly||[]).forEach(r=>add(r.mo,r.revenue,r.gp,r.qty,r.receipts,r.skus));
+  }
+  const rows=Object.values(acc).sort((a,b)=>a.mo-b.mo).map(a=>({...a,
+    margin:a.revenue?+(a.gp/a.revenue*100).toFixed(1):0,
+    avgcheck:a.receipts?Math.round(a.revenue/a.receipts):0}));
+  return {rows,src,why,softCnt};
+}
+// Неполный последний месяц периода: в тренде он врёт (в нём ещё не все дни), поэтому
+// из сравнения исключается — но на самом спарклайне остаётся, чтобы не терять картину.
+function partialMo(){
+  if(!(D.period&&D.period.end))return null;
+  const ed=String(D.period.end), eMo=+ed.slice(5,7), eDay=+ed.slice(8,10);
+  const dim=new Date(+ed.slice(0,4),eMo,0).getDate();
+  return eDay<dim?eMo:null;
+}
+// Пара месяцев для стрелок: A — то, что показываем, B — с чем сравниваем.
+// A = выбранный месяц, иначе последний ПОЛНЫЙ. B = S.cmp ('prev' или конкретный месяц).
+function cmpPair(mos){
+  if(!mos.length)return null;
+  const part=partialMo();
+  const full=mos.filter(m=>m!==part);
+  const a=monthSel()?+S.month:(full.length?full[full.length-1]:mos[mos.length-1]);
+  let b;
+  if(S.cmp&&S.cmp!=='prev'){ b=+S.cmp; }
+  else { const i=mos.indexOf(a); b=i>0?mos[i-1]:null; }
+  if(b==null||b===a)return null;
+  return {a,b};
+}
+// Всё, что нужно слою редизайна: ряды по метрикам, пара сравнения и почему ряд неточен.
+const TREND_METRICS=['revenue','gp','qty','receipts','skus','margin','avgcheck'];
+function buildTrend(){
+  if(!D){window.KPI_TREND=null;return;}
+  const {rows,src,why,softCnt}=sliceSeries();
+  const mos=rows.map(r=>r.mo);
+  const series={};
+  TREND_METRICS.forEach(k=>{series[k]={};rows.forEach(r=>{series[k][r.mo]=r[k];});});
+  const soft={receipts:softCnt,skus:softCnt,avgcheck:softCnt};
+  // Если ряд заведомо не про то, что показано в карточке (ABC, поиск, отсутствующий куб),
+  // спарклайн оставляем — форма динамики всё равно полезна, — а стрелку сравнения гасим:
+  // считать процент между рядом и карточкой, которые про разное, значит врать точной цифрой.
+  const pair=why.length?null:cmpPair(mos);
+  window.KPI_TREND={months:mos,series,cmp:pair,partial:partialMo(),
+    src,approx:why,soft,
+    note:(why.length?'ряд без учёта: '+why.join(', '):'')};
+}
+function render(){ if(!D)return; chips(); applyFilterVis(); buildTrend();
   if(S.tab==='overview')renderOverview();
   else if(S.tab==='report')renderReport();
   else if(S.tab==='analytics')renderAnalytics();
@@ -2315,7 +2442,11 @@ function renderMatrix(){
     r=>isTot(r)?'mxtotal':'');
 }
 
-function kpiCards(el,arr){$(el).innerHTML=arr.map(([t,v,d])=>`<div class="kpi"><div class="v">${v}</div><div class="t">${t}</div>${d?`<div class="d">${d}</div>`:''}</div>`).join('');}
+// Четвёртый элемент строки — КЛЮЧ МЕТРИКИ. По нему слой редизайна понимает, какой
+// помесячный ряд рисовать спарклайном и от чего считать стрелку. Раньше спарклайны были
+// прибиты к карточкам №0 и №1 контейнера #ov_kpis, поэтому жили только на «Обзоре»
+// и разъехались бы при любой перестановке карточек.
+function kpiCards(el,arr){$(el).innerHTML=arr.map(([t,v,d,m])=>`<div class="kpi"${m?` data-metric="${m}"`:''}><div class="v">${v}</div><div class="t">${t}</div>${d?`<div class="d">${d}</div>`:''}</div>`).join('');}
 
 // ============ КОНСТРУКТОР ОТЧЁТОВ ============
 function monthsInRange(){
@@ -2416,7 +2547,10 @@ function renderReport(){
   }
   $('rp_s').innerHTML=rows.length+' строк · '+srcN+' · '+rpMetricLabel()+' · '+plabel+(RP_NOTE?' · '+RP_NOTE:'')
     +(covTxt?'<span class="'+(rpCov.pct<25?'neg':'muted')+'">'+covTxt+'</span>':'');
-  kpiCards('rp_kpis',[['Итого',fmt(gtot)],['Данные',srcN],['Метрика',rpMetricLabel()],['Строк',fmt(rows.length)],['Месяцев',fmt(months.length)]]);
+  // Тренд на «Итого» — только для продаж: у закупок свой источник и свой период,
+  // помесячный ряд среза к ним отношения не имеет.
+  const rpM=(S.rpSource==='incoming')?'':(S.rpMetric==='rev'?'revenue':S.rpMetric==='gp'?'gp':'qty');
+  kpiCards('rp_kpis',[['Итого',fmt(gtot),'',rpM],['Данные',srcN],['Метрика',rpMetricLabel()],['Строк',fmt(rows.length)],['Месяцев',fmt(months.length)]]);
   const top=rows.slice(0,8);
   chart('rp_chart').setOption({grid:{...baseGrid,bottom:30,right:20,top:34},tooltip:tt({trigger:'axis',valueFormatter:v=>fmt(v)}),
     legend:{type:'scroll',textStyle:{color:TXT,fontSize:10},top:0},xAxis:axCat(months.map(m=>MONTHS[m])),yAxis:axV(),
@@ -2510,9 +2644,11 @@ function renderOverview(){
   const ac=avgCheck(k);
   const acNote=[ac&&ac.note, k.exact?'точный срез':'≈ оценка'].filter(Boolean).join(' · ');
   kpiCards('ov_kpis',[
-    ['Выручка ₴',fmt(k.revenue)],['Прибыль ₴',fmt(k.gp)],['Маржа',(k.margin||0)+'%'],
-    ['Продано, ед.',(k.qty!=null||k.units!=null)?fmt(k.qty!=null?k.qty:k.units):'—'],['Чеков',k.receipts!=null?fmt(k.receipts):'—'],
-    ['Позиций (SKU)',k.skus!=null?fmt(k.skus):'—'],['Средний чек ₴',ac?fmt(ac.v):'—',acNote],
+    ['Выручка ₴',fmt(k.revenue),'','revenue'],['Прибыль ₴',fmt(k.gp),'','gp'],['Маржа',(k.margin||0)+'%','','margin'],
+    ['Продано, ед.',(k.qty!=null||k.units!=null)?fmt(k.qty!=null?k.qty:k.units):'—','','qty'],
+    ['Чеков',k.receipts!=null?fmt(k.receipts):'—','','receipts'],
+    ['Позиций (SKU)',k.skus!=null?fmt(k.skus):'—','','skus'],
+    ['Средний чек ₴',ac?fmt(ac.v):'—',acNote,'avgcheck'],
     retCard
   ]);
   renderSlice(k);
@@ -3041,8 +3177,9 @@ function renderStores(){
   // В таблице ниже у самой оптовой точки её собственный средний чек остаётся как есть.
   const WH=wholesaleSet(), retRows=rows.filter(r=>!WH.has(r.store)), useRows=retRows.length?retRows:rows;
   const aR=sum(useRows,x=>x.revenue), aRe=sum(useRows,x=>x.receipts);
-  kpiCards('st_kpis2',[['Магазинов в выборке',fmt(rows.length)],['Выручка ₴',fmt(tR)],
-    ['Средний чек ₴',aRe?fmt(aR/aRe):'—',retRows.length!==rows.length?'без опта':''],
+  kpiCards('st_kpis2',[['Магазинов в выборке',fmt(rows.length)],['Выручка ₴',fmt(tR),'','revenue'],
+    ['Средний чек ₴',aRe?fmt(aR/aRe):'—',retRows.length!==rows.length?'без опта':'','avgcheck'],
+    // «Заморожено» тренда не получит: считается от ОДНОГО снимка склада, истории нет.
     ['Заморожено в неликвидах ₴',fmt(tDead),'нет продаж 90 дней']]);
   tableSort('stf_tab',
     [['Магазин','store','l'],['Выручка ₴','revenue'],['Прибыль ₴','gp'],['Маржа %','margin'],['Ср.чек ₴','avgcheck'],['Выр/SKU ₴','revsku'],['Чеков','receipts'],['SKU','skus'],['Оборот, дн','turndays'],['GMROI','gmroi'],['Неликвид ₴','dead']],
@@ -3228,6 +3365,7 @@ const _b=$('msSupBtn');if(_b){_b.textContent='Все поставщики';_b.cl
 $('cStSup').classList.remove('hasval');renderStale();
 };})();
 $('fMonth').onchange=e=>{S.month=e.target.value;S.prSel=null;render();};
+$('fCmp').onchange=e=>{S.cmp=e.target.value;render();};
 // Магазин/Категория/Поставщик — через мультиселект (initMS), отдельные обработчики не нужны
 let qt;$('fQ').oninput=e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.value.trim();render();},250);};
 $('fOff').onchange=e=>{S.noOff=e.target.checked;S.prSel=null;render();};
@@ -3242,7 +3380,7 @@ $('rpMode').onchange=e=>{S.rpMode=e.target.value;};
 $('rpFrom').onchange=e=>{S.rpFrom=e.target.value;};
 $('rpTo').onchange=e=>{S.rpTo=e.target.value;};
 $('rpRun').onclick=()=>{S.rpBuilt=true;renderReport();setTimeout(resizeAll,30);};
-$('reset').onclick=()=>{S.month='all';S.store=[];S.cat=[];S.sup=[];S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.prSel=null;$('fMonth').value='all';$('fQ').value='';$('fOff').checked=false;msSyncAll();if($('mxStatus'))$('mxStatus').value='all';render();};
+$('reset').onclick=()=>{S.month='all';S.cmp='prev';S.store=[];S.cat=[];S.sup=[];S.q='';S.abc='all';S.noOff=false;S.mxStatus='all';S.prSel=null;$('fMonth').value='all';if($('fCmp'))$('fCmp').value='prev';$('fQ').value='';$('fOff').checked=false;msSyncAll();if($('mxStatus'))$('mxStatus').value='all';render();};
 function resizeAll(){Object.values(charts).forEach(c=>c.resize());}
 window.addEventListener('resize',resizeAll);
 // выгрузка CSV (разделитель ; и BOM — корректно открывается в Excel с кириллицей)

@@ -144,7 +144,12 @@ def main():
     GROUP BY GROUPING SETS (
       (), (mo), (category), (store), (supplier),
       (category, mo), (store, mo), (supplier, mo),
-      (store, dow, hr), (cul), (cul, store))
+      (store, dow, hr), (cul), (cul, store),
+      -- Помесячные ПАРЫ измерений: нужны для честного тренда при двух фильтрах сразу.
+      -- Без них ряд для спарклайна строился по ОДНОМУ измерению (приоритет категория ->
+      -- поставщик -> магазин), и при «Пиво + Байрона 156» тренд показывал «Пиво» по всей
+      -- сети, а число в карточке — по срезу. Стоят эти два разреза ноль: тот же скан.
+      (store, category, mo), (store, supplier, mo))
     """).result()
 
     def run(sql): return [dict(r) for r in client.query(sql).result()]
@@ -165,6 +170,8 @@ def main():
     rc_stm   = {(r["store"], r["mo"]): r for r in rc if _grain(r, "store", "mo")}
     rc_supm  = {(r["supplier"], r["mo"]): r for r in rc if _grain(r, "supplier", "mo")}
     rc_heat  = [r for r in rc if _grain(r, "store", "dow", "hr")]
+    rc_stcm  = {(r["store"], r["category"], r["mo"]): r for r in rc if _grain(r, "store", "category", "mo")}
+    rc_stsm  = {(r["store"], r["supplier"], r["mo"]): r for r in rc if _grain(r, "store", "supplier", "mo")}
     rc_cul   = {r["cul"]: r for r in rc if _grain(r, "cul")}
     rc_culst = {(r["cul"], r["store"]): r for r in rc if _grain(r, "cul", "store")}
     def rec(d, k):
@@ -250,6 +257,36 @@ def main():
 
     out["stores"] = [r["store"] for r in run(f"SELECT store FROM {AG} GROUP BY store ORDER BY store")]
     out["wholesale_stores"] = [s for s in WHOLESALE if s in out["stores"]]
+
+    # ПОМЕСЯЧНЫЕ КУБЫ ДЛЯ ТРЕНДОВ ПРИ ДВУХ ФИЛЬТРАХ.
+    # Строка: [месяц, индекс магазина, индекс категории/поставщика, выручка, прибыль,
+    # количество, чеки, SKU]. Индексы ссылаются на out["stores"] и на списки ниже —
+    # имена не дублируются, иначе куб раздувается втрое.
+    # Чеки берутся из витрины _dash_r26 (COUNT(DISTINCT tid) не складывается), SKU —
+    # из агрегата, там это честный COUNT(DISTINCT barcode) по группе.
+    cats = [r["category"] for r in out["by_category"]]
+    sups = [r["supplier"] for r in out["by_supplier"]]
+    sidx0 = {s_: i for i, s_ in enumerate(out["stores"])}
+    cidx0 = {c_: i for i, c_ in enumerate(cats)}
+    uidx0 = {u_: i for i, u_ in enumerate(sups)}
+    out["scm_cats"] = cats
+    out["ssm_sups"] = sups
+
+    def _cube(dim, idx, rcmap, key):
+        rows = run(f"""SELECT mo, store, {dim} d, ROUND(SUM(rev),0) rev, ROUND(SUM(gp),0) gp,
+            ROUND(SUM(qty),0) qty, COUNT(DISTINCT barcode) skus
+          FROM {AG} GROUP BY mo, store, d""")
+        cube = []
+        for r in rows:
+            i, j = sidx0.get(r["store"]), idx.get(r["d"])
+            if i is None or j is None: continue
+            cube.append([r["mo"], i, j, int(r["rev"] or 0), int(r["gp"] or 0), int(r["qty"] or 0),
+                         rec(rcmap, (r["store"], r["d"], r["mo"])), int(r["skus"] or 0)])
+        cube.sort(key=lambda x: (x[0], x[1], x[2]))
+        out[key] = cube
+
+    _cube("category", cidx0, rc_stcm, "store_cat_month")
+    _cube("supplier", uidx0, rc_stsm, "store_sup_month")
 
     # ПОЗИЦИИ (главный факт для drill-down) + ABC-класс, посчитанный по ВСЕМ товарам
     out["products"] = run(f"""
@@ -384,6 +421,8 @@ def main():
     import os as _os
     print("OK size:", round(_os.path.getsize(OUT) / 1024, 1), "KB")
     print("KPI:", out["kpi"])
+    print("кубы трендов: store_cat_month", len(out["store_cat_month"]),
+          "| store_sup_month", len(out["store_sup_month"]))
     print("категорий:", len(out["by_category"]), "| магазинов:", len(out["stores"]),
           "| поставщиков:", len(out["by_supplier"]), "| товаров:", len(out["products"]),
           "| оборач.кат:", len(out["turnover"]), "| оборач.пост:", len(out["turnover_supplier"]))

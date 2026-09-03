@@ -2324,43 +2324,30 @@ window.RD.setCompare = function(cmp){
 // Данные — из D.monthly. Sparkline рендерится ПОД числом, во всю ширину карточки.
 // Стрелка тренда (▲/▼/±) рисуется рядом со значением — Δ vs предыдущий месяц.
 function addSparklines(){
-  // D объявлен через `let`, поэтому НА window ЕГО НЕТ — только через глобальный eval (rdGetD)
-  const D = rdGetD();
-  if (!D) { rdLog('rd sparklines: no D'); return; }
-  // Ряд ТЕКУЩЕГО среза: основной скрипт кладёт его в OV_SERIES при каждом рендере «Обзора».
-  // Раньше здесь всегда стоял D.monthly — сеть целиком, поэтому проценты «к прошлому месяцу»
-  // не реагировали ни на магазин, ни на категорию, ни на поставщика.
-  const slice = rdGetGlobal('OV_SERIES');
-  const useSlice = Array.isArray(slice) && slice.length >= 2;
-  if (!useSlice && (!D.monthly || !Array.isArray(D.monthly) || D.monthly.length < 2)) {
-    rdLog('rd sparklines: нет ни OV_SERIES, ни D.monthly');
-    return;
-  }
-  const kpis = document.querySelectorAll('#ov_kpis .kpi');
-  if (!kpis.length) { rdLog('rd sparklines: no #ov_kpis .kpi'); return; }
+  // ПЕРЕПИСАНО 2026-09-03. Было: жёстко карточки №0 и №1 контейнера #ov_kpis, ряд из
+  // D.monthly (сеть целиком) и стрелка всегда «последний месяц против предыдущего».
+  // Стало: любая карточка с data-metric на ЛЮБОЙ вкладке, ряд текущего среза и пара
+  // месяцев из глобальной панели («Сравнить с»). Ряды готовит основной скрипт в
+  // window.KPI_TREND (buildTrend), потому что только он знает про фильтры и кубы.
+  const T = window.KPI_TREND;
+  const cards = document.querySelectorAll('.kpi[data-metric]');
+  if (!cards.length) return;
+  document.querySelectorAll('.kpi .rd-spark, .kpi .rd-trend').forEach(s => s.remove());
+  if (!T || !T.months || T.months.length < 2) { rdLog('rd sparklines: нет KPI_TREND'); return; }
 
-  // Отсортируем месяцы, но исключим неполный последний (если период кончается не в последний день)
-  let months = useSlice
-    ? slice.map(x => ({ mo: x[0], revenue: x[1], gp: x[2] })).sort((a,b) => a.mo - b.mo)
-    : D.monthly.slice().sort((a,b) => a.mo - b.mo);
-  let partial = false;
-  if (D.period && D.period.end){
-    const ed = String(D.period.end);
-    const eMo = +ed.slice(5,7), eDay = +ed.slice(8,10);
-    const dim = new Date(+ed.slice(0,4), eMo, 0).getDate();
-    if (eDay < dim && months.length && months[months.length-1].mo === eMo) partial = true;
-  }
-  const trendMonths = partial ? months.slice(0, -1) : months;
-  if (trendMonths.length < 2) return;
+  const MON = ['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  const c = getThemeColors();
+  const uid = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+  // Цвет спарклайна по смыслу метрики, а не по порядку карточки.
+  const COLOR = {revenue:c.acc, gp:c.pos, margin:c.pos, qty:c.acc, receipts:c.acc,
+                 skus:c.acc, avgcheck:c.pos};
 
   const drawSpark = (values, color, gradId) => {
     if (!values.length) return '';
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const range = max - min || 1;
-    const W = 100, H = 28;
+    const min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+    const range = (max - min) || 1, W = 100, H = 28;
     const pts = values.map((v,i) => {
-      const x = (i/(values.length-1)) * W;
+      const x = (i/(values.length-1||1)) * W;
       const y = H - ((v - min)/range) * (H - 3) - 1.5;
       return x.toFixed(1) + ',' + y.toFixed(1);
     }).join(' ');
@@ -2374,57 +2361,52 @@ function addSparklines(){
       + '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'
       + '</svg>';
   };
-
   const arrowSvg = (dir) => {
     if (dir === 'up')   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>';
     if (dir === 'down') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>';
   };
-
-  const trend = (vals) => {
-    if (vals.length < 2) return null;
-    const last = vals[vals.length-1];
-    const prev = vals[vals.length-2];
-    if (!prev) return null;
-    const pct = (last - prev) / prev * 100;
-    const dir = pct > 2 ? 'up' : pct < -2 ? 'down' : 'flat';
-    return { pct, dir };
+  const fmtNum = (v, metric) => {
+    if (metric === 'margin') return (Math.round(v*10)/10) + '%';
+    const a = Math.abs(v);
+    if (a >= 1e6) return (v/1e6).toFixed(2) + ' млн';
+    if (a >= 1e3) return Math.round(v/1e3) + ' тыс';
+    return String(Math.round(v));
   };
 
-  // удалить старые sparkline + trend
-  document.querySelectorAll('#ov_kpis .rd-spark, #ov_kpis .rd-trend').forEach(s => s.remove());
+  cards.forEach(kpi => {
+    const metric = kpi.dataset.metric;
+    const row = T.series && T.series[metric];
+    if (!row) return;
+    const values = T.months.map(m => +row[m] || 0);
+    if (!values.some(v => v !== 0)) return;
 
-  const c = getThemeColors();
-  const uid = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
-
-  const injectKpi = (idx, values, color, sparkId) => {
-    const kpi = kpis[idx];
-    if (!kpi || !values.length) return;
-    // trend
-    const t = trend(values);
-    if (t) {
-      const vEl = kpi.querySelector('.v');
-      if (vEl && !vEl.querySelector('.rd-trend')) {
-        const sign = t.pct > 0 ? '+' : '';
-        vEl.insertAdjacentHTML('afterend',
-          '<span class="rd-trend ' + t.dir + '">' + arrowSvg(t.dir) + sign + t.pct.toFixed(1) + '%</span>'
-        );
+    // Стрелка: пара месяцев из «Сравнить с». Для метрик, которые нельзя складывать
+    // по нескольким категориям (чеки, SKU, средний чек), стрелку не рисуем — вместо
+    // неё подсказка, почему.
+    const soft = T.soft && T.soft[metric];
+    if (T.cmp && !soft) {
+      const a = +row[T.cmp.a], b = +row[T.cmp.b];
+      if (isFinite(a) && isFinite(b) && b) {
+        const pct = (a - b) / Math.abs(b) * 100;
+        const dir = pct > 2 ? 'up' : pct < -2 ? 'down' : 'flat';
+        const vEl = kpi.querySelector('.v');
+        if (vEl) {
+          const sign = pct > 0 ? '+' : '';
+          const title = MON[T.cmp.a] + ' ' + fmtNum(a, metric) + ' против ' + MON[T.cmp.b] + ' ' + fmtNum(b, metric)
+            + (T.partial === T.cmp.a ? ' · месяц неполный' : '');
+          vEl.insertAdjacentHTML('afterend',
+            '<span class="rd-trend ' + dir + '" title="' + title + '">' + arrowSvg(dir) + sign + pct.toFixed(1) + '%</span>');
+        }
       }
+    } else if (soft) {
+      const vEl = kpi.querySelector('.v');
+      if (vEl) vEl.insertAdjacentHTML('afterend',
+        '<span class="rd-trend flat" title="Выбрано несколько категорий или поставщиков: чеки и SKU по ним не складываются — один чек попадает сразу в несколько категорий. Сравнение месяцев для этой метрики отключено, форма линии показывает только динамику.">' + arrowSvg('flat') + '—</span>');
     }
-    // sparkline (все месяцы, включая неполный — показываем реалистичный тренд)
     kpi.insertAdjacentHTML('beforeend',
-      drawSpark(values, color, sparkId));
-  };
-
-  // Первая карточка: Выручка
-  const revVals = trendMonths.map(m => +m.revenue || 0);
-  injectKpi(0, revVals, c.acc, 'rd-sg-rev-' + uid);
-  // Вторая: Прибыль (поле может называться gp или profit)
-  const hasGp = D.monthly.some(m => 'gp' in m || 'profit' in m);
-  if (hasGp) {
-    const gpVals = trendMonths.map(m => +(m.gp != null ? m.gp : m.profit) || 0);
-    injectKpi(1, gpVals, c.pos, 'rd-sg-gp-' + uid);
-  }
+      drawSpark(values, COLOR[metric] || c.acc, 'rd-sg-' + metric + '-' + uid));
+  });
 }
 
 // Хук: MutationObserver + обёртка render + перехват chart() для замены ECharts на SVG-ranks.
@@ -2475,6 +2457,7 @@ function hookRender(){
       const r = orig.apply(this, arguments);
       setTimeout(() => {
         if (!rdIsReady()) return;
+        try { addSparklines(); } catch(e){ rdLog('rd sparklines:', e); }
         try {
           const tab = rdGetTab();
           if (tab === 'overview') {

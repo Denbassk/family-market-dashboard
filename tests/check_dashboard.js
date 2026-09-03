@@ -59,7 +59,7 @@ vconsole.on('jsdomError', e => {
 const dom = new JSDOM(html, {
   runScripts: 'dangerously', pretendToBeVisual: true, virtualConsole: vconsole,
   beforeParse(w) {
-    const chart = () => ({ setOption(){}, on(){}, off(){}, resize(){}, dispose(){},
+    const chart = () => ({ setOption(){}, on(){}, off(){}, resize(){}, dispose(){}, clear(){},
       getZr: () => ({ on(){} }), showLoading(){}, hideLoading(){} });
     w.echarts = { init: chart, getInstanceByDom: () => null, graphic: {}, color: {} };
     w.ExcelJS = { Workbook: function () {
@@ -546,7 +546,64 @@ setTimeout(() => {
     console.log('  в приблизительном режиме (в интерфейсе это подписано «≈ оценка»).');
   }
 
-  tabsSuite(); crossSuite(); returnsSuite(); revisionSuite();
+
+// Тренды на KPI и сравнение месяцев (2026-09-03). Главный инвариант: помесячный ряд,
+// по которому рисуется спарклайн, обязан совпадать с числом в карточке за тот же месяц.
+// Именно это раньше расходилось: ряд строился по одному измерению, карточка — по срезу.
+function trendSuite() {
+  const CL = CLEAR;
+  const rows = w.eval(`(function(){
+    var out=[], CL=function(){${CLEAR}};
+    var cases=[['без фильтров',''],
+      ['магазин','S.store=[D.stores[3]];'],
+      ['категория','S.cat=[D.by_category[1].category];'],
+      ['магазин + категория','S.store=[D.stores[3]];S.cat=[D.by_category[1].category];'],
+      ['магазин + поставщик','S.store=[D.stores[3]];S.sup=[D.by_supplier[1].supplier];']];
+    for (var ci=0; ci<cases.length; ci++){
+      var name=cases[ci][0], setup=cases[ci][1];
+      CL(); eval(setup); var ser=sliceSeries(); var src=ser.src, bad=0, n=0;
+      for (var i=0;i<ser.rows.length;i++){
+        var r=ser.rows[i];
+        CL(); eval(setup); S.month=String(r.mo); render();
+        var k=kpiNow(); n++;
+        var d=Math.abs((k.revenue||0)-(r.revenue||0));
+        if (r.revenue && d/r.revenue>0.005) bad++;
+      }
+      out.push([name, src, n, bad]);
+    }
+    CL(); return out;
+  })()`);
+  rows.forEach(([name, src, n, bad]) =>
+    add('Тренд == карточка помесячно: ' + name, bad === 0, bad ? bad + ' из ' + n + ' месяцев врут (' + src + ')' : n + ' мес · ' + src, '0 расхождений'));
+
+  const pairs = w.eval(`(function(){
+    ${CLEAR}render(); var a=window.KPI_TREND&&window.KPI_TREND.cmp;
+    ${CLEAR}S.month='5';render(); var b=window.KPI_TREND&&window.KPI_TREND.cmp;
+    ${CLEAR}S.month='8';S.cmp='3';render(); var c=window.KPI_TREND&&window.KPI_TREND.cmp;
+    ${CLEAR}S.abc='A';render(); var d=window.KPI_TREND&&window.KPI_TREND.cmp;
+    ${CLEAR}render();
+    return [a,b,c,d];
+  })()`);
+  add('Сравнение: «весь период» берёт последний месяц против предыдущего',
+      !!pairs[0] && pairs[0].a > pairs[0].b, pairs[0] ? pairs[0].a + ' vs ' + pairs[0].b : '—', 'a>b');
+  add('Сравнение: выбран май -> база апрель', !!pairs[1] && pairs[1].a === 5 && pairs[1].b === 4,
+      pairs[1] ? pairs[1].a + ' vs ' + pairs[1].b : '—', '5 vs 4');
+  add('Сравнение: можно взять любой месяц (авг против марта)',
+      !!pairs[2] && pairs[2].a === 8 && pairs[2].b === 3, pairs[2] ? pairs[2].a + ' vs ' + pairs[2].b : '—', '8 vs 3');
+  add('Сравнение гасится там, где ряд не про карточку (ABC)', pairs[3] === null,
+      pairs[3] ? 'стрелка рисуется' : 'погашено', 'погашено');
+
+  // разметка карточек: без data-metric слой редизайна не знает, что рисовать
+  w.eval(`${CLEAR}S.tab='overview';render();`);
+  const metrics = [...w.document.querySelectorAll('#ov_kpis .kpi[data-metric]')].map(k => k.dataset.metric);
+  add('KPI «Обзора» размечены метриками', metrics.length >= 7, metrics.join(',') || '—', '>=7');
+  w.eval(`${CLEAR}S.tab='stores';render();`);
+  add('KPI «Магазинов» размечены метриками',
+      w.document.querySelectorAll('#st_kpis2 .kpi[data-metric]').length >= 2,
+      w.document.querySelectorAll('#st_kpis2 .kpi[data-metric]').length, '>=2');
+}
+
+  tabsSuite(); crossSuite(); returnsSuite(); revisionSuite(); trendSuite();
   if (REDESIGN) redesignSuite(); else skip('Регрессии слоя редизайна', 'нет docs/redesign.js');
   featuresSuite();
 
