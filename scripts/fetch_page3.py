@@ -1,6 +1,19 @@
 #!/usr/bin/env python3
 """Данные для перемещений, неликвидов (по позициям + поставщик), кросс-продаж (по позициям), списаний.
-Категория/поставщик — из assortment_matrix_full. Использует промежуточную таблицу _dash_tx26 (создаёт fetch_data.py)."""
+Категория/поставщик — из assortment_matrix_full. Использует промежуточную таблицу _dash_tx26 (создаёт fetch_data.py).
+
+ЦЕНА ЗАПРОСОВ (переделано 2026-09-03). Раньше блок «продажи за 90 дней» (sales90) был
+подставлен ТЕКСТОМ в семь запросов подряд — перемещения, их итог, дефицит и пять срезов
+неликвидов, — и каждый раз заново читал turnover_transactions (2,69 ГБ, без партиций).
+Замер на сборке 2026-09-03 07:30: 1125 + 573 + 573 + 569 x 4 = 5,5 ГБ из 21 ГБ всей сборки.
+Теперь sales90, снимок остатков и сами неликвиды считаются ОДИН раз в маленькие витрины
+_dash_s90 / _dash_stk / _dash_dead, а семь запросов читают уже их (десятки мегабайт).
+
+Кросс-продажи считают COUNT(DISTINCT tid) по парам. Строковый tid — 175 МБ на скан,
+поэтому в промежуточной таблице лежит tidn = FARM_FINGERPRINT(tid) (32 МБ). Для пар это
+равнозначно: вероятность коллизии на 1,8 млн чеков ~1e-7, а сумма выручки через tidn
+не считается нигде — только счёт пар.
+"""
 import os, json, datetime
 from google.cloud import bigquery
 from google.oauth2 import service_account
@@ -22,19 +35,54 @@ MX = "`family-market-analytics.family_market.assortment_matrix_full`"
 WO = "`family-market-analytics.writeoffs.writeoffs_report`"
 CW = "`family-market-analytics.family_market.culinary_writeoffs`"
 ST = "`family-market-analytics.family_market._dash_tx26`"
+AG = "`family-market-analytics.family_market._dash_a26`"
+S90 = "`family-market-analytics.family_market._dash_s90`"
+STK = "`family-market-analytics.family_market._dash_stk`"
+DEAD = "`family-market-analytics.family_market._dash_dead`"
 
 def rows(sql): return [dict(r) for r in client.query(sql).result()]
 # актуальный снимок остатков (не хардкод)
 snap = list(client.query(f"SELECT CAST(MAX(snapshot_date) AS STRING) d FROM {SM}").result())[0]["d"]
 print("снимок остатков stock_matrix:", snap)
-# общий шаблон CTE остатков (нормализация store через cs_tt, вес учтён quantity>=0.001)
-def stock_cte(with_meta=True):
-    if with_meta:
-        return (f"stock AS (SELECT barcode, ANY_VALUE(product_name) nm, CASE {cs_tt} END store, "
-                f"SUM(quantity) qty, ANY_VALUE(COALESCE(cost_price,0)) cost FROM {SM} "
-                f"WHERE snapshot_date=DATE'{snap}' AND store IN {keep} AND quantity>=0.001 GROUP BY barcode, store)")
-    return (f"stock AS (SELECT barcode, CASE {cs_tt} END store, SUM(quantity) qty FROM {SM} "
-            f"WHERE snapshot_date=DATE'{snap}' AND store IN {keep} GROUP BY barcode, store)")
+
+# ---------- ВИТРИНЫ (один проход вместо семи) ----------
+# _dash_s90 — продажи за последние 90 дней по (штрих-код, магазин). Раньше этот блок
+# читал turnover_transactions в каждом из семи запросов.
+# _dash_stk — снимок остатков на выбранную дату: количество, себестоимость, название.
+#             ANY_VALUE тут был и раньше; посчитанный один раз, он ещё и стабильнее —
+#             все семь отчётов теперь видят одно и то же название и одну себестоимость.
+# _dash_dead — «неликвиды»: есть остаток, за 90 дней ни одной продажи. Пять срезов ниже
+#             (по позициям, магазинам, категориям, поставщикам, итог) читают эту витрину.
+if not os.environ.get("SKIP_STAGING"):
+    client.query(f"""
+    CREATE OR REPLACE TABLE {S90} AS
+    SELECT barcode, CASE {cs_tt} END store, ANY_VALUE(product_name) nm, SUM(quantity) qty90
+    FROM {TT}
+    WHERE transaction_datetime >= TIMESTAMP_SUB((SELECT MAX(transaction_datetime) FROM {TT}), INTERVAL 90 DAY)
+      AND store IN {keep}
+    GROUP BY barcode, store""").result()
+    # qty — по всем строкам снимка (так считал stock_cte(False) для дефицита),
+    # qty_pos/nm_pos/cost_pos — только по строкам quantity>=0.001 (так считал stock_cte(True)
+    # для перемещений и неликвидов). Обе версии нужны, чтобы цифры не поехали.
+    client.query(f"""
+    CREATE OR REPLACE TABLE {STK} AS
+    SELECT barcode, CASE {cs_tt} END store,
+           SUM(quantity) qty,
+           SUM(IF(quantity>=0.001, quantity, 0)) qty_pos,
+           COUNTIF(quantity>=0.001) n_pos,
+           ANY_VALUE(IF(quantity>=0.001, product_name, NULL)) nm,
+           ANY_VALUE(IF(quantity>=0.001, COALESCE(cost_price,0), NULL)) cost
+    FROM {SM} WHERE snapshot_date=DATE'{snap}' AND store IN {keep}
+    GROUP BY barcode, store""").result()
+    client.query(f"""
+    CREATE OR REPLACE TABLE {DEAD} AS
+    WITH m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
+    stock AS (SELECT barcode, store, nm, qty_pos qty, cost FROM {STK} WHERE n_pos>0)
+    SELECT s.nm p, COALESCE(m.cat,'Прочее (нет в матрице)') c, COALESCE(m.sup,'(нет в матрице)') s,
+      s.store, s.qty, s.qty*s.cost value
+    FROM stock s LEFT JOIN {S90} sl USING(barcode,store) LEFT JOIN m ON m.barcode=s.barcode
+    WHERE COALESCE(sl.qty90,0)=0""").result()
+
 out = {"year": YEAR, "updated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"), "stock_as_of": snap}
 
 # ---------- ПЕРЕМЕЩЕНИЯ (донор без продаж 90д -> получатель со спросом) ----------
@@ -43,11 +91,8 @@ out = {"year": YEAR, "updated_at": datetime.datetime.now(datetime.timezone.utc).
 # recv_month = месячная скорость продаж получателя (qty90/3) = минимально необходимый остаток на месяц.
 # move_qty = сколько переместить = нужное получателю до месячного остатка, но не больше остатка донора.
 move_core = f"""
-WITH sales90 AS (
-  SELECT barcode, CASE {cs_tt} END store, SUM(quantity) qty90
-  FROM {TT} WHERE transaction_datetime>=TIMESTAMP_SUB((SELECT MAX(transaction_datetime) FROM {TT}),INTERVAL 90 DAY)
-    AND store IN {keep} GROUP BY barcode, store),
-{stock_cte()},
+WITH sales90 AS (SELECT barcode, store, qty90 FROM {S90}),
+stock AS (SELECT barcode, store, nm, qty_pos qty, cost FROM {STK} WHERE n_pos>0),
 m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
 donors AS (SELECT s.barcode, s.nm, s.store, s.qty, s.cost FROM stock s
   LEFT JOIN sales90 sl USING(barcode,store) WHERE COALESCE(sl.qty90,0)=0 AND s.qty>=3),
@@ -71,11 +116,9 @@ out["moves_summary"] = rows(f"SELECT COUNT(*) pairs, COUNT(DISTINCT product) sku
 
 # ---------- ДЕФИЦИТ / УПУЩЕННЫЕ ПРОДАЖИ (товар продаётся, но остаток 0) ----------
 oos = f"""
-WITH sales90 AS (SELECT barcode, ANY_VALUE(product_name) nm, CASE {cs_tt} END store, SUM(quantity) qty90
-  FROM {TT} WHERE transaction_datetime>=TIMESTAMP_SUB((SELECT MAX(transaction_datetime) FROM {TT}),INTERVAL 90 DAY)
-    AND store IN {keep} GROUP BY barcode, store),
-{stock_cte(False)},
-anystk AS (SELECT barcode, SUM(quantity) tot FROM {SM} WHERE snapshot_date=DATE'{snap}' AND store IN {keep} GROUP BY barcode),
+WITH sales90 AS (SELECT barcode, nm, store, qty90 FROM {S90}),
+stock AS (SELECT barcode, store, qty FROM {STK}),
+anystk AS (SELECT barcode, SUM(qty) tot FROM {STK} GROUP BY barcode),
 m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode)
 SELECT s.nm product, COALESCE(m.cat,'Прочее (нет в матрице)') category, COALESCE(m.sup,'(нет в матрице)') supplier,
   s.store, CAST(ROUND(s.qty90,0) AS INT64) sold90, CAST(CEIL(s.qty90/3.0) AS INT64) need_month,
@@ -86,37 +129,30 @@ ORDER BY sold90 DESC LIMIT 500"""
 out["oos"] = rows(oos)
 
 # ---------- НЕЛИКВИДЫ: по позициям с поставщиком (остаток есть, продаж 90д нет) ----------
-dead = f"""
-WITH sales90 AS (SELECT barcode, CASE {cs_tt} END store, SUM(quantity) q90 FROM {TT}
-  WHERE transaction_datetime>=TIMESTAMP_SUB((SELECT MAX(transaction_datetime) FROM {TT}),INTERVAL 90 DAY)
-    AND store IN {keep} GROUP BY barcode,store),
-{stock_cte()},
-m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
-dead0 AS (
-  SELECT s.nm p, COALESCE(m.cat,'Прочее (нет в матрице)') c, COALESCE(m.sup,'(нет в матрице)') s,
-    s.store, s.qty, s.qty*s.cost value
-  FROM stock s LEFT JOIN sales90 sl USING(barcode,store) LEFT JOIN m ON m.barcode=s.barcode
-  WHERE COALESCE(sl.q90,0)=0)
-SELECT * FROM dead0"""
-out["dead_items"] = rows(f"SELECT p, c, s, store, ROUND(qty,0) qty, ROUND(value,0) value FROM ({dead}) ORDER BY value DESC LIMIT 1200")
-out["dead_by_store"] = rows(f"SELECT store, ROUND(SUM(value),0) dead_value, COUNT(*) dead_skus FROM ({dead}) GROUP BY store ORDER BY dead_value DESC")
-out["dead_by_cat"] = rows(f"SELECT c category, ROUND(SUM(value),0) dead_value, COUNT(*) dead_skus FROM ({dead}) GROUP BY c ORDER BY dead_value DESC")
-out["dead_by_supplier"] = rows(f"SELECT s supplier, ROUND(SUM(value),0) dead_value, COUNT(*) dead_skus FROM ({dead}) GROUP BY s ORDER BY dead_value DESC LIMIT 40")
-out["dead_total"] = rows(f"SELECT ROUND(SUM(value),0) v, COUNT(*) n FROM ({dead})")[0]
+out["dead_items"] = rows(f"SELECT p, c, s, store, ROUND(qty,0) qty, ROUND(value,0) value FROM {DEAD} ORDER BY value DESC LIMIT 1200")
+out["dead_by_store"] = rows(f"SELECT store, ROUND(SUM(value),0) dead_value, COUNT(*) dead_skus FROM {DEAD} GROUP BY store ORDER BY dead_value DESC")
+out["dead_by_cat"] = rows(f"SELECT c category, ROUND(SUM(value),0) dead_value, COUNT(*) dead_skus FROM {DEAD} GROUP BY c ORDER BY dead_value DESC")
+out["dead_by_supplier"] = rows(f"SELECT s supplier, ROUND(SUM(value),0) dead_value, COUNT(*) dead_skus FROM {DEAD} GROUP BY s ORDER BY dead_value DESC LIMIT 40")
+out["dead_total"] = rows(f"SELECT ROUND(SUM(value),0) v, COUNT(*) n FROM {DEAD}")[0]
 
 # ---------- КРОСС-ПРОДАЖИ: по позициям (пары товаров в одном чеке) ----------
+# tidn вместо tid — см. шапку файла.
 cross_items = f"""
-WITH top AS (SELECT barcode FROM (SELECT barcode, SUM(qty) q FROM {ST} GROUP BY barcode ORDER BY q DESC LIMIT 500)),
-b AS (SELECT tid, barcode, ANY_VALUE(product_name) nm, ANY_VALUE(category) c FROM {ST} JOIN top USING(barcode) GROUP BY tid, barcode),
-pairs AS (SELECT a.barcode x, b.barcode y, ANY_VALUE(a.nm) n1, ANY_VALUE(b.nm) n2, ANY_VALUE(a.c) c1, ANY_VALUE(b.c) c2,
-    COUNT(DISTINCT a.tid) cnt FROM b a JOIN b b ON a.tid=b.tid AND a.barcode<b.barcode GROUP BY x,y)
-SELECT n1 a, n2 b, c1, c2, cnt FROM pairs ORDER BY cnt DESC LIMIT 80"""
+WITH top AS (SELECT barcode FROM (SELECT barcode, SUM(qty) q FROM {AG} GROUP BY barcode ORDER BY q DESC LIMIT 500)),
+b AS (SELECT tidn, barcode FROM {ST} JOIN top USING(barcode) GROUP BY tidn, barcode),
+pairs AS (SELECT a.barcode x, b.barcode y, COUNT(DISTINCT a.tidn) cnt
+  FROM b a JOIN b b ON a.tidn=b.tidn AND a.barcode<b.barcode GROUP BY x, y),
+nm AS (SELECT barcode, ANY_VALUE(product_name) nm, ANY_VALUE(category) c
+       FROM {AG} JOIN top USING(barcode) GROUP BY barcode)
+SELECT n1.nm a, n2.nm b, n1.c c1, n2.c c2, cnt
+FROM pairs JOIN nm n1 ON n1.barcode=x JOIN nm n2 ON n2.barcode=y
+ORDER BY cnt DESC LIMIT 80"""
 out["cross_items"] = rows(cross_items)
 # кросс по категориям (для верхнеуровневого взгляда)
 out["cross"] = rows(f"""
-WITH tx AS (SELECT tid, category FROM {ST} WHERE in_matrix GROUP BY tid, category),
-pairs AS (SELECT a.category c1, b.category c2, COUNT(DISTINCT a.tid) cnt
-  FROM tx a JOIN tx b ON a.tid=b.tid AND a.category<b.category GROUP BY c1,c2)
+WITH tx AS (SELECT tidn, category FROM {ST} WHERE in_matrix GROUP BY tidn, category),
+pairs AS (SELECT a.category c1, b.category c2, COUNT(DISTINCT a.tidn) cnt
+  FROM tx a JOIN tx b ON a.tidn=b.tidn AND a.category<b.category GROUP BY c1,c2)
 SELECT c1, c2, cnt FROM pairs ORDER BY cnt DESC LIMIT 25""")
 
 # ---------- СПИСАНИЯ ----------

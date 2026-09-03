@@ -288,13 +288,33 @@ function revisionSuite() {
       !!(card && card.querySelector('input[type=text],input[type=search],input:not([type])')), true, true);
   const days = d.getElementById('stDays');
   add('«Товары без движения»: окно по умолчанию 90 дней', days && days.value === '90', days && days.value, '90');
-  // Имена точек в stale.json обязаны совпадать с остальным дашбордом. До 2026-08-21
+  // stale.json — это СНИМОК СКЛАДА НА ВЫБРАННУЮ ДАТУ (`as_of` = MAX(snapshot_date)
+  // в stock_matrix), нужный при перемещениях. То, что снимок старый, — нормальное
+  // состояние, а не поломка: владелец грузит остаток на нужный день тогда, когда он
+  // нужен, и as_of сдвигается сам. Поэтому дата снимка здесь НЕ проверяется, только
+  // печатается.
+  // А вот имена точек обязаны совпадать с остальным дашбордом. До 2026-08-21
   // fetch_stale.py имел СВОЙ словарь нормализации на 7 ключей, и 12 из 38 магазинов
   // писались по-другому — «Товары без движения» нельзя было сопоставить ни с чем.
+  // Снимок, собранный ДО этой даты, законно содержит старые имена — это история,
+  // а не дефект, поэтому такой файл идёт в «пропущено», а не в FAIL. Как только
+  // fetch_stale.py отработает заново (любой запуск Action), имена станут каноническими.
   // Служебный склад «Полевая-Склад» в full_data не входит намеренно (его прячет ползунок).
   const STALE = path.join(path.dirname(DATA), 'stale.json');
   if (fs.existsSync(STALE)) {
     const raw = fs.readFileSync(STALE, 'utf8');
+    const meta = k => (raw.match(new RegExp('"' + k + '"\\s*:\\s*"([^"]*)"')) || [, ''])[1];
+    const asOf = meta('as_of'), built = meta('updated_at');
+    const fdBuilt = String(w.eval('D.updated_at||""')).slice(0, 10);
+    console.log('  Снимок остатков: на ' + (asOf || '?') + ' · файл собран ' + (built || '?'));
+    // Свежесть САМОГО СНИМКА (as_of) не проверяем: остаток грузится под задачу (перемещения),
+    // и снимок месячной давности — законное состояние. Проверяем другое: что файл stale.json
+    // ПЕРЕСОБРАН вместе с full_data.json. Именно здесь была дыра — до 2026-09-03 в update.yml
+    // стояло `git add docs/full_data.json` без stale.json, поэтому снимок от 28.08 пересобирался
+    // в раннере и НИ РАЗУ не доезжал до прода: на сайте лежал файл от 11.08 со старыми именами.
+    add('stale.json пересобран вместе с full_data.json',
+        !!(built && fdBuilt && built >= fdBuilt), (built || '?') + ' против ' + (fdBuilt || '?'),
+        'не старше даты сборки full_data.json');
     const names = new Set();
     for (const m of raw.matchAll(/"st"\s*:\s*"((?:[^"\\]|\\.)*)"/g)) names.add(JSON.parse('"' + m[1] + '"'));
     const canon = new Set(w.eval('D.stores'));

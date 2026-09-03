@@ -25,6 +25,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
       - name: Install deps
         run: pip install -r requirements.txt
       - name: Write service account key
@@ -37,12 +40,39 @@ jobs:
           REPORT_YEAR: "2026"
           SKIP_STAGING: ${{ inputs.skip_staging && '1' || '' }}
         run: python scripts/build_data.py
+
+      # ГЕЙТ. До 2026-09-03 данные коммитились без единой проверки — путь для битого JSON
+      # на прод был открыт настежь. Проверки идут ПОСЛЕ сборки, потому что проверяют
+      # именно свежесобранные данные, а не то, что лежало в репозитории.
+      - name: Install test deps
+        run: npm i --no-save --silent jsdom
+      - name: Проверка синтаксиса
+        run: node tests/check_syntax.js
+      - name: Гейт — автотесты дашборда
+        run: |
+          set +e
+          node tests/check_dashboard.js
+          rc=$?
+          set -e
+          # 1 — реальные провалы или рантайм-ошибки: данные НЕ коммитим.
+          # 3 — провалов нет, но проверено не всё (нет tests/truth.json — он в .gitignore
+          #     и в CI отсутствует, поэтому сверка с BigQuery честно пропускается).
+          if [ "$rc" = "1" ]; then
+            echo "::error::Автотесты провалены — обновление данных остановлено, прод не тронут"
+            exit 1
+          fi
+          echo "Автотесты прошли (код возврата $rc)"
+
       - name: Commit updated data
         run: |
           rm -f /tmp/sa-key.json
           git config user.name  "dashboard-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add docs/full_data.json
+          # ВАЖНО: stale.json тоже. До 2026-09-03 здесь стоял только full_data.json,
+          # поэтому docs/stale.json пересобирался при каждом запуске и НИ РАЗУ не попадал
+          # в репозиторий — на проде месяц лежал снимок остатков от 11 августа, хотя в
+          # BigQuery уже был снимок от 28 августа.
+          git add docs/full_data.json docs/stale.json
           if git diff --staged --quiet; then
             echo "Нет изменений."
           else
