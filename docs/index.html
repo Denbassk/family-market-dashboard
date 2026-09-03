@@ -87,6 +87,7 @@ select:focus,input:focus{outline:1px solid var(--acc)}
 .csvbtn{background:var(--c2);border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:2px 9px;font-size:10.5px;cursor:pointer;font-weight:400}
 .csvbtn:hover{color:var(--txt);border-color:var(--acc)}
 #ov_alerts{border-color:#3a2a1a}
+.scopebadge{margin-left:8px;font-size:10px;font-weight:600;color:#fbbf24;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);border-radius:99px;padding:1px 7px;white-space:nowrap}
 .alert{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;margin:5px 0;font-size:12.5px;cursor:pointer;border:1px solid var(--line)}
 .alert:hover{filter:brightness(1.12)}
 .alert .ic{font-size:16px}.alert .x{margin-left:auto;color:var(--muted);font-size:11px}
@@ -2114,6 +2115,20 @@ function axV(name){return {type:'value',name:name||'',nameTextStyle:{color:TXT},
 function axCat(data){return {type:'category',data:data,axisLine:{lineStyle:{color:AX}},axisTick:{show:false},axisLabel:{color:TXT}};}
 
 // цвет по марже
+// Бейдж на карточке: честно говорит, что этот график живёт НЕ по текущему срезу.
+// Половина «несоответствий кросс-фильтров» — это места, где разреза физически нет
+// в данных (кросс-продажи по чекам сети, оборачиваемость без помесячных остатков
+// по точкам, неликвиды по поставщикам без разреза по магазинам). Молчать об этом
+// хуже, чем подписать: человек видит цифру и думает, что она про выбранный магазин.
+function setScope(id,msg){
+  const el=$(id); if(!el) return;
+  const card=el.closest('.card'); if(!card) return;
+  const h=card.querySelector('h3'); if(!h) return;
+  let b=h.querySelector('.scopebadge');
+  if(!msg){ if(b)b.remove(); return; }
+  if(!b){ b=document.createElement('span'); b.className='scopebadge'; h.appendChild(b); }
+  b.textContent=msg;
+}
 function mColor(m){m=+m||0; if(m<=8)return '#ef4444'; if(m<=14)return '#fb923c'; if(m<=22)return '#eab308'; if(m<=30)return '#84cc16'; return '#22c55e';}
 
 // Цвет по GMROI — РАСХОДЯЩАЯСЯ шкала вокруг единицы, а не радуга: единица это точка
@@ -2262,6 +2277,9 @@ function render(){ if(!D)return; chips(); applyFilterVis();
 function statusColor(s){s=s||'';if(s.includes('🟢'))return '#22c55e';if(s.includes('🔴'))return '#ef4444';if(s.includes('🔵'))return '#38bdf8';if(s.includes('🟡'))return '#eab308';return '#94a3b8';}
 function statusGroup(s){s=s||'';if(s.includes('Прибыльный'))return 'Прибыльный';if(s.includes('Кандидат на вывод'))return 'Кандидат на вывод';if(s.includes('Расширить'))return 'Расширить покрытие';if(s.includes('Новинка'))return 'Новинка';return 'Нет данных';}
 function renderMatrix(){
+  // Матрица ассортимента — это справочник «что вообще должно стоять на полке»,
+  // разреза по точкам в нём нет вовсе, поэтому фильтр магазина к нему не применяется.
+  setScope('mx_tab', allSel(S.store)?'':'магазин не применяется');
   const M=D.matrix;
   if(!M||!M.rows||!M.rows.length){$('mx_tab').innerHTML='<tbody><tr><td class="l">Матрица ещё не загружена. Нажмите «Обновить данные».</td></tr></tbody>';$('mx_kpis').innerHTML='';return;}
   const H=M.cols, iSup=H.indexOf('Поставщик'),iProd=H.indexOf('Товар'),iCat=H.indexOf('Категория'),iStatus=H.indexOf('Статус');
@@ -2425,38 +2443,49 @@ function renderReport(){
 }
 // ============ ПАНЕЛЬ АЛЕРТОВ ============
 function renderAlerts(){
+  // Алерты считаются ПОД ТЕКУЩИЙ СРЕЗ. Раньше все шесть читали D.* целиком, поэтому при
+  // выбранном магазине панель писала про падение на другой точке и про неликвиды всей сети —
+  // самое заметное расхождение кросс-фильтров, потому что панель висит первой на «Обзоре».
+  // Где разреза в данных нет (неликвиды по категории/поставщику), фильтр честно не применяется,
+  // и это подписано в заголовке панели.
+  // ВАЖНО: в каждом алерте ровно ОДИН <b> — слой редизайна забирает первый <b> в бейдж справа.
   const A=[], box=$('ov_alerts');
+  const sliced = !allSel(S.store)||!allSel(S.cat)||!allSel(S.sup)||monthSel()||(S.abc&&S.abc!=='all')||S.q;
   const partial=D.period && (+(''+D.period.end).split('-')[2] < 28);
   const mos=[...new Set((D.store_month||[]).map(r=>r.mo))].sort((a,b)=>a-b);
   const useM=partial?mos.slice(0,-1):mos;
   if(useM.length>=2){
     const last=useM[useM.length-1], prev=useM[useM.length-2], bs={};
-    (D.store_month||[]).forEach(r=>{(bs[r.store]=bs[r.store]||{})[r.mo]=r.revenue;});
-    const decl=Object.entries(bs).map(([s,m])=>({s,l:m[last]||0,p:m[prev]||0})).filter(x=>x.p>50000)
+    (D.store_month||[]).filter(r=>inSel(r.store,S.store)).forEach(r=>{(bs[r.store]=bs[r.store]||{})[r.mo]=r.revenue;});
+    const decl=Object.entries(bs).map(([st,m])=>({s:st,l:m[last]||0,p:m[prev]||0})).filter(x=>x.p>50000)
       .map(x=>({...x,g:(x.l-x.p)/x.p})).filter(x=>x.g<=-0.15).sort((a,b)=>a.g-b.g);
     if(decl.length)A.push({c:'r',ic:'📉',t:`Падение выручки ${MONTHS[prev]}→${MONTHS[last]}: <b>${decl.length}</b> магазинов. Сильнее всего: ${decl.slice(0,4).map(d=>d.s+' ('+Math.round(d.g*100)+'%)').join(', ')}`,
       act:()=>{}});
   }
-  const neg=(D.products||[]).filter(p=>p.gp<0);
+  const wp=workProducts();
+  const neg=wp.filter(p=>p.gp<0);
   if(neg.length)A.push({c:'r',ic:'🔻',t:`Продажа ниже закупки: <b>${neg.length}</b> позиций (оборот ${fmt(neg.reduce((a,p)=>a+p.rev,0))} ₴). Проверьте цены/акции.`,
     act:()=>{S.tab='analytics';syncTabs();render();setTimeout(()=>{const el=$('an_loss');if(el)el.scrollIntoView({behavior:'smooth'});resizeAll();},60);}});
-  const low=(D.products||[]).filter(p=>p.gp>=0&&p.mrg<=5);
+  const low=wp.filter(p=>p.gp>=0&&p.mrg<=5);
   if(low.length)A.push({c:'o',ic:'⚠',t:`Низкая маржа (≤5%): <b>${low.length}</b> позиций тянут прибыль вниз.`,
     act:()=>{S.tab='analytics';syncTabs();render();setTimeout(resizeAll,60);}});
-  const dt=D.dead_total||{};
-  if(dt.v){const ts=(D.dead_by_store||[])[0];A.push({c:'o',ic:'🧊',t:`Заморожено в неликвидах: <b>${fmt(dt.v)} ₴</b> (${fmt(dt.n)} остатков)${ts?', больше всего: '+ts.store+' — '+fmt(ts.dead_value):''}.`,
+  // Неликвиды: разрез по магазинам есть, по категории и поставщику — нет.
+  const dss=(D.dead_by_store||[]).filter(r=>inSel(r.store,S.store));
+  const dv=sum(dss,r=>r.dead_value), dn=sum(dss,r=>r.dead_skus);
+  if(dv){const ts=dss.slice().sort((a,b)=>b.dead_value-a.dead_value)[0];
+    A.push({c:'o',ic:'🧊',t:`Заморожено в неликвидах: <b>${fmt(dv)} ₴</b> (${fmt(dn)} остатков)${ts&&dss.length>1?', больше всего: '+ts.store+' — '+fmt(ts.dead_value):''}.`,
     act:()=>{S.tab='stock';syncTabs();render();setTimeout(resizeAll,60);}});}
-  const oos=(D.oos||[]);
+  const oos=(D.oos||[]).filter(o=>inSel(o.store,S.store)&&inSel(o.category,S.cat)&&inSel(o.supplier,S.sup));
   if(oos.length){
     const lost=oos.reduce((a,o)=>a+oosMoney(o).rev,0);
     A.push({c:'y',ic:'📦',t:`Дефицит: <b>${fmt(lost)} ₴/мес</b> упущенной выручки; ${oos.length} ходовых позиций стоят с нулевым остатком, ${oos.filter(o=>o.elsewhere).length} закрываются перемещением.`,
     act:()=>{S.tab='stock';syncTabs();render();setTimeout(resizeAll,60);}});}
-  const lowcat=(D.by_category||[]).filter(c=>c.revenue>1e6&&c.margin<8);
+  const lowcat=catAgg().filter(c=>c.revenue>1e6&&c.margin<8);
   if(lowcat.length)A.push({c:'y',ic:'📊',t:`Категории с низкой маржой: <b>${lowcat.length}</b> при обороте от 1 млн ₴ — ${lowcat.slice(0,5).map(c=>c.category+' '+c.margin+'%').join(', ')}.`,act:()=>{}});
   if(!A.length){box.style.display='none';return;}
   box.style.display='block';
   const collapsed=lsGet('fm_alerts_collapsed')==='1';
-  box.innerHTML='<h3 id="al_head" style="cursor:pointer;user-select:none"><span>⚠ Требует внимания ('+A.length+')</span><span id="al_caret" class="muted" style="font-weight:400;font-size:12px">'+(collapsed?'развернуть ▸':'свернуть ▾')+'</span></h3>'+
+  box.innerHTML='<h3 id="al_head" style="cursor:pointer;user-select:none"><span>⚠ Требует внимания ('+A.length+')'+(sliced?'<i class="scopebadge" style="font-style:normal">по текущему срезу</i>':'')+'</span><span id="al_caret" class="muted" style="font-weight:400;font-size:12px">'+(collapsed?'развернуть ▸':'свернуть ▾')+'</span></h3>'+
     '<div id="al_body" style="display:'+(collapsed?'none':'block')+'">'+
     A.map((a,i)=>`<div class="alert al-${a.c}" data-i="${i}"><span class="ic">${a.ic}</span><span>${a.t}</span><span class="x">→</span></div>`).join('')+'</div>';
   box.querySelectorAll('.alert').forEach((el,i)=>el.onclick=A[i].act);
@@ -2564,12 +2593,17 @@ function renderReturns(rn){
 function agg12(rows){const m={};rows.forEach(r=>{m[r.mo]=m[r.mo]||[r.mo,0,0];m[r.mo][1]+=r.revenue;m[r.mo][2]+=r.gp;});return Object.values(m).sort((a,b)=>a[0]-b[0]);}
 // агрегат категорий под фильтр
 function catAgg(){
-  if(monthSel()&&allSel(S.store)&&allSel(S.sup)&&!S.q){
+  // ABC и «скрыть технические» ОБЯЗАНЫ выбивать из быстрых веток. Раньше при ABC=A
+  // (и никаких других фильтров) catAgg возвращал D.by_category целиком, поэтому фильтр
+  // молча не применялся: таблица категорий «Обзора», скэттер маржи, матрица GMROI
+  // и покрытие показывали всю сеть. storeAgg такую проверку делал, catAgg — нет.
+  const abcOff=!(S.abc&&S.abc!=='all')&&!S.noOff;
+  if(abcOff&&monthSel()&&allSel(S.store)&&allSel(S.sup)&&!S.q){
     const m=monthN();
     return (D.cat_month||[]).filter(r=>r.mo===m&&(allSel(S.cat)||inSel(r.category,S.cat)))
       .map(r=>({category:r.category,revenue:r.revenue,gp:r.gp,margin:r.revenue?+(r.gp/r.revenue*100).toFixed(1):0})).sort((a,b)=>b.revenue-a.revenue);
   }
-  if(!monthSel()&&allSel(S.store)&&allSel(S.sup)&&!S.q) return D.by_category.filter(c=>allSel(S.cat)||inSel(c.category,S.cat));
+  if(abcOff&&!monthSel()&&allSel(S.store)&&allSel(S.sup)&&!S.q) return D.by_category.filter(c=>allSel(S.cat)||inSel(c.category,S.cat));
   // общий случай — из рабочего набора позиций (по магазинам он точен благодаря кубу).
   // SKU считаем в том же проходе: раньше на каждую категорию заново фильтровался весь список.
   const g={};
@@ -2716,6 +2750,9 @@ function renderAnalytics(){
     'category','turnover_rate','#a78bfa',tvf,p=>setFilter('cat',p.name),'');
   hbar('an_turnsup', (D.turnover_supplier||[]).filter(t=>allSel(S.sup)||inSel(t.supplier,S.sup)).slice(0,15).reverse(),
     'supplier','turnover_rate','#38bdf8',tvf,p=>setFilter('sup',p.name),'');
+  setScope('an_turn', allSel(S.store)?'':'магазин не применяется');
+  setScope('an_turnsup', allSel(S.store)?'':'магазин не применяется');
+  setScope('an_turnstore', (allSel(S.cat)&&allSel(S.sup))?'':'категория/поставщик не применяются');
   $('an_turn_note').innerHTML=`<b>Что это:</b> оборачиваемость = продажи по себестоимости ÷ средний складской остаток по себестоимости. Показывает, <b>сколько раз запас полностью обернулся</b> за период (${D.period?fmtD(D.period.start)+'–'+fmtD(D.period.end)+', '+monthsCount()+' мес':''}). Выше — быстрее продаётся, меньше денег «заморожено». <b>«Дни на полке»</b> = период ÷ обороты за период — сколько дней в среднем товар лежит до продажи (меньше = лучше). <b>Важно:</b> в данных «turnover_monthly» лежит сумма месячных средних остатков, поэтому исходный коэффициент — это обороты В МЕСЯЦ; здесь он умножен на ${monthsCount()} мес. До 27.08.2026 интерфейс делил период на месячный коэффициент и завышал срок на полке в ${monthsCount()} раз. Разрез по месяцу к оборачиваемости не применяется — помесячных остатков по точкам в данных нет.`;
 
   // маржа vs выручка (scatter)
@@ -2972,8 +3009,14 @@ function renderFrozen(){
     ['Дефицит, позиций',fmt(oosR.length),oosR.length>300?'в таблице топ-300':''],
     ['Остатки на',D.stock_as_of||'—','снимок Торгсофта']
   ]);
-  hbar('fr_store',(D.dead_by_store||[]).slice().sort((a,b)=>b.dead_value-a.dead_value).slice(0,20).sort((a,b)=>a.dead_value-b.dead_value),'store','dead_value','#ef4444',v=>fmtF(v)+' ₴',p=>setFilter('store',p.name),'',460);
-  hbar('fr_sup',(D.dead_by_supplier||[]).slice(0,18).sort((a,b)=>a.dead_value-b.dead_value),'supplier','dead_value','#fb923c',v=>fmtF(v)+' ₴',p=>setFilter('sup',p.name),'',460);
+  // Фильтр магазина здесь работает точно: dead_by_store — это разрез по точкам.
+  const deadS=(D.dead_by_store||[]).filter(r=>inSel(r.store,S.store));
+  hbar('fr_store',deadS.slice().sort((a,b)=>b.dead_value-a.dead_value).slice(0,20).sort((a,b)=>a.dead_value-b.dead_value),'store','dead_value','#ef4444',v=>fmtF(v)+' ₴',p=>setFilter('store',p.name),'',460);
+  // А по поставщикам разреза по магазинам в данных нет: dead_by_supplier посчитан по сети.
+  // Подменять его на dead_items нельзя — там только топ-1200 позиций, 48,6% суммы.
+  hbar('fr_sup',(D.dead_by_supplier||[]).filter(r=>inSel(r.supplier,S.sup)).slice(0,18).sort((a,b)=>a.dead_value-b.dead_value),'supplier','dead_value','#fb923c',v=>fmtF(v)+' ₴',p=>setFilter('sup',p.name),'',460);
+  setScope('fr_sup', allSel(S.store)?'':'по всей сети — разреза по магазинам нет');
+  setScope('fr_cross', (allSel(S.store)&&allSel(S.cat)&&allSel(S.sup))?'':'по всей сети — пары считаются по чекам целиком');
   // Пофамильный список того, что лежит мёртвым грузом, — в карточке «Товары без движения»
   // ниже (stale.json, 53 тыс. строк, окно настраивается). Прежняя таблица `fr_items` строилась
   // из dead_items, обрезанного до 1 200 строк из 8 852, и её итог («В выборке ₴») расходился
@@ -2992,6 +3035,7 @@ function renderStores(){
     return {store:r.store,revenue:r.revenue,gp:r.gp,margin:r.margin,receipts:r.receipts,gmroi:gmroi(r.gp,t),
       avgcheck:r.receipts?Math.round(r.revenue/r.receipts):0,revsku:r.skus?Math.round(r.revenue/r.skus):0,
       skus:r.skus,turndays:shelfDays(tr),dead:dd.dead_value||0};});
+  setScope('stf_tab',(allSel(S.cat)&&allSel(S.sup))?'':'категория/поставщик не применяются');
   const tR=sum(rows,x=>x.revenue),tDead=sum(rows,x=>x.dead);
   // сводный средний чек — по рознице: опт с чеком ~1292 ₴ перекашивает его на десятки процентов.
   // В таблице ниже у самой оптовой точки её собственный средний чек остаётся как есть.
