@@ -1374,50 +1374,15 @@ function rdEmptyState(opts){
 
 // ---------- АНАЛИТИКА: подписи топ-пузырей на scatter «Маржа vs Выручка» ----------
 function enhanceScatter(){
-  if (!window.echarts || !window.echarts.getInstanceByDom) return;
+  // Подписи топ-5 пузырей убраны по просьбе владельца (2026-09-03): они наезжали друг на
+  // друга, обрезались многоточием и брались из D.by_category — то есть из ПОЛНОГО набора,
+  // не из текущего среза, поэтому при фильтре висели не над теми точками. Название
+  // категории и так есть в тултипе по наведению. Функция оставлена, чтобы снять overlay
+  // у тех, у кого он уже нарисован в кэше страницы.
   const el = document.getElementById('an_margin');
   if (!el) return;
-  const chart = window.echarts.getInstanceByDom(el);
-  if (!chart) return;
-
-  const D = rdGetD();
-  if (!D || !D.by_category) return;
-
-  // Топ-5 по выручке — им покажем подписи
-  const top = D.by_category.slice()
-    .filter(c => c.revenue > 0)
-    .sort((a,b) => b.revenue - a.revenue)
-    .slice(0, 5);
-
-  const drawLabels = () => {
-    if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
-    let overlay = el.querySelector('.rd-scatter-labels');
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.className = 'rd-scatter-labels';
-      el.appendChild(overlay);
-    }
-    // Позиции топ-5
-    let html = '';
-    top.forEach(c => {
-      try {
-        const px = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [c.revenue, c.margin]);
-        if (!px || !isFinite(px[0]) || !isFinite(px[1])) return;
-        // Обрезаем длинное имя категории
-        const name = (c.category || '').length > 20 ? (c.category || '').slice(0, 20) + '…' : (c.category || '');
-        html += '<div class="rd-scatter-label" style="left:' + px[0] + 'px;top:' + px[1] + 'px">' + name + '</div>';
-      } catch(e) {}
-    });
-    overlay.innerHTML = html;
-  };
-
-  setTimeout(drawLabels, 150);
-  chart.on('finished', drawLabels);
-  if (window.ResizeObserver && !chart.__rdScatterRO) {
-    const ro = new ResizeObserver(() => setTimeout(drawLabels, 100));
-    ro.observe(el);
-    chart.__rdScatterRO = true;
-  }
+  const overlay = el.querySelector('.rd-scatter-labels');
+  if (overlay) overlay.remove();
 }
 
 // ---------- АНАЛИТИКА: кросс-продажи как network diagram ----------

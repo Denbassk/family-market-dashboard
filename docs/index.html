@@ -1544,9 +1544,13 @@ mark{
     <div class="card"><h3>Оборачиваемость по поставщикам <span>оборотов за период · клик = фильтр</span></h3><div id="an_turnsup" class="chart tall"></div></div>
     <div class="card"><h3>Маржа vs выручка по категориям <span>размер — SKU</span></h3><div id="an_margin" class="chart"></div></div>
     <div class="card"><h3>Оборачиваемость по магазинам <span>выше = быстрее</span></h3><div id="an_turnstore" class="chart"></div></div>
-    <div class="card full"><h3>💵 GMROI по категориям <span>сколько ₴ валовой прибыли приносит ₴, вложенная в запас · клик = фильтр</span></h3>
+    <div class="card full"><h3>💵 Матрица продуктивности запаса: категории <span>оборот × маржа · размер — деньги в запасе · цвет — GMROI · клик = фильтр</span></h3>
       <div id="an_gmroi" class="chart tall"></div>
+      <div id="an_gmroi_bad"></div>
       <div class="note" id="an_gmroi_note"></div></div>
+    <div class="card full"><h3>🏬 Матрица продуктивности запаса: магазины <span>та же логика по 38 точкам · размер — выручка · клик = фильтр</span></h3>
+      <div id="an_smatrix" class="chart tall"></div>
+      <div class="note" id="an_smatrix_note"></div></div>
     <div class="card full"><h3>🔴 Убыточные и низкомаржинальные позиции <span>маржа ≤5% или продажа ниже закупки · клик = карточка</span><button class="csvbtn" data-t="an_loss">⬇ Excel</button></h3>
       <div class="kpis" id="an_loss_k" style="margin:4px 0"></div>
       <div class="scroll"><table id="an_loss"></table></div></div>
@@ -2112,6 +2116,87 @@ function axCat(data){return {type:'category',data:data,axisLine:{lineStyle:{colo
 // цвет по марже
 function mColor(m){m=+m||0; if(m<=8)return '#ef4444'; if(m<=14)return '#fb923c'; if(m<=22)return '#eab308'; if(m<=30)return '#84cc16'; return '#22c55e';}
 
+// Цвет по GMROI — РАСХОДЯЩАЯСЯ шкала вокруг единицы, а не радуга: единица это точка
+// безубыточности запаса (ниже неё гривна в запасе не вернула гривну прибыли), поэтому
+// у шкалы два полюса и нейтральная середина, а не пять ступенек одного направления.
+function gmColor(v){
+  if(v==null||!isFinite(v)) return '#64748b';
+  if(v<0.75) return '#b91c1c';
+  if(v<1)    return '#f87171';
+  if(v<1.6)  return '#94a3b8';
+  if(v<3)    return '#166534';
+  if(v<8)    return '#22c55e';
+  return '#86efac';
+}
+// Легенда шкалы: цвет тут несёт смысл, поэтому подпись к нему обязана быть на экране,
+// а не только в тексте под графиком.
+function gmLegend(){
+  const st=[['#b91c1c','<0,75'],['#f87171','<1'],['#94a3b8','~1'],['#15803d','1,6-3'],['#22c55e','3-8'],['#86efac','8+']];
+  return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px;color:#8fa2bd;margin:2px 0 6px">'
+    +'<span>GMROI:</span>'+st.map(x=>'<span style="display:inline-flex;align-items:center;gap:4px">'
+    +'<i style="width:10px;height:10px;border-radius:50%;background:'+x[0]+';display:inline-block"></i>'+x[1]+'</span>').join('')
+    +'<span style="color:#64748b">· ниже 1 запас не отбивает себя</span></div>';
+}
+// МАТРИЦА: оборачиваемость (X) x маржа (Y), размер пузыря — деньги в запасе, цвет — GMROI.
+// Заменила горизонтальные бары GMROI: те показывали только 18 лучших, из-за чего худшие
+// категории (ради которых метрика и нужна) в кадр не попадали, а «Готовая еда» с 40
+// сплющивала шкалу так, что черта единицы прилипала к нулю.
+// rows: [{name, x, y, size, v, tip}]  ·  o: {logX, qx[4], xName, yName, onclick}
+function quadrant(id, rows, o){
+  o=o||{};
+  const c=chart(id);
+  rows=(rows||[]).filter(r=>isFinite(r.x)&&isFinite(r.y)&&r.x>0);
+  if(!rows.length){c.setOption({series:[{type:'scatter',data:[]}]},true);return;}
+  const med=a=>{const q=a.slice().sort((m,n)=>m-n);const h=q.length>>1;return q.length%2?q[h]:(q[h-1]+q[h])/2;};
+  const mx=med(rows.map(r=>r.x)), my=med(rows.map(r=>r.y));
+  const maxS=Math.max.apply(null,rows.map(r=>r.size||0))||1;
+  // Подписываем ТОЛЬКО крайних: три лучших и три худших по GMROI плюс два самых тяжёлых
+  // по деньгам в запасе. Подпись на каждой точке — это каша, её тут и просили убрать.
+  const byV=rows.slice().sort((a,b)=>b.v-a.v), byS=rows.slice().sort((a,b)=>b.size-a.size);
+  const lab={}; byV.slice(0,3).concat(o.labelWorst===false?[]:byV.slice(-3))
+    .concat(byS.slice(0,2)).forEach(r=>lab[r.name]=1);
+  const data=rows.map(r=>({value:[r.x,r.y,r.size||0,r.name,r.v],
+    itemStyle:{color:gmColor(r.v),opacity:.85,borderColor:'#0b1220',borderWidth:2},
+    label:{show:!!lab[r.name],position:'top',distance:6,color:TXT,fontSize:10,
+           formatter:()=>r.name.length>18?r.name.slice(0,18)+'…':r.name}}));
+  const q=o.qx||['','','',''];
+  c.setOption({
+    grid:{left:8,right:22,top:38,bottom:46,containLabel:true},
+    tooltip:tt({trigger:'item',formatter:p=>{const r=rows.find(x=>x.name===p.value[3])||{};
+      return '<b>'+p.value[3]+'</b><br>GMROI: '+(p.value[4]==null?'—':p.value[4].toFixed(2))
+        +'<br>'+(o.xName||'X')+': '+p.value[0].toFixed(1)
+        +'<br>'+(o.yName||'Y')+': '+p.value[1].toFixed(1)+'%'
+        +'<br>В запасе: '+fmtF(p.value[2])+' ₴'+(r.tip||'');}}),
+    // У логарифмической оси scale:true округляет границы до декад: данные кончаются на 200,
+    // а ось тянется до 1000 и правая треть поля пустует. Ставим границы по данным.
+    xAxis:{type:o.logX?'log':'value',name:o.xName||'',nameLocation:'middle',nameGap:26,scale:true,
+      min:o.logX?+(Math.min.apply(null,rows.map(r=>r.x))*0.8).toPrecision(2):null,
+      max:o.logX?+(Math.max.apply(null,rows.map(r=>r.x))*1.3).toPrecision(2):null,
+      nameTextStyle:{color:TXT},axisLine:{show:false},axisTick:{show:false},
+      splitLine:{lineStyle:{color:AX,type:'dashed'}},axisLabel:{color:TXT}},
+    // scale:true обязателен: без него ось тянется до нуля, и когда одна точка стоит особняком
+    // (опт с маржой 2,5% против розницы 16-21%), вся розница слипается в одну полоску.
+    yAxis:{type:'value',name:o.yName||'',nameLocation:'end',nameGap:14,scale:true,
+      nameTextStyle:{color:TXT,align:'left'},axisLine:{show:false},
+      axisTick:{show:false},splitLine:{lineStyle:{color:AX,type:'dashed'}},
+      axisLabel:{color:TXT,formatter:'{value}%'}},
+    graphic:[
+      {type:'text',right:30,top:40,style:{text:q[1],fill:'#64748b',fontSize:10,align:'right'}},
+      {type:'text',left:46,top:40,style:{text:q[0],fill:'#64748b',fontSize:10}},
+      {type:'text',right:30,bottom:58,style:{text:q[3],fill:'#64748b',fontSize:10,align:'right'}},
+      {type:'text',left:46,bottom:58,style:{text:q[2],fill:'#64748b',fontSize:10}}],
+    series:[{type:'scatter',data:data,
+      labelLayout:{hideOverlap:true},
+      symbolSize:d=>8+42*Math.sqrt((d[2]||0)/maxS),
+      emphasis:{focus:'self',itemStyle:{opacity:1}},
+      markLine:{silent:true,symbol:'none',animation:false,
+        lineStyle:{color:'#334155',type:'dashed',width:1},
+        label:{show:false},
+        data:[{xAxis:mx},{yAxis:my}]}}]},true);
+  c.resize(); c.off('click');
+  if(o.onclick) c.on('click',p=>o.onclick(p.value[3]));
+}
+
 // ============ загрузка ============
 async function load(){
   const r=await fetch('full_data.json?t='+Date.now()); D=await r.json();
@@ -2669,27 +2754,63 @@ function renderAnalytics(){
   // GMROI по категориям. Порог по запасу обязателен: там, где средний остаток близок к нулю
   // (например «Овощи и фрукты» — товар приезжает и в тот же день продаётся), отношение
   // улетает в сотни и график становится нечитаемым.
-  const gpc={};catAgg().forEach(c=>gpc[c.category]=c.gp);
+  // ---- МАТРИЦА ПРОДУКТИВНОСТИ ЗАПАСА: КАТЕГОРИИ ----
+  // Порог по запасу обязателен: там, где средний остаток близок к нулю («Овощи и фрукты» —
+  // товар приезжает и в тот же день продаётся), отношение улетает в сотни.
+  const gpc={},mrgc={};catAgg().forEach(c=>{gpc[c.category]=c.gp;mrgc[c.category]=c.margin;});
   const gm=(D.turnover||[]).filter(t=>inSel(t.category,S.cat)&&avgStock(t)>1000&&gpc[t.category]!=null)
-    .map(t=>({category:t.category,v:gmroi(gpc[t.category],t),stock:avgStock(t),gp:gpc[t.category]}))
-    .filter(x=>x.v!=null).sort((a,b)=>b.v-a.v);
-  const gmTop=gm.slice(0,18).reverse();
-  chart('an_gmroi').setOption({grid:{...baseGrid,left:8},tooltip:tt({trigger:'item',formatter:p=>{const d=gmTop[p.dataIndex];
-      return `<b>${d.category}</b><br>GMROI: ${d.v.toFixed(2)}<br>Прибыль: ${fmtF(d.gp)} ₴<br>Средний запас: ${fmtF(d.stock)} ₴`;}}),
-    xAxis:axV(),yAxis:axCat(gmTop.map(x=>x.category)),
-    series:[{type:'bar',barMaxWidth:16,data:gmTop.map(x=>({value:+x.v.toFixed(2),
-      itemStyle:{color:x.v<1?'#ef4444':(x.v<2?'#fb923c':(x.v<4?'#eab308':'#22c55e')),borderRadius:[0,4,4,0]}})),
-      markLine:{silent:true,symbol:'none',data:[{xAxis:1,lineStyle:{color:'#ef4444'},label:{formatter:'1,0',color:'#f87171'}}]}}]},true);
-  chart('an_gmroi').resize();chart('an_gmroi').off('click');
-  chart('an_gmroi').on('click',p=>setFilter('cat',gmTop[p.dataIndex].category));
-  {const worst=gm.slice(-3).reverse(), best=gm.slice(0,3);
-   $('an_gmroi_note').innerHTML='<b>Как читать:</b> GMROI = валовая прибыль ÷ средний складской остаток по себестоимости. '
-    +'2,0 значит, что каждая гривна в запасе принесла две гривны прибыли за период. Оборачиваемость и маржа по отдельности '
-    +'обманывают: быстрый товар с нулевой наценкой и жирный неликвид выглядят одинаково хорошо по одному из двух показателей. '
-    +'Красная черта — единица: ниже неё запас не отбивает себя. '
-    +(best.length?'<b>Лучшие:</b> '+best.map(x=>x.category+' '+x.v.toFixed(1)).join(', ')+'. ':'')
-    +(worst.length?'<b>Худшие:</b> '+worst.map(x=>x.category+' '+x.v.toFixed(2)).join(', ')+'. ':'')
+    .map(t=>({name:t.category,x:turnsPeriod(t.turnover_rate),y:+mrgc[t.category]||0,
+              size:avgStock(t),v:gmroi(gpc[t.category],t),gp:gpc[t.category],
+              tip:'<br>Прибыль: '+fmtF(gpc[t.category])+' ₴'}))
+    .filter(r=>r.v!=null&&isFinite(r.x));
+  // Худших не подписываем: они и так перечислены плашками под графиком, а подпись
+  // ложилась поверх плотного кластера в середине поля.
+  quadrant('an_gmroi',gm,{logX:true,xName:'оборотов за период',yName:'маржа',labelWorst:false,
+    qx:['Дорогая полка','Звёзды','Балласт','Трафик'],
+    onclick:name=>setFilter('cat',name)});
+  {const bad=gm.slice().sort((a,b)=>a.v-b.v).slice(0,10);
+   const frozen=bad.reduce((a,r)=>a+r.size,0);
+   $('an_gmroi_bad').innerHTML=gmLegend()+'<div class="note" style="margin-bottom:2px"><b>Куда не надо завозить</b> — 10 худших по GMROI, в них заморожено '
+     +fmtF(frozen)+' ₴:</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 6px">'
+     +bad.map(r=>'<span data-cat2="'+r.name+'" style="cursor:pointer;font-size:11px;padding:3px 8px;border-radius:99px;'
+        +'background:rgba(220,38,38,.13);border:1px solid '+gmColor(r.v)+'55;color:#e6edf7">'
+        +r.name+' <b style="color:'+gmColor(r.v)+'">'+r.v.toFixed(2)+'</b> '
+        +'<span style="color:#8fa2bd">'+fmtF(r.size)+' ₴</span></span>').join('')+'</div>';
+   $('an_gmroi_bad').querySelectorAll('[data-cat2]').forEach(e=>e.onclick=()=>setFilter('cat',e.dataset.cat2));
+   const best=gm.slice().sort((a,b)=>b.v-a.v).slice(0,3);
+   $('an_gmroi_note').innerHTML='<b>Как читать:</b> по горизонтали — сколько раз запас обернулся за период, по вертикали — маржа, '
+    +'размер круга — деньги, лежащие в этом запасе, цвет — <b>GMROI</b> (валовая прибыль ÷ средний остаток по себестоимости). '
+    +'Серый цвет — около единицы: запас едва отбивает себя, красный — не отбивает, зелёный — зарабатывает. '
+    +'Пунктир — медиана сети по обеим осям, он и делит поле на четыре угла: <b>справа вверху «звёзды»</b> (быстро и с маржой), '
+    +'<b>слева вверху «дорогая полка»</b> (маржа есть, но деньги стоят), <b>справа внизу «трафик»</b> (крутится, но не зарабатывает — '
+    +'терпим ради потока), <b>слева внизу «балласт»</b>. Подписаны только крайние точки, остальные — по наведению. '
+    +'Ось оборотов логарифмическая: между «Готовой едой» и табаком разница в десятки раз, на линейной шкале половина поля слиплась бы у нуля. '
+    +(best.length?'<b>Лучшие:</b> '+best.map(x=>x.name+' '+x.v.toFixed(1)).join(', ')+'. ':'')
     +'Категории со средним запасом меньше 1 000 ₴ скрыты — на них отношение неустойчиво.';}
+
+  // ---- ТА ЖЕ МАТРИЦА ПО МАГАЗИНАМ ----
+  // Здесь размер круга — выручка точки, а не запас: у магазина вопрос не «сколько денег
+  // лежит», а «какого масштаба точка мы обсуждаем».
+  {const turnS={};(D.turnover_store||[]).forEach(t=>turnS[t.store]=t);
+   const WHm=wholesaleSet();
+   const sm=(D.by_store||[]).filter(r=>inSel(r.store,S.store)&&!WHm.has(r.store)).map(r=>{const t=turnS[r.store]||{};
+     return {name:r.store,x:turnsPeriod(t.turnover_rate),y:+r.margin||0,size:r.revenue,
+       v:gmroi(r.gp,t),tip:'<br>Выручка: '+fmtF(r.revenue)+' ₴<br>Прибыль: '+fmtF(r.gp)+' ₴'};})
+     .filter(r=>r.v!=null&&isFinite(r.x)&&r.x>0);
+   quadrant('an_smatrix',sm,{logX:false,xName:'оборотов за период',yName:'маржа',
+     qx:['Медленный оборот','Эталон','Проблемная точка','Оборот без денег'],
+     onclick:name=>setFilter('store',name)});
+   const sw=sm.slice().sort((a,b)=>a.v-b.v);
+   const med=(a=>{const q=a.slice().sort((m,n)=>m-n),h=q.length>>1;return q.length?(q.length%2?q[h]:(q[h-1]+q[h])/2):0;})(sm.map(r=>r.v));
+   $('an_smatrix_note').innerHTML=gmLegend()+'<b>Тот же принцип, но по точкам.</b> Размер круга — выручка магазина. '
+    +'Медиана сети по GMROI — <b>'+med.toFixed(2)+'</b>. '
+    +(sw.length?'<b>Хуже всех:</b> '+sw.slice(0,3).map(x=>x.name+' '+x.v.toFixed(2)).join(', ')+'. ':'')
+    +(sw.length?'<b>Лучше всех:</b> '+sw.slice(-3).reverse().map(x=>x.name+' '+x.v.toFixed(2)).join(', ')+'. ':'')
+    +'Точка слева внизу — это одновременно медленный оборот и низкая маржа: туда завоз надо резать первым. '
+    +'Оптовая точка на график не выведена: с маржой около 2,5% она растягивала шкалу так, что вся розница слипалась в одну полоску. '
+    +'Её показатели смотрите в таблице на вкладке «Магазины». '
+    +'Разрез по категории и поставщику к этому графику не применяется: остатки по точкам есть только в целом.';}
+
   coverage();
 }
 function hbar(id,rows,nameK,valK,color,vf,onclick,unit,h){
