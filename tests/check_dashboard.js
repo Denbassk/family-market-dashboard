@@ -603,7 +603,60 @@ function trendSuite() {
       w.document.querySelectorAll('#st_kpis2 .kpi[data-metric]').length, '>=2');
 }
 
-  tabsSuite(); crossSuite(); returnsSuite(); revisionSuite(); trendSuite();
+
+// Поставщики в двух измерениях (2026-09-04). Требование владельца дословно: «суммы не
+// должны теряться и обрезаться». Поэтому здесь проверяется ровно это — что сумма по
+// ЛЮБОМУ разрезу сходится с итогом, а не что «примерно похоже».
+function supplierSuite() {
+  const has = w.eval('!!(D.in_ts_month&&D.in_ts_month.length&&D.sales_ts_month&&D.sales_ts_month.length)');
+  if (!has) {
+    skip('Продажи по контрагентам == общая выручка', 'нет in_ts_month/sales_ts_month — данные собраны прежним скриптом');
+    return;
+  }
+  const r = w.eval(`(function(){
+    var sTs=0, sExact=0, noInc=0;
+    (D.sales_ts_month||[]).forEach(function(x){ sTs+=+x.revenue||0; sExact+=+x.rev_exact||0;
+      if(String(x.supplier_ts).indexOf('нет прихода')>=0) noInc+=+x.revenue||0; });
+    var buyTs=0, buyMx=0;
+    (D.in_ts_month||[]).forEach(function(x){ buyTs+=+x.revenue||0; });
+    (D.in_supplier_month||[]).forEach(function(x){ buyMx+=+x.revenue||0; });
+    var br=0, brBad=0;
+    (D.sup_bridge||[]).forEach(function(x){ br+=+x.amt||0; if(!x.supplier_ts||!x.supplier)brBad++; });
+    var neg=(D.sales_ts_month||[]).filter(function(x){return (+x.revenue||0)<0;}).length
+           +(D.in_ts_month||[]).filter(function(x){return (+x.revenue||0)<0;}).length;
+    return {sTs:sTs, sExact:sExact, noInc:noInc, buyTs:buyTs, buyMx:buyMx, br:br, brBad:brBad,
+            neg:neg, rev:D.kpi.revenue, nTs:(new Set((D.in_ts_month||[]).map(function(x){return x.supplier_ts;}))).size};
+  })()`);
+  const off = (a, b) => b ? Math.abs(a - b) / b * 100 : (a ? 100 : 0);
+  add('Продажи по контрагентам == общая выручка (разнесение ничего не теряет)',
+      off(r.sTs, r.rev) < 0.01, Math.round(r.sTs) + ' против ' + r.rev, '<0,01%');
+  add('Закупки: контрагенты == бренды (одна и та же сумма, два имени)',
+      off(r.buyTs, r.buyMx) < 0.01, Math.round(r.buyTs) + ' против ' + Math.round(r.buyMx), '<0,01%');
+  add('Мостик контрагент-бренд покрывает всю сумму закупок',
+      off(r.br, r.buyTs) < 0.01 && r.brBad === 0, Math.round(r.br) + ' · пустых строк ' + r.brBad, '== закупкам');
+  add('Разнесение не создаёт отрицательных строк', r.neg === 0, r.neg, 0);
+  add('Доля точных (без разнесения) продаж по контрагентам',
+      r.sExact > 0 && r.sExact < r.sTs, Math.round(r.sExact / r.sTs * 100) + '% точно', '0<x<100');
+  add('Позиции без приходов не потеряны, а вынесены строкой', r.noInc > 0, Math.round(r.noInc) + ' ₴', '>0');
+
+  // карточка «Поставщики»: все четыре комбинации переключателей рендерятся и считают итог
+  const combos = [['mx','sales'],['mx','buy'],['ts','sales'],['ts','buy']];
+  let okCombo = 0, rowsTotal = [];
+  for (const [dim, met] of combos) {
+    try {
+      w.eval(`${CLEAR}S.supDim='${dim}';S.supMet='${met}';S.tab='overview';render();`);
+      const t = w.document.getElementById('ov_sup');
+      const n = t ? t.querySelectorAll('tbody tr').length : 0;
+      rowsTotal.push(dim + '/' + met + ':' + n);
+      if (n > 0) okCombo++;
+    } catch (e) { errors.push('карточка поставщиков [' + dim + '/' + met + ']: ' + (e.stack || e)); }
+  }
+  add('Карточка «Поставщики»: все 4 комбинации переключателей заполнены',
+      okCombo === 4, rowsTotal.join(' · '), '4 из 4');
+  w.eval(`${CLEAR}S.supDim='mx';S.supMet='sales';S.tab='overview';render();`);
+}
+
+  tabsSuite(); crossSuite(); returnsSuite(); revisionSuite(); trendSuite(); supplierSuite();
   if (REDESIGN) redesignSuite(); else skip('Регрессии слоя редизайна', 'нет docs/redesign.js');
   featuresSuite();
 

@@ -90,10 +90,58 @@ def main():
       WITH topp AS (SELECT product_name FROM (SELECT product_name, SUM(amt) a FROM {IS} GROUP BY product_name ORDER BY a DESC LIMIT 3500))
       SELECT product_name p, mo, ROUND(SUM(amt),0) rev, ROUND(SUM(amt_ret-amt),0) gp, ROUND(SUM(qty),0) qty
       FROM {IS} JOIN topp USING(product_name) GROUP BY p, mo""")
+    # ---------- ДВА ИЗМЕРЕНИЯ ПОСТАВЩИКА (2026-09-04) ----------
+    # Дашборд всегда показывал поставщика в терминах МАТРИЦЫ (бренд: «Сигарети_PM»),
+    # и контрагента по документам («ДЛ Солюшн», 83,3 млн ₴ шести брендов) в нём просто
+    # не существовало. Это не опечатка в названиях: связь бренд<->контрагент — многие
+    # ко многим («Оболонь» едет от трёх контрагентов, «Корона» от пяти), и сшивается
+    # она по ШТРИХ-КОДУ, а не по имени.
+    # in_ts_month — закупки по контрагенту. Точны на 100%: в накладной контрагент один.
+    out["in_ts_month"] = run(f"""SELECT supplier_ts, mo,
+      ROUND(SUM(amt),0) revenue, ROUND(SUM(amt_ret-amt),0) gp, ROUND(SUM(qty),0) qty
+      FROM {IS} GROUP BY supplier_ts, mo""")
+
+    # sales_ts_month — ПРОДАЖИ по контрагенту. В чеке накладной нет, связь только через
+    # штрих-код, поэтому 19,9% выручки (60,5 млн ₴, 552 штрих-кода) приходится на позиции,
+    # которые везут двое и больше. Просто приписать их каждому — задвоение на 20%.
+    # Разносим ПРОПОРЦИОНАЛЬНО доле закупок контрагента по этому же штрих-коду: тогда
+    # сумма по разрезу сходится с итогом продаж до копейки. rev_exact показывает, какая
+    # часть строки посчитана без разнесения (у позиции один контрагент) — чтобы на экране
+    # было видно, где цифра точная, а где доля. Позиции без приходов не теряются:
+    # они уходят отдельной честной строкой «(нет прихода в 2026)».
+    out["sales_ts_month"] = run(f"""
+      WITH inc AS (SELECT CAST(barcode AS STRING) bc, supplier_ts, SUM(amt) amt
+                   FROM {IS} WHERE amt>0 GROUP BY bc, supplier_ts),
+      tot AS (SELECT bc, SUM(amt) amt FROM inc GROUP BY bc),
+      share AS (SELECT i.bc, i.supplier_ts, SAFE_DIVIDE(i.amt,t.amt) w,
+                       COUNT(*) OVER (PARTITION BY i.bc) n
+                FROM inc i JOIN tot t USING(bc)),
+      s AS (SELECT CAST(barcode AS STRING) bc, mo, SUM(rev) rev, SUM(gp) gp, SUM(qty) qty
+            FROM `family-market-analytics.family_market._dash_a26` GROUP BY bc, mo)
+      SELECT COALESCE(sh.supplier_ts,'(нет прихода в {YEAR})') supplier_ts, s.mo,
+        ROUND(SUM(s.rev*IFNULL(sh.w,1)),0) revenue,
+        ROUND(SUM(s.gp *IFNULL(sh.w,1)),0) gp,
+        ROUND(SUM(s.qty*IFNULL(sh.w,1)),0) qty,
+        ROUND(SUM(IF(IFNULL(sh.n,1)=1, s.rev, 0)),0) rev_exact
+      FROM s LEFT JOIN share sh ON sh.bc=s.bc
+      GROUP BY supplier_ts, s.mo""")
+
+    # sup_bridge — мостик «контрагент <-> бренд» по штрих-кодам. Он же рабочий список
+    # на дозаполнение supplier_mapping: строки с брендом «(нет в матрице)» — это то,
+    # что мы покупаем, но не знаем, чей это бренд.
+    out["sup_bridge"] = run(f"""SELECT supplier_ts, supplier,
+      ROUND(SUM(amt),0) amt, COUNT(DISTINCT barcode) skus
+      FROM {IS} GROUP BY supplier_ts, supplier ORDER BY amt DESC""")
+
     out["incoming_meta"] = {"updated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
 
     OUT = os.environ.get("OUT_PATH", "incoming.json")
     json.dump(out, open(OUT, "w"), ensure_ascii=False, separators=(",", ":"))
+    _sts=sum(r["revenue"] or 0 for r in out["sales_ts_month"])
+    print("  два измерения поставщика: контрагентов", len({r["supplier_ts"] for r in out["in_ts_month"]}),
+          "| продажи, разнесённые по контрагентам:", round(_sts),
+          "| из них точных:", round(sum(r["rev_exact"] or 0 for r in out["sales_ts_month"])),
+          "| строк мостика:", len(out["sup_bridge"]))
     print("приходы: store_month", len(out["in_store_month"]), "| supplier_month", len(out["in_supplier_month"]),
           "| cat_month", len(out["in_cat_month"]), "| prod_month", len(out["in_prod_month"]))
     print("  поставщики -> имена матрицы:", cov["matched"], "из", cov["total"],
