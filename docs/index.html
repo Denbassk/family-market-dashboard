@@ -2719,12 +2719,24 @@ function renderOverview(){
 // пропорционально доле закупок по тому же штрих-коду, поэтому сумма по разрезу
 // сходится с итогом продаж, а колонка «точно» показывает, какая часть посчитана
 // без разнесения.
+// Бренды контрагента С ДОЛЯМИ по деньгам. Без долей колонка вводила в заблуждение:
+// «Арсенал ПК (Шейк)» показывался как «Шейки, Моршин», хотя Моршина он привёз на 6,6 тыс ₴
+// из 5,55 млн (0,12%) — это разовые довозы, а не ассортимент. Теперь мелочь ниже 1%
+// сворачивается в «+N мелких», а у крупных стоит их доля.
 function supBrands(name,dim){
   const f=(dim==='ent')?(r=>r.entity===name):(r=>r.supplier_ts===name);
-  const seen={},out=[];
+  const g={};
   (D.sup_bridge||[]).filter(r=>f(r)&&r.supplier&&r.supplier!=='(нет в матрице)')
-    .sort((a,b)=>b.amt-a.amt).forEach(r=>{if(!seen[r.supplier]){seen[r.supplier]=1;out.push(r.supplier);}});
-  return out;
+    .forEach(r=>{g[r.supplier]=(g[r.supplier]||0)+(+r.amt||0);});
+  const tot=Object.values(g).reduce((a,b)=>a+b,0)||1;
+  return Object.entries(g).map(([n,v])=>({n:n,share:v/tot})).sort((a,b)=>b.share-a.share);
+}
+function brandsLabel(br){
+  if(!br.length)return '—';
+  const big=br.filter(x=>x.share>=0.01), small=br.length-big.length;
+  const show=big.slice(0,3).map(x=>x.n+' '+Math.round(x.share*100)+'%');
+  const rest=big.length-show.length;
+  return show.join(', ')+(rest?' +'+rest:'')+(small?' · +'+small+' мелких':'');
 }
 // Имена контрагентов, свёрнутые в это юрлицо (для подсказки: из чего оно собрано).
 function entParts(ent){
@@ -2748,14 +2760,14 @@ function renderSuppliers(){
   const roll=(src,nameK,valK,gpK)=>{
     const g={};
     (src||[]).filter(r=>!m||r.mo===m).forEach(r=>{
-      const n=r[nameK]; const a=g[n]||(g[n]={name:n,v:0,gp:0,qty:0,ex:0});
-      a.v+=+r[valK]||0; a.gp+=+r[gpK]||0; a.qty+=+r.qty||0; a.ex+=+r.rev_exact||0;});
+      const n=r[nameK]; const a=g[n]||(g[n]={name:n,v:0,gp:0,qty:0,ex:0,w2:0});
+      a.v+=+r[valK]||0; a.gp+=+r[gpK]||0; a.qty+=+r.qty||0; a.ex+=+r.rev_exact||0; a.w2+=+r.rev_w2||0;});
     return Object.values(g);
   };
   if(dim==='mx'&&met==='sales'){
     key='бренд · продажи';
     rows=m?roll(D.supplier_month,'supplier','revenue','gp')
-          :(D.by_supplier||[]).map(r=>({name:r.supplier,v:r.revenue,gp:r.gp,qty:r.qty,ex:r.revenue}));
+          :(D.by_supplier||[]).map(r=>({name:r.supplier,v:r.revenue,gp:r.gp,qty:r.qty,ex:r.revenue,w2:r.revenue}));
   } else if(dim==='mx'&&met==='buy'){
     key='бренд · закупки'; rows=roll(D.in_supplier_month,'supplier','revenue','gp');
   } else if(dim==='ts'&&met==='sales'){
@@ -2771,7 +2783,10 @@ function renderSuppliers(){
   const tot=rows.reduce((a,r)=>a+r.v,0)||1;
   rows.forEach(r=>{r.share=+(r.v/tot*100).toFixed(2);
     r.mrg=r.v?+(r.gp/r.v*100).toFixed(1):0;
-    r.exp=exactShown?Math.round(r.ex/r.v*100):null;
+    // «Точно» = средневзвешенная доля этого поставщика в закупках его же позиций.
+    // Раньше тут было «доля позиций с единственным контрагентом», и один довоз на 0,12%
+    // ронял метрику до 11%. Если данные собраны прежним скриптом (нет rev_w2) — старый счёт.
+    r.exp=exactShown?Math.round((r.w2?r.w2:r.ex)/r.v*100):null;
     r.brands=(dim==='mx')?[]:supBrands(r.name,dim);
     r.parts=(dim==='ent')?entParts(r.name):[];});
   const moneyN=met==='sales'?'Выручка ₴':'Закупка ₴';
@@ -2782,26 +2797,29 @@ function renderSuppliers(){
     .concat(dim==='ent'?[['Свёрнуто имён','np']]:[])
     .concat(dim!=='mx'?[['Бренды матрицы','bn','l']]:[]);
   rows.forEach(r=>r.np=r.parts.length||1);
-  rows.forEach(r=>r.bn=r.brands.length?(r.brands.length>3?r.brands.slice(0,3).join(', ')+' +'+(r.brands.length-3):r.brands.join(', ')):'—');
+  rows.forEach(r=>r.bn=brandsLabel(r.brands));
   sortState['ov_sup']=sortState['ov_sup']||{key:'v',desc:true};
   tableSort('ov_sup',head,rows,'v',
     r=>{ if(dim==='mx'){setFilter('sup',r.name);return;}
-         const b=supBrands(r.name,dim); if(!b.length)return;
+         const b=supBrands(r.name,dim).filter(x=>x.share>=0.01).map(x=>x.n); if(!b.length)return;
          S.sup=b; msSyncAll(); S.prSel=null; render(); },
     r=>'<td class="l">'+r.name+'</td><td>'+fmtF(r.v)+'</td><td class="muted">'+r.share+'%</td><td>'+fmtF(r.gp)+'</td>'
       +'<td class="'+(r.mrg<8?'neg':(r.mrg>=18?'pos':''))+'">'+r.mrg+'</td>'
       +(exactShown?'<td class="'+(r.exp>=90?'pos':(r.exp<50?'neg':''))+'">'+r.exp+'%</td>':'')
       +(dim==='ent'?'<td class="'+(r.np>1?'pos':'muted')+'" title="'+r.parts.join(' · ')+'">'+r.np+'</td>':'')
-      +(dim!=='mx'?'<td class="l muted" title="'+r.brands.join(', ')+'">'+r.bn+'</td>':''));
+      +(dim!=='mx'?'<td class="l muted" title="'+r.brands.map(x=>x.n+' '+(x.share*100).toFixed(1)+'%').join(' · ')+'">'+r.bn+'</td>':''));
   $('ov_sup_s').textContent=rows.length+' · '+key+(m?' · '+MONTHS[m]:'');
   setScope('ov_sup', allSel(S.store)?'':'магазин не применяется — разреза по точкам у приходов нет');
   const parts=[];
   parts.push('<b>Два имени одного и того же.</b> «Бренд» — из матрицы, за что торгуемся; «контрагент» — из накладной, кому платим. '
     +'Связь многие-ко-многим: «ДЛ Солюшн» везёт шесть брендов сигарет, а «Оболонь» приезжает от трёх контрагентов, '
     +'поэтому сшиваются они по штрих-коду, а не по имени.');
-  if(dim==='ts'&&met==='sales')parts.push('<b>Колонка «точно»</b> — какая доля выручки строки посчитана без разнесения. '
+  if(met==='sales'&&dim!=='mx')parts.push('<b>Колонка «точно»</b> — насколько строка про него одного: средневзвешенная доля '
+    +'этого поставщика в закупках его же позиций. '
     +'В чеке накладной нет, и позиции, которые везут несколько контрагентов, разнесены пропорционально доле их закупок '
     +'по тому же штрих-коду — поэтому сумма столбца сходится с общей выручкой, ничего не теряется. '
+    +'Разовый довоз на доли процента метрику не роняет: у «Арсенал ПК (Шейк)» 99%, хотя формально его позиции '
+    +'пересекаются с «Моршином» на 6,6 тыс ₴ из 5,5 млн. '
     +'Строка «(нет прихода в '+(D.year||'')+')» — это выведенное из ассортимента и собственное производство.');
   if(dim==='ent')parts.push('<b>Юрлицо</b> — это контрагент с учётом переименований, подтверждённых вручную '
     +'(scripts/supplier_entity.py). Колонка «свёрнуто имён» показывает, сколько имён из накладных сложилось в строку; '

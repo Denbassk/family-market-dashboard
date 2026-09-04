@@ -127,7 +127,15 @@ def main():
         ROUND(SUM(s.rev*IFNULL(sh.w,1)),0) revenue,
         ROUND(SUM(s.gp *IFNULL(sh.w,1)),0) gp,
         ROUND(SUM(s.qty*IFNULL(sh.w,1)),0) qty,
-        ROUND(SUM(IF(IFNULL(sh.n,1)=1, s.rev, 0)),0) rev_exact
+        ROUND(SUM(IF(IFNULL(sh.n,1)=1, s.rev, 0)),0) rev_exact,
+        -- «Чистота» строки: средневзвешенная по приписанной выручке доля этого контрагента
+        -- в закупках. Считать «неточной» любую позицию, у которой БОЛЬШЕ ОДНОГО контрагента,
+        -- было ошибкой: «Арсенал ПК (Шейк)» привёз 5,51 млн ₴ своих «Шейков» и 6,6 тыс ₴
+        -- воды «Моршин» (0,12%, разовые довозы) — и из-за этих 0,12% половина его строки
+        -- считалась разнесённой, хотя фактически он единственный поставщик своих позиций.
+        -- Здесь вес позиции = сколько выручки ему приписано, поэтому копеечные довозы
+        -- метрику почти не двигают. Суммы это не меняло и не меняет — только подпись доверия.
+        ROUND(SUM(s.rev*IFNULL(sh.w,1)*IFNULL(sh.w,1)),0) rev_w2
       FROM s LEFT JOIN share sh ON sh.bc=s.bc
       GROUP BY supplier_ts, s.mo""")
 
@@ -151,7 +159,8 @@ def main():
         ROUND(SUM(s.rev*IFNULL(sh.w,1)),0) revenue,
         ROUND(SUM(s.gp *IFNULL(sh.w,1)),0) gp,
         ROUND(SUM(s.qty*IFNULL(sh.w,1)),0) qty,
-        ROUND(SUM(IF(IFNULL(sh.n,1)=1, s.rev, 0)),0) rev_exact
+        ROUND(SUM(IF(IFNULL(sh.n,1)=1, s.rev, 0)),0) rev_exact,
+        ROUND(SUM(s.rev*IFNULL(sh.w,1)*IFNULL(sh.w,1)),0) rev_w2
       FROM s LEFT JOIN share sh ON sh.bc=s.bc
       GROUP BY entity, s.mo""")
 
