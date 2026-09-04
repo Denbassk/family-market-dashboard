@@ -639,8 +639,33 @@ function supplierSuite() {
       r.sExact > 0 && r.sExact < r.sTs, Math.round(r.sExact / r.sTs * 100) + '% точно', '0<x<100');
   add('Позиции без приходов не потеряны, а вынесены строкой', r.noInc > 0, Math.round(r.noInc) + ' ₴', '>0');
 
-  // карточка «Поставщики»: все четыре комбинации переключателей рендерятся и считают итог
-  const combos = [['mx','sales'],['mx','buy'],['ts','sales'],['ts','buy']];
+  // Юрлица: склейка подтверждённых переименований не должна менять итог — только уменьшать
+  // число имён и увеличивать долю точных (позиция, которую «возили двое», после склейки
+  // оказывается от одного юрлица). Автосклейки по имени нет: см. scripts/supplier_entity.py.
+  if (w.eval('!!(D.sales_ent_month&&D.sales_ent_month.length)')) {
+    const e = w.eval(`(function(){
+      var se=0,sx=0,st=0,sxt=0,be=0,bt=0;
+      (D.sales_ent_month||[]).forEach(function(x){se+=+x.revenue||0;sx+=+x.rev_exact||0;});
+      (D.sales_ts_month||[]).forEach(function(x){st+=+x.revenue||0;sxt+=+x.rev_exact||0;});
+      (D.in_ent_month||[]).forEach(function(x){be+=+x.revenue||0;});
+      (D.in_ts_month||[]).forEach(function(x){bt+=+x.revenue||0;});
+      return {se:se,sx:sx,st:st,sxt:sxt,be:be,bt:bt,
+        nEnt:(new Set((D.in_ent_month||[]).map(function(x){return x.entity;}))).size,
+        nTs:(new Set((D.in_ts_month||[]).map(function(x){return x.supplier_ts;}))).size};
+    })()`);
+    add('Юрлица: продажи == продажам по контрагентам (склейка не двигает суммы)',
+        off(e.se, e.st) < 0.01, Math.round(e.se) + ' против ' + Math.round(e.st), '<0,01%');
+    add('Юрлица: закупки == закупкам по контрагентам',
+        off(e.be, e.bt) < 0.01, Math.round(e.be) + ' против ' + Math.round(e.bt), '<0,01%');
+    add('Юрлица: имён стало меньше, чем контрагентов', e.nEnt < e.nTs, e.nEnt + ' из ' + e.nTs, '<');
+    add('Юрлица: доля точных выросла', e.sx > e.sxt,
+        Math.round(e.sx / e.se * 100) + '% против ' + Math.round(e.sxt / e.st * 100) + '%', '>');
+  } else {
+    skip('Юрлица: продажи == продажам по контрагентам', 'нет sales_ent_month — нужна пересборка данных');
+  }
+
+  // карточка «Поставщики»: все шесть комбинаций переключателей рендерятся и считают итог
+  const combos = [['mx','sales'],['mx','buy'],['ts','sales'],['ts','buy'],['ent','sales'],['ent','buy']];
   let okCombo = 0, rowsTotal = [];
   for (const [dim, met] of combos) {
     try {
@@ -651,8 +676,8 @@ function supplierSuite() {
       if (n > 0) okCombo++;
     } catch (e) { errors.push('карточка поставщиков [' + dim + '/' + met + ']: ' + (e.stack || e)); }
   }
-  add('Карточка «Поставщики»: все 4 комбинации переключателей заполнены',
-      okCombo === 4, rowsTotal.join(' · '), '4 из 4');
+  add('Карточка «Поставщики»: все 6 комбинаций переключателей заполнены',
+      okCombo === 6, rowsTotal.join(' · '), '6 из 6');
   w.eval(`${CLEAR}S.supDim='mx';S.supMet='sales';S.tab='overview';render();`);
 }
 

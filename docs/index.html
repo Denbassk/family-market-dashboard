@@ -1511,7 +1511,7 @@ mark{
     <div class="card full" id="ov_sup_card"><h3>Поставщики <span id="ov_sup_s"></span><button class="csvbtn" data-t="ov_sup">⬇ Excel</button></h3>
       <div id="ov_sup_tabs" style="display:flex;gap:16px;flex-wrap:wrap;margin:2px 0 8px">
         <div style="display:flex;gap:6px;align-items:center"><span class="muted" style="font-size:11.5px">Имя:</span>
-          <div class="seg" id="supDim"><button data-v="mx" class="on">Бренд (матрица)</button><button data-v="ts">Контрагент (документы)</button></div></div>
+          <div class="seg" id="supDim"><button data-v="mx" class="on">Бренд (матрица)</button><button data-v="ts">Контрагент (документы)</button><button data-v="ent">Юрлицо</button></div></div>
         <div style="display:flex;gap:6px;align-items:center"><span class="muted" style="font-size:11.5px">Показатель:</span>
           <div class="seg" id="supMet"><button data-v="sales" class="on">Продажи</button><button data-v="buy">Закупки</button></div></div>
       </div>
@@ -2719,9 +2719,19 @@ function renderOverview(){
 // пропорционально доле закупок по тому же штрих-коду, поэтому сумма по разрезу
 // сходится с итогом продаж, а колонка «точно» показывает, какая часть посчитана
 // без разнесения.
-function supBrands(ts){
-  return ((D.sup_bridge||[]).filter(r=>r.supplier_ts===ts&&r.supplier&&r.supplier!=='(нет в матрице)')
-    .sort((a,b)=>b.amt-a.amt).map(r=>r.supplier));
+function supBrands(name,dim){
+  const f=(dim==='ent')?(r=>r.entity===name):(r=>r.supplier_ts===name);
+  const seen={},out=[];
+  (D.sup_bridge||[]).filter(r=>f(r)&&r.supplier&&r.supplier!=='(нет в матрице)')
+    .sort((a,b)=>b.amt-a.amt).forEach(r=>{if(!seen[r.supplier]){seen[r.supplier]=1;out.push(r.supplier);}});
+  return out;
+}
+// Имена контрагентов, свёрнутые в это юрлицо (для подсказки: из чего оно собрано).
+function entParts(ent){
+  const seen={},out=[];
+  (D.sup_bridge||[]).filter(r=>r.entity===ent&&r.supplier_ts).forEach(r=>{
+    if(!seen[r.supplier_ts]){seen[r.supplier_ts]=1;out.push(r.supplier_ts);}});
+  return out;
 }
 function renderSuppliers(){
   const card=$('ov_sup_card'); if(!card)return;
@@ -2729,7 +2739,8 @@ function renderSuppliers(){
   $('supDim').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===dim));
   $('supMet').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===met));
   const HAVE_TS=(D.in_ts_month||[]).length&&(D.sales_ts_month||[]).length;
-  if(dim==='ts'&&!HAVE_TS){
+  const HAVE_EN=(D.in_ent_month||[]).length&&(D.sales_ent_month||[]).length;
+  if((dim==='ts'&&!HAVE_TS)||(dim==='ent'&&!HAVE_EN)){
     $('ov_sup').innerHTML='<tbody><tr><td class="l">Разрез по контрагентам появится после пересборки данных — нажмите «Обновить данные».</td></tr></tbody>';
     $('ov_sup_note').textContent=''; return;
   }
@@ -2749,30 +2760,39 @@ function renderSuppliers(){
     key='бренд · закупки'; rows=roll(D.in_supplier_month,'supplier','revenue','gp');
   } else if(dim==='ts'&&met==='sales'){
     key='контрагент · продажи'; exactShown=true; rows=roll(D.sales_ts_month,'supplier_ts','revenue','gp');
-  } else {
+  } else if(dim==='ts'){
     key='контрагент · закупки'; rows=roll(D.in_ts_month,'supplier_ts','revenue','gp');
+  } else if(met==='sales'){
+    key='юрлицо · продажи'; exactShown=true; rows=roll(D.sales_ent_month,'entity','revenue','gp');
+  } else {
+    key='юрлицо · закупки'; rows=roll(D.in_ent_month,'entity','revenue','gp');
   }
   rows=rows.filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
   const tot=rows.reduce((a,r)=>a+r.v,0)||1;
   rows.forEach(r=>{r.share=+(r.v/tot*100).toFixed(2);
     r.mrg=r.v?+(r.gp/r.v*100).toFixed(1):0;
     r.exp=exactShown?Math.round(r.ex/r.v*100):null;
-    r.brands=dim==='ts'?supBrands(r.name):[];});
+    r.brands=(dim==='mx')?[]:supBrands(r.name,dim);
+    r.parts=(dim==='ent')?entParts(r.name):[];});
   const moneyN=met==='sales'?'Выручка ₴':'Закупка ₴';
   const gpN=met==='sales'?'Прибыль ₴':'Наценка ₴';
-  const head=[[dim==='mx'?'Бренд (матрица)':'Контрагент (документы)','name','l'],[moneyN,'v'],['Доля %','share'],[gpN,'gp'],['Маржа %','mrg']]
+  const NAMEN=dim==='mx'?'Бренд (матрица)':(dim==='ts'?'Контрагент (документы)':'Юрлицо');
+  const head=[[NAMEN,'name','l'],[moneyN,'v'],['Доля %','share'],[gpN,'gp'],['Маржа %','mrg']]
     .concat(exactShown?[['Точно %','exp']]:[])
-    .concat(dim==='ts'?[['Бренды матрицы','bn','l']]:[]);
+    .concat(dim==='ent'?[['Свёрнуто имён','np']]:[])
+    .concat(dim!=='mx'?[['Бренды матрицы','bn','l']]:[]);
+  rows.forEach(r=>r.np=r.parts.length||1);
   rows.forEach(r=>r.bn=r.brands.length?(r.brands.length>3?r.brands.slice(0,3).join(', ')+' +'+(r.brands.length-3):r.brands.join(', ')):'—');
   sortState['ov_sup']=sortState['ov_sup']||{key:'v',desc:true};
   tableSort('ov_sup',head,rows,'v',
     r=>{ if(dim==='mx'){setFilter('sup',r.name);return;}
-         const b=supBrands(r.name); if(!b.length)return;
+         const b=supBrands(r.name,dim); if(!b.length)return;
          S.sup=b; msSyncAll(); S.prSel=null; render(); },
     r=>'<td class="l">'+r.name+'</td><td>'+fmtF(r.v)+'</td><td class="muted">'+r.share+'%</td><td>'+fmtF(r.gp)+'</td>'
       +'<td class="'+(r.mrg<8?'neg':(r.mrg>=18?'pos':''))+'">'+r.mrg+'</td>'
       +(exactShown?'<td class="'+(r.exp>=90?'pos':(r.exp<50?'neg':''))+'">'+r.exp+'%</td>':'')
-      +(dim==='ts'?'<td class="l muted" title="'+r.brands.join(', ')+'">'+r.bn+'</td>':''));
+      +(dim==='ent'?'<td class="'+(r.np>1?'pos':'muted')+'" title="'+r.parts.join(' · ')+'">'+r.np+'</td>':'')
+      +(dim!=='mx'?'<td class="l muted" title="'+r.brands.join(', ')+'">'+r.bn+'</td>':''));
   $('ov_sup_s').textContent=rows.length+' · '+key+(m?' · '+MONTHS[m]:'');
   setScope('ov_sup', allSel(S.store)?'':'магазин не применяется — разреза по точкам у приходов нет');
   const parts=[];
@@ -2783,7 +2803,11 @@ function renderSuppliers(){
     +'В чеке накладной нет, и позиции, которые везут несколько контрагентов, разнесены пропорционально доле их закупок '
     +'по тому же штрих-коду — поэтому сумма столбца сходится с общей выручкой, ничего не теряется. '
     +'Строка «(нет прихода в '+(D.year||'')+')» — это выведенное из ассортимента и собственное производство.');
-  if(dim==='ts')parts.push('Клик по строке ставит фильтр по всем брендам этого контрагента.');
+  if(dim==='ent')parts.push('<b>Юрлицо</b> — это контрагент с учётом переименований, подтверждённых вручную '
+    +'(scripts/supplier_entity.py). Колонка «свёрнуто имён» показывает, сколько имён из накладных сложилось в строку; '
+    +'наведите — увидите какие. Автоматической склейки по похожему названию тут нет: «Арсенал ПК (Моршин)» '
+    +'и «(Шейк)» остаются разными контрагентами, потому что условия у них разные.');
+  if(dim!=='mx')parts.push('Клик по строке ставит фильтр по всем брендам этой строки.');
   else parts.push('Клик по строке ставит фильтр по этому бренду.');
   parts.push('Итого по столбцу: <b>'+fmtF(tot)+' ₴</b>.');
   $('ov_sup_note').innerHTML=parts.join(' ');

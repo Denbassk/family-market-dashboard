@@ -22,6 +22,7 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 from fetch_data import YEAR
 from domain import NORM, sql_case, sql_case_full, sql_keep
+import supplier_entity  # подтверждённые владельцем склейки контрагентов
 
 creds = service_account.Credentials.from_service_account_file(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
 client = bigquery.Client(credentials=creds, project=creds.project_id)
@@ -32,6 +33,7 @@ IS = "`family-market-analytics.family_market._dash_in26`"
 SM = "`family-market-analytics.family_market.supplier_mapping`"
 cases = sql_case()
 keep = sql_keep()
+ENT = supplier_entity.sql_case('i.supplier')
 
 
 def run(sql): return [dict(r) for r in client.query(sql).result()]
@@ -46,6 +48,9 @@ def main():
                 WHERE matrix_supplier IS NOT NULL GROUP BY incoming_supplier)
     SELECT {sql_case_full('i.store')} store, i.barcode, i.product_name,
       i.supplier supplier_ts,
+      -- юрлицо: то же, что контрагент, но склеенное по ПОДТВЕРЖДЁННОМУ владельцем списку
+      -- переименований (scripts/supplier_entity.py). Автоматики по имени тут нет и не будет.
+      {ENT} entity,
       -- поставщик в терминах МАТРИЦЫ: сначала по штрих-коду (иначе мультибрендовый
       -- дистрибьютор вроде «ДЛ Солюшн» схлопывает 67 млн ₴ сигарет в одно имя),
       -- затем — перевод имени контрагента через supplier_mapping.
@@ -126,12 +131,36 @@ def main():
       FROM s LEFT JOIN share sh ON sh.bc=s.bc
       GROUP BY supplier_ts, s.mo""")
 
+    # То же самое, но по ЮРЛИЦУ: имена, которые владелец подтвердил как одну компанию,
+    # склеены. Смысл не косметический: позиция, которую «возили двое», после склейки
+    # оказывается от одного юрлица, и её продажи считаются точно, без разнесения.
+    # Замер на подтверждённом списке: доля точных 79,1% -> 85,2% (+17,5 млн ₴).
+    out["in_ent_month"] = run(f"""SELECT entity, mo,
+      ROUND(SUM(amt),0) revenue, ROUND(SUM(amt_ret-amt),0) gp, ROUND(SUM(qty),0) qty
+      FROM {IS} GROUP BY entity, mo""")
+    out["sales_ent_month"] = run(f"""
+      WITH inc AS (SELECT CAST(barcode AS STRING) bc, entity, SUM(amt) amt
+                   FROM {IS} WHERE amt>0 GROUP BY bc, entity),
+      tot AS (SELECT bc, SUM(amt) amt FROM inc GROUP BY bc),
+      share AS (SELECT i.bc, i.entity, SAFE_DIVIDE(i.amt,t.amt) w,
+                       COUNT(*) OVER (PARTITION BY i.bc) n
+                FROM inc i JOIN tot t USING(bc)),
+      s AS (SELECT CAST(barcode AS STRING) bc, mo, SUM(rev) rev, SUM(gp) gp, SUM(qty) qty
+            FROM `family-market-analytics.family_market._dash_a26` GROUP BY bc, mo)
+      SELECT COALESCE(sh.entity,'(нет прихода в {YEAR})') entity, s.mo,
+        ROUND(SUM(s.rev*IFNULL(sh.w,1)),0) revenue,
+        ROUND(SUM(s.gp *IFNULL(sh.w,1)),0) gp,
+        ROUND(SUM(s.qty*IFNULL(sh.w,1)),0) qty,
+        ROUND(SUM(IF(IFNULL(sh.n,1)=1, s.rev, 0)),0) rev_exact
+      FROM s LEFT JOIN share sh ON sh.bc=s.bc
+      GROUP BY entity, s.mo""")
+
     # sup_bridge — мостик «контрагент <-> бренд» по штрих-кодам. Он же рабочий список
     # на дозаполнение supplier_mapping: строки с брендом «(нет в матрице)» — это то,
     # что мы покупаем, но не знаем, чей это бренд.
-    out["sup_bridge"] = run(f"""SELECT supplier_ts, supplier,
+    out["sup_bridge"] = run(f"""SELECT supplier_ts, entity, supplier,
       ROUND(SUM(amt),0) amt, COUNT(DISTINCT barcode) skus
-      FROM {IS} GROUP BY supplier_ts, supplier ORDER BY amt DESC""")
+      FROM {IS} GROUP BY supplier_ts, entity, supplier ORDER BY amt DESC""")
 
     out["incoming_meta"] = {"updated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
 
