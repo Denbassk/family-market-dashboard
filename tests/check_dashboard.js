@@ -681,7 +681,43 @@ function supplierSuite() {
   w.eval(`${CLEAR}S.supDim='mx';S.supMet='sales';S.tab='overview';render();`);
 }
 
-  tabsSuite(); crossSuite(); returnsSuite(); revisionSuite(); trendSuite(); supplierSuite();
+
+// Отчёты и кросс-фильтр (2026-09-17). До этой даты группировка «Магазины» не видела
+// фильтра категории, а «Категории» — фильтра магазина: отчёт молча отдавал всю сеть.
+// «Хот-дог» + разрез по магазинам показывал 304,7 млн ₴ вместо 619,6 тыс.
+function reportSuite() {
+  const cubes = w.eval('!!(D.store_cat_month&&D.store_cat_month.length)');
+  if (!cubes) { skip('Отчёт: магазины под фильтром категории', 'нет store_cat_month — нужна пересборка данных'); return; }
+  const r = w.eval(`(function(){
+    var CL=function(){${CLEAR}S.rpFrom='all';S.rpTo='all';S.rpMetric='rev';S.rpSource='sales';S.rpMode='detail';};
+    var cat=(D.by_category.find(function(c){return c.category==='Хот-дог';})||D.by_category[3]);
+    CL(); S.cat=[cat.category]; S.rpDim='store';
+    var a=reportPivot('store',monthsInRange());
+    var aSum=a.reduce(function(s,o){return s+o.total;},0);
+    var st=D.stores[3];
+    CL(); S.store=[st]; S.rpDim='category';
+    var b=reportPivot('category',monthsInRange());
+    var bSum=b.reduce(function(s,o){return s+o.total;},0);
+    CL(); S.store=[st]; var bRef=kpiNow().revenue;
+    var sup=D.by_supplier[1].supplier;
+    CL(); S.store=[st]; S.sup=[sup]; S.rpDim='supplier';
+    var c=reportPivot('supplier',monthsInRange());
+    var cSum=c.reduce(function(s,o){return s+o.total;},0);
+    CL(); S.store=[st]; S.sup=[sup]; var cRef=kpiNow().revenue;
+    CL();
+    return {catName:cat.category, aSum:aSum, aRef:cat.revenue, aRows:a.length,
+            bSum:bSum, bRef:bRef, cSum:cSum, cRef:cRef};
+  })()`);
+  const off = (x, y) => y ? Math.abs(x - y) / y * 100 : (x ? 100 : 0);
+  add('Отчёт: магазины под фильтром категории == by_category',
+      off(r.aSum, r.aRef) < 0.05, Math.round(r.aSum) + ' против ' + r.aRef + ' («' + r.catName + '», ' + r.aRows + ' точек)', '<0,05%');
+  add('Отчёт: категории под фильтром магазина == KPI магазина',
+      off(r.bSum, r.bRef) < 0.05, Math.round(r.bSum) + ' против ' + Math.round(r.bRef), '<0,05%');
+  add('Отчёт: поставщики под фильтром магазина == KPI среза',
+      off(r.cSum, r.cRef) < 0.05, Math.round(r.cSum) + ' против ' + Math.round(r.cRef), '<0,05%');
+}
+
+  tabsSuite(); crossSuite(); returnsSuite(); revisionSuite(); trendSuite(); supplierSuite(); reportSuite();
   if (REDESIGN) redesignSuite(); else skip('Регрессии слоя редизайна', 'нет docs/redesign.js');
   featuresSuite();
 

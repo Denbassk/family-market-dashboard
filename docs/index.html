@@ -2481,9 +2481,57 @@ function storeShareByProduct(){
 }
 // RP_EXACT / RP_NOTE выставляются ВНУТРИ reportPivot — читать только ПОСЛЕ вызова.
 let RP_EXACT=true, RP_NOTE='';
+// Кубы пар (месяц × магазин × категория/поставщик) для отчёта. Появились 2026-09-03 —
+// см. `mem:kpi_trends_and_month_compare`. Здесь они закрывают дыру пострашнее, чем
+// «разреза нет»: до 2026-09-17 группировка «Магазины» НЕ ВИДЕЛА фильтра категории,
+// а «Категории» — фильтра магазина. Отчёт не пустовал и не ругался, он молча отдавал
+// цифры по всей сети: «Хот-дог» + группировка по магазинам показывала 304,7 млн ₴
+// вместо 619,6 тыс, то есть сумму всех продаж сети под заголовком одной категории.
+// Строка куба: [мес, индекс магазина, индекс категории/поставщика, выручка, прибыль,
+// количество, чеки, SKU].
+function rpCube(dim,months){
+  const hasSt=!allSel(S.store), hasCat=!allSel(S.cat), hasSup=!allSel(S.sup);
+  let rows=null, names=null, sel=null, byStore=false, dropped='';
+  if(dim==='store'&&hasCat){ rows=D.store_cat_month; names=D.scm_cats; sel=S.cat; byStore=true;
+    if(hasSup)dropped='поставщик'; }
+  else if(dim==='store'&&hasSup){ rows=D.store_sup_month; names=D.ssm_sups; sel=S.sup; byStore=true; }
+  else if(dim==='category'&&hasSt){ rows=D.store_cat_month; names=D.scm_cats; sel=S.cat;
+    if(hasSup)dropped='поставщик'; }
+  else if(dim==='supplier'&&hasSt){ rows=D.store_sup_month; names=D.ssm_sups; sel=S.sup; }
+  if(!rows||!rows.length||!names||!names.length)return null;
+  const STS=D.stores||[], okS={}, okD={};
+  STS.forEach((st,i)=>{if(inSel(st,S.store))okS[i]=1;});
+  names.forEach((n,i)=>{if(inSel(n,sel))okD[i]=1;});
+  const mset=new Set(months), met=S.rpMetric, map={};
+  for(const r of rows){
+    if(!mset.has(r[0])||!okS[r[1]]||!okD[r[2]])continue;
+    const n=byStore?STS[r[1]]:names[r[2]];
+    const o=map[n]||(map[n]={name:n,by:{},q:{},total:0,qtot:0,rev:0,gp:0});
+    const v=met==='gp'?r[4]:met==='qty'?r[5]:r[3];
+    o.by[r[0]]=(o.by[r[0]]||0)+v; o.total+=v;
+    o.q[r[0]]=(o.q[r[0]]||0)+r[5]; o.qtot+=r[5];
+    o.rev+=r[3]; o.gp+=r[4];
+  }
+  return {rows:Object.values(map), dropped:dropped};
+}
 function reportPivot(dim,months){
   RP_EXACT=true; RP_NOTE='';
   const inc=S.rpSource==='incoming';
+  // Точный кросс-разрез из кубов. По закупкам таких кубов нет: в приходах разрез
+  // «магазин × категория» не собирается, поэтому там остаётся честная пометка ниже.
+  if(!inc&&!S.q&&(S.abc==='all'||!S.abc)&&!S.noOff&&dim!=='products'){
+    const c=rpCube(dim,months);
+    if(c){
+      let rr=c.rows;
+      const meta0={};
+      if(dim==='store'){(D.by_store||[]).forEach(x=>meta0[x.store]=x);rr.forEach(o=>{const m=meta0[o.name]||{};o.skus=m.skus;o.cats=m.cats;});}
+      else if(dim==='category'){(D.by_category||[]).forEach(x=>meta0[x.category]=x);rr.forEach(o=>{const m=meta0[o.name]||{};o.coverage=m.stores;o.skus=m.skus;});}
+      else {(D.by_supplier||[]).forEach(x=>meta0[x.supplier]=x);rr.forEach(o=>{const m=meta0[o.name]||{};o.coverage=m.stores;o.skus=m.skus;o.cats=m.cats;});}
+      rr.forEach(o=>{months.forEach(mo=>{o['m'+mo]=o.by[mo]||0;o['q'+mo]=o.q[mo]||0;});o.mrg=o.rev?+(o.gp/o.rev*100).toFixed(1):0;});
+      if(c.dropped)RP_NOTE='фильтр «'+c.dropped+'» к этому разрезу не применён: помесячного куба сразу по трём измерениям в данных нет';
+      return rr.sort((a,b)=>b.total-a.total);
+    }
+  }
   const src=dim==='products'?((inc?D.in_prod_month:D.prod_month)||[]):dim==='category'?((inc?D.in_cat_month:D.cat_month)||[]):dim==='store'?((inc?D.in_store_month:D.store_month)||[]):((inc?D.in_supplier_month:D.supplier_month)||[]);
   const key=dim==='products'?'p':dim==='category'?'category':dim==='store'?'store':'supplier', met=S.rpMetric;
   const val=r=>met==='gp'?(r.gp||0):met==='qty'?(r.qty||0):((r.rev==null?r.revenue:r.rev)||0);
@@ -2511,9 +2559,13 @@ function reportPivot(dim,months){
   if(dim==='products'){(D.products||[]).forEach(p=>meta[p.p]=p);rows.forEach(o=>{const m=meta[o.name]||{};o.c=m.c;o.s=m.s;o.coverage=m.st;o.abc=m.abc;o.xyz=m.xyz;});
     if(!allSel(S.cat))rows=rows.filter(o=>inSel(o.c,S.cat));if(!allSel(S.sup))rows=rows.filter(o=>inSel(o.s,S.sup));
     if(S.noOff)rows=rows.filter(o=>!isTech(o.name));}
-  else if(dim==='category'){(D.by_category||[]).forEach(c=>meta[c.category]=c);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;});if(!allSel(S.cat))rows=rows.filter(o=>inSel(o.name,S.cat));}
-  else if(dim==='store'){(D.by_store||[]).forEach(s=>meta[s.store]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.skus=m.skus;o.cats=m.cats;});if(!allSel(S.store))rows=rows.filter(o=>inSel(o.name,S.store));}
-  else {(D.by_supplier||[]).forEach(s=>meta[s.supplier]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;o.cats=m.cats;});if(!allSel(S.sup))rows=rows.filter(o=>inSel(o.name,S.sup));}
+  else if(dim==='category'){(D.by_category||[]).forEach(c=>meta[c.category]=c);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;});if(!allSel(S.cat))rows=rows.filter(o=>inSel(o.name,S.cat));
+    if(!allSel(S.store))RP_NOTE=RP_NOTE||(inc?'фильтр магазина к закупкам по категориям не применён — в приходах нет разреза «магазин × категория»':'фильтр магазина не применён: нужен куб store_cat_month — нажмите «Обновить данные»');}
+  else if(dim==='store'){(D.by_store||[]).forEach(s=>meta[s.store]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.skus=m.skus;o.cats=m.cats;});if(!allSel(S.store))rows=rows.filter(o=>inSel(o.name,S.store));
+    // сюда попадаем, только если куб недоступен (закупки, ABC, поиск) — молчать нельзя
+    if(!allSel(S.cat)||!allSel(S.sup))RP_NOTE=RP_NOTE||(inc?'фильтр категории/поставщика к закупкам по магазинам не применён — в приходах нет разреза «магазин × категория»':'фильтр категории/поставщика не применён: нужен куб store_cat_month — нажмите «Обновить данные»');}
+  else {(D.by_supplier||[]).forEach(s=>meta[s.supplier]=s);rows.forEach(o=>{const m=meta[o.name]||{};o.coverage=m.stores;o.skus=m.skus;o.cats=m.cats;});if(!allSel(S.sup))rows=rows.filter(o=>inSel(o.name,S.sup));
+    if(!allSel(S.store))RP_NOTE=RP_NOTE||(inc?'фильтр магазина к закупкам по поставщикам не применён — в приходах нет разреза «магазин × поставщик»':'фильтр магазина не применён: нужен куб store_sup_month — нажмите «Обновить данные»');}
   if(S.q)rows=rows.filter(o=>(''+o.name).toLowerCase().includes(S.q.toLowerCase()));
   rows.forEach(o=>{months.forEach(mo=>{o['m'+mo]=o.by[mo]||0;o['q'+mo]=o.q[mo]||0;});o.mrg=o.rev?+(o.gp/o.rev*100).toFixed(1):0;});
   return rows;
