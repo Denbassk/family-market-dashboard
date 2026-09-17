@@ -715,6 +715,33 @@ function reportSuite() {
       off(r.bSum, r.bRef) < 0.05, Math.round(r.bSum) + ' против ' + Math.round(r.bRef), '<0,05%');
   add('Отчёт: поставщики под фильтром магазина == KPI среза',
       off(r.cSum, r.cRef) < 0.05, Math.round(r.cSum) + ' против ' + Math.round(r.cRef), '<0,05%');
+
+  // Перекрёстный режим: колонки — второе измерение. Сумма обязана совпасть с обычным
+  // разрезом, иначе это уже не та же таблица, а другая цифра под тем же заголовком.
+  const x = w.eval(`(function(){
+    ${CLEAR}S.rpFrom='all';S.rpTo='all';S.rpMetric='rev';S.rpSource='sales';S.rpMode='cross';
+    S.cat=ownProdCats(); S.rpDim='store';
+    var c=rpCross('store',monthsInRange());
+    if(!c)return null;
+    var cs=c.rows.reduce(function(s,o){return s+o.total;},0);
+    var ds=reportPivot('store',monthsInRange()).reduce(function(s,o){return s+o.total;},0);
+    var byCol={}; c.cols.forEach(function(n,i){byCol[n]=c.rows.reduce(function(s,o){return s+(o['c'+i]||0);},0);});
+    ${CLEAR}
+    return {cols:c.cols, n:c.rows.length, cs:cs, ds:ds, byCol:byCol};
+  })()`);
+  if (!x) { skip('Отчёт перекрёстно: сумма == обычному разрезу', 'rpCross недоступен'); return; }
+  add('Отчёт перекрёстно: сумма == обычному разрезу',
+      off(x.cs, x.ds) < 0.01, Math.round(x.cs) + ' против ' + Math.round(x.ds), '<0,01%');
+  add('Отчёт перекрёстно: колонки = выбранные категории пресета',
+      x.cols.length === 3 && x.cols.indexOf('Кулинария') >= 0,
+      x.cols.join(', '), 'Кулинария, Выпечка, Хот-дог');
+  const byCat = w.eval('(function(){var m={};(D.by_category||[]).forEach(function(c){m[c.category]=c.revenue;});return m;})()');
+  const bad = x.cols.filter(n => {
+    const a = x.byCol[n], b = byCat[n];
+    return b ? Math.abs(a - b) / b * 100 > 0.05 : false;
+  });
+  add('Отчёт перекрёстно: каждая колонка == by_category',
+      bad.length === 0, bad.length ? bad.join(', ') : x.cols.map(n => n + ' ' + Math.round(x.byCol[n])).join(' · '), '0 расхождений');
 }
 
   tabsSuite(); crossSuite(); returnsSuite(); revisionSuite(); trendSuite(); supplierSuite(); reportSuite();

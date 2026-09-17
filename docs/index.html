@@ -1527,7 +1527,7 @@ mark{
   <div class="bar" style="margin-bottom:10px">
     <div class="ctrl"><label>Группировка</label><select id="rpDim"><option value="products">Товары (по сети)</option><option value="category">Категории</option><option value="store">Магазины</option><option value="supplier">Поставщики</option></select></div>
     <div class="ctrl"><label>Данные</label><select id="rpSource"><option value="sales">Продажи (чеки)</option><option value="incoming">Закупки (приходы)</option></select></div>
-    <div class="ctrl"><label>Детализация</label><select id="rpMode"><option value="detail">С разрезом (по строкам)</option><option value="total">Только итог (одной строкой)</option></select></div>
+    <div class="ctrl"><label>Детализация</label><select id="rpMode"><option value="detail">С разрезом (по строкам)</option><option value="cross">Перекрёстно (второе измерение в колонках)</option><option value="total">Только итог (одной строкой)</option></select></div>
     <div class="ctrl"><label>Метрика</label><select id="rpMetric"><option value="rev">Сумма ₴</option><option value="gp">Прибыль/наценка ₴</option><option value="qty">Кол-во</option></select></div>
     <div class="ctrl"><label>Период с</label><select id="rpFrom"></select></div>
     <div class="ctrl"><label>по</label><select id="rpTo"></select></div>
@@ -2514,6 +2514,42 @@ function rpCube(dim,months){
   }
   return {rows:Object.values(map), dropped:dropped};
 }
+// ПЕРЕКРЁСТНАЯ ТАБЛИЦА: строки — группировка, колонки — второе измерение.
+// Зачем. Пресет «Собственное производство» — это три категории сразу (Кулинария,
+// Выпечка, Хот-дог). При группировке по магазинам отчёт показывал ОДНУ сумму на точку,
+// и было не разобрать, где что: 314 548 ₴ по «Михайля Семенка 17» — это кулинария,
+// выпечка или хот-доги? Теперь второе измерение раскладывается по колонкам.
+// Источник — те же кубы пар, что и у обычного разреза, поэтому суммы сходятся со строками.
+function rpCross(dim,months){
+  const hasSt=!allSel(S.store), hasCat=!allSel(S.cat), hasSup=!allSel(S.sup);
+  let rows=null,names=null,sel=null,rowIsStore=false,colName='';
+  if(dim==='store'&&hasCat){ rows=D.store_cat_month; names=D.scm_cats; sel=S.cat; rowIsStore=true; colName='категория'; }
+  else if(dim==='store'&&hasSup){ rows=D.store_sup_month; names=D.ssm_sups; sel=S.sup; rowIsStore=true; colName='поставщик'; }
+  else if(dim==='category'&&hasSt){ rows=D.store_cat_month; names=D.scm_cats; sel=S.cat; colName='магазин'; }
+  else if(dim==='supplier'&&hasSt){ rows=D.store_sup_month; names=D.ssm_sups; sel=S.sup; colName='магазин'; }
+  if(!rows||!rows.length||!names||!names.length)return null;
+  const STS=D.stores||[], okS={}, okD={}, colsSet={};
+  STS.forEach((st,i)=>{if(inSel(st,S.store))okS[i]=1;});
+  names.forEach((n,i)=>{if(inSel(n,sel))okD[i]=1;});
+  // колонки — то измерение, которого НЕТ в строках
+  const colIdx=r=>rowIsStore?r[2]:r[1];
+  const colLbl=i=>rowIsStore?names[i]:STS[i];
+  const rowLbl=r=>rowIsStore?STS[r[1]]:names[r[2]];
+  const mset=new Set(months), met=S.rpMetric, map={};
+  for(const r of rows){
+    if(!mset.has(r[0])||!okS[r[1]]||!okD[r[2]])continue;
+    const n=rowLbl(r); const o=map[n]||(map[n]={name:n,by:{},q:{},cols:{},total:0,qtot:0,rev:0,gp:0});
+    const v=met==='gp'?r[4]:met==='qty'?r[5]:r[3];
+    const ci=colIdx(r), cl=colLbl(ci); colsSet[cl]=(colsSet[cl]||0)+v;
+    o.cols[cl]=(o.cols[cl]||0)+v; o.total+=v;
+    o.by[r[0]]=(o.by[r[0]]||0)+v; o.q[r[0]]=(o.q[r[0]]||0)+r[5]; o.qtot+=r[5];
+    o.rev+=r[3]; o.gp+=r[4];
+  }
+  const cols=Object.keys(colsSet).sort((a,b)=>colsSet[b]-colsSet[a]);
+  const out=Object.values(map);
+  out.forEach(o=>{cols.forEach((c,i)=>{o['c'+i]=o.cols[c]||0;});o.mrg=o.rev?+(o.gp/o.rev*100).toFixed(1):0;});
+  return {rows:out.sort((a,b)=>b.total-a.total), cols:cols, colName:colName};
+}
 function reportPivot(dim,months){
   RP_EXACT=true; RP_NOTE='';
   const inc=S.rpSource==='incoming';
@@ -2587,6 +2623,22 @@ function renderReport(){
   let rows=reportPivot(dim,months);
   if(rpCov){ rpCov.buys=rows.reduce((a,o)=>a+(o.rev||0),0);
     rpCov.pct=rpCov.sales?rpCov.buys/rpCov.sales*100:null; }
+  // Перекрёстный режим: собственная таблица, обычные месячные колонки заменяются
+  // на колонки второго измерения — иначе строка не помещается на экран.
+  let CROSS=null;
+  if(S.rpMode==='cross'){
+    CROSS=(S.rpSource==='incoming'||S.q||(S.abc&&S.abc!=='all')||S.noOff||dim==='products')?null:rpCross(dim,months);
+    if(CROSS&&CROSS.cols.length>14)CROSS.cols=CROSS.cols.slice(0,14);
+    if(CROSS)rows=CROSS.rows;
+    else{
+      // Молчаливый откат к обычному разрезу — это то, из-за чего человек потом смотрит
+      // на цифру и не понимает, что видит. Объясняем, почему перекрёстно не вышло.
+      RP_NOTE = (dim==='products') ? 'перекрёстно по товарам нельзя: помесячного куба «товар × магазин» в данных нет'
+        : (S.rpSource==='incoming') ? 'перекрёстно по закупкам нельзя: в приходах нет разреза «магазин × категория»'
+        : (S.q||(S.abc&&S.abc!=='all')||S.noOff) ? 'перекрёстно не работает вместе с ABC, поиском и «скрыть технические» — снимите их'
+        : 'выберите второе измерение: при группировке по магазинам — категории или поставщиков, при группировке по категориям — магазины';
+    }
+  }
   if(S.rpMode==='total'&&rows.length){
     const dn={products:'позициям',category:'категориям',store:'магазинам',supplier:'поставщикам'}[dim];
     const agg={name:'ИТОГО (сумма по всем '+dn+', с учётом фильтров)',by:{},q:{},total:0,qtot:0,rev:0,gp:0};
@@ -2624,6 +2676,18 @@ function renderReport(){
   const qtyCells=o=>showQty?months.map(m=>`<td class="muted">${fmtF(o.q[m]||0)}</td>`).join('')+`<td>${fmtF(o.qtot)}</td>`:'';
   const mrgN=S.rpSource==='incoming'?'Наценка %':'Маржа %';
   let head,rowHtml,onRow;
+  if(CROSS){
+    const cn=CROSS.cols;
+    head=[[RPNAME[dim],'name','l'],...cn.map((c,i)=>[c,'c'+i]),['Итого','total'],['Доля %','share'],[mrgN,'mrg']];
+    rowHtml=o=>'<td class="l">'+o.name+'</td>'
+      +cn.map((c,i)=>'<td class="'+((o['c'+i]||0)?'':'muted')+'">'+((o['c'+i]||0)?fmtF(o['c'+i]):'·')+'</td>').join('')
+      +'<td><b>'+fmtF(o.total)+'</b></td><td class="muted">'+o.share+'%</td><td>'+o.mrg+'</td>';
+    onRow=dim==='category'?(o=>setFilter('cat',o.name)):dim==='store'?(o=>setFilter('store',o.name)):(o=>setFilter('sup',o.name));
+    tableSort('rp_tab',head,rows,'total',onRow,rowHtml);
+    $('rp_s').textContent=rows.length+' строк × '+cn.length+' колонок ('+CROSS.colName+') · '+srcN+' · '+rpMetricLabel()
+      +(months.length?' · '+MONTHS[months[0]]+'–'+MONTHS[months[months.length-1]]:'');
+    return;
+  }
   if(dim==='products'){
     head=[['Товар','name','l'],['Поставщик','s','l'],...monCols,['Итого','total'],['Доля %','share'],[mrgN,'mrg'],...qtyCols,...qtyTot,['Покрытие','coverage'],['ABC','abc']];
     rowHtml=o=>`<td class="l" title="${o.name}">${o.name}</td><td class="l muted">${o.s||''}</td>`+months.map(m=>`<td>${fmtF(o.by[m]||0)}</td>`).join('')+`<td><b>${fmtF(o.total)}</b></td><td class="muted">${o.share}%</td><td>${o.mrg}</td>`+qtyCells(o)+`<td>${o.coverage||'—'}</td><td><span class="badge b${o.abc||''}">${o.abc||''}</span></td>`;
