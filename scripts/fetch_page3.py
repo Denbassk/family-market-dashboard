@@ -137,6 +137,10 @@ anystk AS (SELECT barcode, SUM(GREATEST(qty,0)) tot,
            COUNTIF(qty>={ELSEWHERE_MIN}) donor_stores
            FROM {STK} WHERE store IS NOT NULL AND store!='Полевая магазин' GROUP BY barcode),
 m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode)
+SELECT s.nm product, COALESCE(m.cat,'Прочее (нет в матрице)') category, COALESCE(m.sup,'(нет в матрице)') supplier,
+  s.store, CAST(ROUND(s.qty90,0) AS INT64) sold90, CAST(CEIL(s.qty90/3.0) AS INT64) need_month,
+  IFNULL(a.donor_stores,0)>0 elsewhere,
+  IFNULL(a.donor_stores,0) donor_stores, CAST(ROUND(IFNULL(a.tot,0),0) AS INT64) net_qty
 FROM sales90 s LEFT JOIN stock st USING(barcode,store) LEFT JOIN anystk a USING(barcode) LEFT JOIN m ON m.barcode=s.barcode
 WHERE s.qty90>=10 AND COALESCE(st.qty,0)<=0 AND {_EXCL} AND s.store!='Полевая магазин'
 ORDER BY sold90 DESC LIMIT 3000"""
