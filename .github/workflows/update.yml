@@ -60,6 +60,9 @@ jobs:
       - name: Проверка синтаксиса
         run: node tests/check_syntax.js
 
+      - name: Проверка f-строк в SQL
+        run: python tools/check_fstrings.py
+
       - name: Гейт — автотесты дашборда
         run: |
           set +e

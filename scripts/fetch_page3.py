@@ -159,7 +159,7 @@ out["dead_by_cat"] = rows(f"SELECT c category, ROUND(SUM(value),0) dead_value, C
 out["dead_by_supplier"] = rows(f"SELECT s supplier, ROUND(SUM(value),0) dead_value, COUNT(*) dead_skus FROM {DEAD} GROUP BY s ORDER BY dead_value DESC LIMIT 40")
 out["dead_total"] = rows(f"SELECT ROUND(SUM(value),0) v, COUNT(*) n FROM {DEAD}")[0]
 
-out["unmatched_items"] = rows(f"SELECT barcode, p, c, store, ROUND(qty,0) qty, ROUND(value,0) value FROM {DEAD} WHERE c='Прочее (нет в матрице)' ORDER BY value DESC LIMIT 500")
+out["unmatched_items"] = rows(f"SELECT barcode, ANY_VALUE(p) p, COUNT(DISTINCT store) stores, ROUND(SUM(qty),0) qty, ROUND(SUM(value),0) value FROM {DEAD} WHERE c='Прочее (нет в матрице)' GROUP BY barcode ORDER BY value DESC LIMIT 800")
 out["unmatched_total"] = rows(f"SELECT ROUND(SUM(value),0) v, COUNT(*) n, COUNT(DISTINCT barcode) skus FROM {DEAD} WHERE c='Прочее (нет в матрице)'")[0]
 
 # ---------- КРОСС-ПРОДАЖИ: по позициям (пары товаров в одном чеке) ----------
@@ -172,18 +172,25 @@ b AS (SELECT tidn, barcode FROM {ST} JOIN top USING(barcode) GROUP BY tidn, barc
 solo AS (SELECT barcode, COUNT(DISTINCT tidn) c FROM b GROUP BY barcode),
 pairs AS (SELECT a.barcode x, b.barcode y, COUNT(DISTINCT a.tidn) cnt
   FROM b a JOIN b b ON a.tidn=b.tidn AND a.barcode<b.barcode GROUP BY x, y),
-nm AS (SELECT barcode, ANY_VALUE(product_name) nm, ANY_VALUE(category) c
+nm AS (SELECT barcode, ANY_VALUE(product_name) nm, ANY_VALUE(category) c,
+       REGEXP_EXTRACT(LOWER(ANY_VALUE(product_name)), '^[^ ]+ [^ ]+') brand
        FROM {AG} JOIN top USING(barcode) GROUP BY barcode)
 SELECT n1.nm a, n2.nm b, n1.c c1, n2.c c2, p.cnt,
   ROUND(p.cnt * (SELECT n FROM tot) / (s1.c * s2.c), 2) lift,
   ROUND(p.cnt / s1.c * 100, 1) conf_ab,
-  ROUND(p.cnt / s2.c * 100, 1) conf_ba
+  ROUND(p.cnt / s2.c * 100, 1) conf_ba,
+  COALESCE(n1.brand,'?1')=COALESCE(n2.brand,'?2') same_brand
 FROM pairs p
 JOIN nm n1 ON n1.barcode=p.x JOIN nm n2 ON n2.barcode=p.y
 JOIN solo s1 ON s1.barcode=p.x JOIN solo s2 ON s2.barcode=p.y
 WHERE p.cnt >= {CROSS_MIN}
-ORDER BY lift DESC LIMIT 80"""
-out["cross_items"] = rows(cross_items)
+ORDER BY lift DESC LIMIT 400"""
+_cx = rows(cross_items)
+_diff = [r for r in _cx if not r["same_brand"]]
+_same = [r for r in _cx if r["same_brand"]]
+for r in _cx: r.pop("same_brand", None)
+out["cross_items"] = _diff[:80]      # raznye brendy = nastoyaschiy kross-sell
+out["cross_variants"] = _same[:40]   # odna lineyka = glubina assortimenta
 # кросс по категориям (для верхнеуровневого взгляда)
 out["cross"] = rows(f"""
 WITH tx AS (SELECT tidn, category FROM {ST} WHERE in_matrix GROUP BY tidn, category),
@@ -218,4 +225,5 @@ print("неликвиды: позиций", len(out["dead_items"]), "| всег�
       "| поставщиков", len(out["dead_by_supplier"]))
 print("oos rows:", len(out["oos"]), "| nonstock:", len(out["oos_nonstock"]),
       "| unmatched:", len(out.get("unmatched_items", [])), out.get("unmatched_total"))
-print("кросс-пары товаров:", len(out["cross_items"]), "| списания магазинов:", len(out["writeoffs_by_store"]))
+print("кросс-пары: разные бренды", len(out["cross_items"]),
+      "| одна линейка", len(out["cross_variants"]), "| списания магазинов:", len(out["writeoffs_by_store"]))
