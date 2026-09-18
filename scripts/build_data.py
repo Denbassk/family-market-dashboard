@@ -30,21 +30,21 @@ subprocess.run([sys.executable, os.path.join(HERE,"fetch_returns.py")], check=Tr
 env2=dict(os.environ); env2["OUT_PATH"]=os.path.join(HERE,"..","docs","stale.json")
 subprocess.run([sys.executable, os.path.join(HERE,"fetch_stale.py")], check=True, env=env2)
 # 3) merge
-full=json.load(open(DOCS)); p=json.load(open(p3))
+full=json.load(open(DOCS, encoding="utf-8")); p=json.load(open(p3, encoding="utf-8"))
 try:
-    full["matrix"]=json.load(open(mx))["matrix"]
+    full["matrix"]=json.load(open(mx, encoding="utf-8"))["matrix"]
 except Exception as e:
     print("matrix merge skipped:", e)
 try:
-    for k,v in json.load(open(inc)).items(): full[k]=v
+    for k,v in json.load(open(inc, encoding="utf-8")).items(): full[k]=v
 except Exception as e:
     print("incoming merge skipped:", e)
 try:
-    for k,v in json.load(open(ret)).items(): full[k]=v
+    for k,v in json.load(open(ret, encoding="utf-8")).items(): full[k]=v
 except Exception as e:
     print("returns merge skipped:", e)
 for k in ["moves","moves_summary","oos","dead_items","dead_by_store","dead_by_cat","dead_by_supplier","dead_total","stock_as_of",
           "cross","cross_items","writeoffs_by_store","writeoffs_top","writeoffs_by_cat","writeoffs_by_supplier","culinary_writeoffs"]:
     if k in p: full[k]=p[k]
-json.dump(full, open(DOCS,"w"), ensure_ascii=False, separators=(",",":"))
+json.dump(full, open(DOCS,"w", encoding="utf-8"), ensure_ascii=False, separators=(",",":"))
 print("merged -> docs/full_data.json  (moves:", len(full.get("moves",[])), ")")

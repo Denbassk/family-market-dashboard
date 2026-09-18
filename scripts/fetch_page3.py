@@ -40,6 +40,8 @@ S90 = "`family-market-analytics.family_market._dash_s90`"
 STK = "`family-market-analytics.family_market._dash_stk`"
 DEAD = "`family-market-analytics.family_market._dash_dead`"
 
+ELSEWHERE_MIN = int(os.environ.get("ELSEWHERE_MIN", "3"))  # min stock to call a store a real donor
+
 def rows(sql): return [dict(r) for r in client.query(sql).result()]
 # актуальный снимок остатков (не хардкод)
 snap = list(client.query(f"SELECT CAST(MAX(snapshot_date) AS STRING) d FROM {SM}").result())[0]["d"]
@@ -127,11 +129,14 @@ out["moves_summary"] = {
 oos = f"""
 WITH sales90 AS (SELECT barcode, nm, store, qty90 FROM {S90}),
 stock AS (SELECT barcode, store, qty FROM {STK}),
-anystk AS (SELECT barcode, SUM(qty) tot FROM {STK} GROUP BY barcode),
+anystk AS (SELECT barcode, SUM(GREATEST(qty,0)) tot,
+           COUNTIF(qty>={ELSEWHERE_MIN}) donor_stores
+           FROM {STK} WHERE store IS NOT NULL AND store!='Полевая магазин' GROUP BY barcode),
 m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode)
 SELECT s.nm product, COALESCE(m.cat,'Прочее (нет в матрице)') category, COALESCE(m.sup,'(нет в матрице)') supplier,
   s.store, CAST(ROUND(s.qty90,0) AS INT64) sold90, CAST(CEIL(s.qty90/3.0) AS INT64) need_month,
-  IFNULL(a.tot,0)>0 elsewhere
+  IFNULL(a.donor_stores,0)>0 elsewhere,
+  IFNULL(a.donor_stores,0) donor_stores, CAST(ROUND(IFNULL(a.tot,0),0) AS INT64) net_qty
 FROM sales90 s LEFT JOIN stock st USING(barcode,store) LEFT JOIN anystk a USING(barcode) LEFT JOIN m ON m.barcode=s.barcode
 WHERE s.qty90>=10 AND COALESCE(st.qty,0)<=0 AND s.store!='Полевая магазин'
 ORDER BY sold90 DESC LIMIT 500"""
@@ -166,7 +171,7 @@ SELECT c1, c2, cnt FROM pairs ORDER BY cnt DESC LIMIT 25""")
 
 # ---------- СПИСАНИЯ ----------
 out["writeoffs_by_store"] = rows(f"""SELECT CASE {cs_wo} END store, ROUND(SUM(amount_cost),0) amount, COUNT(*) cnt
-  FROM {WO} WHERE EXTRACT(YEAR FROM writeoff_date)={YEAR} GROUP BY store HAVING store IS NOT NULL ORDER BY amount DESC LIMIT 20""")
+  FROM {WO} WHERE EXTRACT(YEAR FROM writeoff_date)={YEAR} GROUP BY store HAVING store IS NOT NULL ORDER BY amount DESC""")
 out["writeoffs_top"] = rows(f"""SELECT w.product_name, COALESCE(m.sup,'(нет в матрице)') supplier,
   ROUND(SUM(w.amount_cost),0) amount, ROUND(SUM(w.quantity),0) qty
   FROM {WO} w LEFT JOIN (SELECT barcode, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode) m USING(barcode)
