@@ -110,10 +110,19 @@ FROM (
   FROM donors d JOIN recv r ON d.barcode=r.barcode AND d.store!=r.store
   LEFT JOIN m ON m.barcode=d.barcode)
 WHERE move_qty>0 AND donor!='Полевая магазин' AND receiver!='Полевая магазин'"""
-move = move_core + " ORDER BY recv_sells DESC, value DESC LIMIT 300"
-out["moves"] = rows(move)
-out["moves_summary"] = rows(f"SELECT COUNT(*) pairs, COUNT(DISTINCT product) skus, ROUND(SUM(value),0) value FROM ({move_core})")[0]
-
+# LIMIT snyat: itog schitaem po toy zhe vyborke, chto uhodit v tablicu.
+move = move_core + " ORDER BY recv_sells DESC, value DESC"
+_raw_moves = rows(move)
+from allocate import allocate_moves
+MIN_MOVE_VALUE = float(os.environ.get("MIN_MOVE_VALUE", "0"))
+out["moves"], _mv_rep = allocate_moves(_raw_moves, min_value=MIN_MOVE_VALUE)
+print("moves allocation:", _mv_rep)
+out["moves_summary"] = {
+    "pairs": len(out["moves"]),
+    "skus": len({r["product"] for r in out["moves"]}),
+    "value": int(sum(float(r["value"] or 0) for r in out["moves"])),
+    "allocated": True,
+}
 # ---------- ДЕФИЦИТ / УПУЩЕННЫЕ ПРОДАЖИ (товар продаётся, но остаток 0) ----------
 oos = f"""
 WITH sales90 AS (SELECT barcode, nm, store, qty90 FROM {S90}),
