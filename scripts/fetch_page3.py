@@ -139,8 +139,12 @@ SELECT s.nm product, COALESCE(m.cat,'Прочее (нет в матрице)') c
   IFNULL(a.donor_stores,0) donor_stores, CAST(ROUND(IFNULL(a.tot,0),0) AS INT64) net_qty
 FROM sales90 s LEFT JOIN stock st USING(barcode,store) LEFT JOIN anystk a USING(barcode) LEFT JOIN m ON m.barcode=s.barcode
 WHERE s.qty90>=10 AND COALESCE(st.qty,0)<=0 AND s.store!='Полевая магазин'
-ORDER BY sold90 DESC LIMIT 500"""
-out["oos"] = rows(oos)
+ORDER BY sold90 DESC LIMIT 1200"""
+from nonstock import split_oos
+_oos_raw = rows(oos)
+out["oos"], out["oos_nonstock"] = split_oos(_oos_raw)
+print("oos split: vsego", len(_oos_raw), "| realnyh", len(out["oos"]),
+      "| bez ucheta", len(out["oos_nonstock"]))
 
 # ---------- НЕЛИКВИДЫ: по позициям с поставщиком (остаток есть, продаж 90д нет) ----------
 out["dead_items"] = rows(f"SELECT p, c, s, store, ROUND(qty,0) qty, ROUND(value,0) value FROM {DEAD} ORDER BY value DESC LIMIT 1200")
