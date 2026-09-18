@@ -35,3 +35,6 @@ tests/truth.json
 docs/reconcile.json
 # временные выгрузки пайплайна
 _*_tmp.json
+
+docs/*.backup
+tests/debug_injected.html
