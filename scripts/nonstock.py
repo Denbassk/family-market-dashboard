@@ -39,3 +39,18 @@ def split_oos(rows):
             real.append(r)
     assert len(real) + len(nonstock) == len(rows), "split_oos lost rows"
     return real, nonstock
+
+
+def _lst(items):
+    return ",".join("'%s'" % x for x in sorted(items))
+
+
+def sql_exclude(cat="m.cat", sup="m.sup"):
+    """Uslovie WHERE: ostavit tolko poshtuchnye tovary (edinyy istochnik s python-filtrom)."""
+    return ("(COALESCE(%s,'') NOT IN (%s) AND COALESCE(%s,'') NOT IN (%s))"
+            % (cat, _lst(NONSTOCK_CATEGORIES), sup, _lst(NONSTOCK_SUPPLIERS)))
+
+
+def sql_only(cat="m.cat", sup="m.sup"):
+    return ("(COALESCE(%s,'') IN (%s) OR COALESCE(%s,'') IN (%s))"
+            % (cat, _lst(NONSTOCK_CATEGORIES), sup, _lst(NONSTOCK_SUPPLIERS)))

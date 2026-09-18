@@ -126,6 +126,10 @@ out["moves_summary"] = {
     "allocated": True,
 }
 # ---------- ДЕФИЦИТ / УПУЩЕННЫЕ ПРОДАЖИ (товар продаётся, но остаток 0) ----------
+from nonstock import split_oos, sql_exclude, sql_only
+_EXCL = sql_exclude()
+_ONLY = sql_only()
+
 oos = f"""
 WITH sales90 AS (SELECT barcode, nm, store, qty90 FROM {S90}),
 stock AS (SELECT barcode, store, qty FROM {STK}),
@@ -133,16 +137,19 @@ anystk AS (SELECT barcode, SUM(GREATEST(qty,0)) tot,
            COUNTIF(qty>={ELSEWHERE_MIN}) donor_stores
            FROM {STK} WHERE store IS NOT NULL AND store!='Полевая магазин' GROUP BY barcode),
 m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode)
-SELECT s.nm product, COALESCE(m.cat,'Прочее (нет в матрице)') category, COALESCE(m.sup,'(нет в матрице)') supplier,
-  s.store, CAST(ROUND(s.qty90,0) AS INT64) sold90, CAST(CEIL(s.qty90/3.0) AS INT64) need_month,
-  IFNULL(a.donor_stores,0)>0 elsewhere,
-  IFNULL(a.donor_stores,0) donor_stores, CAST(ROUND(IFNULL(a.tot,0),0) AS INT64) net_qty
 FROM sales90 s LEFT JOIN stock st USING(barcode,store) LEFT JOIN anystk a USING(barcode) LEFT JOIN m ON m.barcode=s.barcode
-WHERE s.qty90>=10 AND COALESCE(st.qty,0)<=0 AND s.store!='Полевая магазин'
-ORDER BY sold90 DESC LIMIT 1200"""
-from nonstock import split_oos
+WHERE s.qty90>=10 AND COALESCE(st.qty,0)<=0 AND {_EXCL} AND s.store!='Полевая магазин'
+ORDER BY sold90 DESC LIMIT 3000"""
 _oos_raw = rows(oos)
-out["oos"], out["oos_nonstock"] = split_oos(_oos_raw)
+out["oos"], _left = split_oos(_oos_raw)
+assert not _left, "SQL-filtr propustil neposhtuchnye: %d" % len(_left)
+out["oos_nonstock"] = rows(oos.replace(_EXCL, _ONLY).replace("LIMIT 3000", "LIMIT 400"))
+out["unmatched_items"] = rows(f"""SELECT barcode, ANY_VALUE(p) product,
+  COUNT(DISTINCT store) stores, ROUND(SUM(qty),0) qty, ROUND(SUM(value),0) value
+  FROM {DEAD} WHERE c='Прочее (нет в матрице)'
+  GROUP BY barcode HAVING SUM(value)>=300 ORDER BY value DESC LIMIT 600""")
+out["unmatched_total"] = rows(f"SELECT ROUND(SUM(value),0) v, COUNT(DISTINCT barcode) n FROM {DEAD} WHERE c='Прочее (нет в матрице)'")[0]
+print("unmatched:", out["unmatched_total"], "| v otchete:", len(out["unmatched_items"]))
 print("oos split: vsego", len(_oos_raw), "| realnyh", len(out["oos"]),
       "| bez ucheta", len(out["oos_nonstock"]))
 
