@@ -81,7 +81,7 @@ jobs:
           fi
 
       - name: Выгрузить собранные данные при провале
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: built-data
