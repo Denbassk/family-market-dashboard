@@ -173,7 +173,7 @@ solo AS (SELECT barcode, COUNT(DISTINCT tidn) c FROM b GROUP BY barcode),
 pairs AS (SELECT a.barcode x, b.barcode y, COUNT(DISTINCT a.tidn) cnt
   FROM b a JOIN b b ON a.tidn=b.tidn AND a.barcode<b.barcode GROUP BY x, y),
 nm AS (SELECT barcode, ANY_VALUE(product_name) nm, ANY_VALUE(category) c,
-       REGEXP_EXTRACT(LOWER(ANY_VALUE(product_name)), '^[^ ]+ [^ ]+') brand
+       REGEXP_EXTRACT(LOWER(ANY_VALUE(product_name)), '^[^ ]+') brand
        FROM {AG} JOIN top USING(barcode) GROUP BY barcode)
 SELECT n1.nm a, n2.nm b, n1.c c1, n2.c c2, p.cnt,
   ROUND(p.cnt * (SELECT n FROM tot) / (s1.c * s2.c), 2) lift,
