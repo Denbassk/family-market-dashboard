@@ -38,3 +38,9 @@ _*_tmp.json
 
 docs/*.backup
 tests/debug_injected.html
+
+# временные файлы локальных прогонов
+_*_tmp.json
+_fd_tmp.json
+docs/*.backup
+tests/debug_injected.html
