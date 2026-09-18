@@ -18,7 +18,8 @@
 | # | Патч | Статус | Коммит |
 |---|------|--------|--------|
 | 1 | moves: жадное распределение вместо декартова произведения | СДЕЛАНО | bc79016 |
-| 2 | oos/dead: исключить непоштучные товары (розлив, кега, кофе-аппарат, тара) и сырьё производства | В РАБОТЕ | |
+| 2 | oos: nonstock -> oos_nonstock, LIMIT 500->1200: bylo 265 realnyh, stalo 841 (+576 ranee obrezannyh); 359 bez ucheta | SDELANO | |
+| 11 | oos: filtr nonstock perenesti v SQL do LIMIT, chtoby limit ne tratilsya na musor | OTKRYTO | |
 | 3 | writeoffs_by_store: снять LIMIT 20 | СДЕЛАНО | |
 | 4 | oos: elsewhere = есть реальный донор (ELSEWHERE_MIN, без отрицательных, без склада) | СДЕЛАНО | |
 | 5 | build_data.py: явный encoding=utf-8 во всех open() | СДЕЛАНО | |
