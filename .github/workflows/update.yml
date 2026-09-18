@@ -79,3 +79,11 @@ jobs:
             git commit -m "auto: обновление данных $(date -u +'%Y-%m-%d %H:%M UTC')"
             git push
           fi
+
+      - name: Выгрузить собранные данные при провале
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-data
+          path: docs/*.json
+          retention-days: 3
