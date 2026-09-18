@@ -40,7 +40,9 @@ S90 = "`family-market-analytics.family_market._dash_s90`"
 STK = "`family-market-analytics.family_market._dash_stk`"
 DEAD = "`family-market-analytics.family_market._dash_dead`"
 
-ELSEWHERE_MIN = int(os.environ.get("ELSEWHERE_MIN", "3"))  # min stock to call a store a real donor
+ELSEWHERE_MIN = int(os.environ.get("ELSEWHERE_MIN", "3"))
+CROSS_MIN = int(os.environ.get("CROSS_MIN", "50"))  # min chekov na paru dlya lift
+OOS_MIN = int(os.environ.get("OOS_MIN", "30"))  # min prodazh za 90d, chtoby schitat deficitom
 
 def rows(sql): return [dict(r) for r in client.query(sql).result()]
 # актуальный снимок остатков (не хардкод)
@@ -116,7 +118,7 @@ WHERE move_qty>0 AND donor!='Полевая магазин' AND receiver!='По�
 move = move_core + " ORDER BY recv_sells DESC, value DESC"
 _raw_moves = rows(move)
 from allocate import allocate_moves
-MIN_MOVE_VALUE = float(os.environ.get("MIN_MOVE_VALUE", "0"))
+MIN_MOVE_VALUE = float(os.environ.get("MIN_MOVE_VALUE", "150"))
 out["moves"], _mv_rep = allocate_moves(_raw_moves, min_value=MIN_MOVE_VALUE)
 print("moves allocation:", _mv_rep)
 out["moves_summary"] = {
@@ -129,6 +131,7 @@ out["moves_summary"] = {
 from nonstock import split_oos, sql_exclude, sql_only
 _EXCL = sql_exclude()
 _ONLY = sql_only()
+_XC = sql_exclude("a.category", "a.supplier")
 
 oos = f"""
 WITH sales90 AS (SELECT barcode, nm, store, qty90 FROM {S90}),
@@ -142,7 +145,7 @@ SELECT s.nm product, COALESCE(m.cat,'Прочее (нет в матрице)') c
   IFNULL(a.donor_stores,0)>0 elsewhere,
   IFNULL(a.donor_stores,0) donor_stores, CAST(ROUND(IFNULL(a.tot,0),0) AS INT64) net_qty
 FROM sales90 s LEFT JOIN stock st USING(barcode,store) LEFT JOIN anystk a USING(barcode) LEFT JOIN m ON m.barcode=s.barcode
-WHERE s.qty90>=10 AND COALESCE(st.qty,0)<=0 AND {_EXCL} AND s.store!='Полевая магазин'
+WHERE s.qty90>={OOS_MIN} AND COALESCE(st.qty,0)<=0 AND {_EXCL} AND s.store!='Полевая магазин'
 ORDER BY sold90 DESC LIMIT 3000"""
 _oos_raw = rows(oos)
 out["oos"], _left = split_oos(_oos_raw)
@@ -156,18 +159,30 @@ out["dead_by_cat"] = rows(f"SELECT c category, ROUND(SUM(value),0) dead_value, C
 out["dead_by_supplier"] = rows(f"SELECT s supplier, ROUND(SUM(value),0) dead_value, COUNT(*) dead_skus FROM {DEAD} GROUP BY s ORDER BY dead_value DESC LIMIT 40")
 out["dead_total"] = rows(f"SELECT ROUND(SUM(value),0) v, COUNT(*) n FROM {DEAD}")[0]
 
+out["unmatched_items"] = rows(f"SELECT barcode, p, c, store, ROUND(qty,0) qty, ROUND(value,0) value FROM {DEAD} WHERE c='Прочее (нет в матрице)' ORDER BY value DESC LIMIT 500")
+out["unmatched_total"] = rows(f"SELECT ROUND(SUM(value),0) v, COUNT(*) n, COUNT(DISTINCT barcode) skus FROM {DEAD} WHERE c='Прочее (нет в матрице)'")[0]
+
 # ---------- КРОСС-ПРОДАЖИ: по позициям (пары товаров в одном чеке) ----------
 # tidn вместо tid — см. шапку файла.
 cross_items = f"""
-WITH top AS (SELECT barcode FROM (SELECT barcode, SUM(qty) q FROM {AG} GROUP BY barcode ORDER BY q DESC LIMIT 500)),
+WITH top AS (SELECT barcode FROM (SELECT a.barcode, SUM(a.qty) q FROM {AG} a
+  WHERE {_XC} GROUP BY a.barcode ORDER BY q DESC LIMIT 500)),
+tot AS (SELECT COUNT(DISTINCT tidn) n FROM {ST}),
 b AS (SELECT tidn, barcode FROM {ST} JOIN top USING(barcode) GROUP BY tidn, barcode),
+solo AS (SELECT barcode, COUNT(DISTINCT tidn) c FROM b GROUP BY barcode),
 pairs AS (SELECT a.barcode x, b.barcode y, COUNT(DISTINCT a.tidn) cnt
   FROM b a JOIN b b ON a.tidn=b.tidn AND a.barcode<b.barcode GROUP BY x, y),
 nm AS (SELECT barcode, ANY_VALUE(product_name) nm, ANY_VALUE(category) c
        FROM {AG} JOIN top USING(barcode) GROUP BY barcode)
-SELECT n1.nm a, n2.nm b, n1.c c1, n2.c c2, cnt
-FROM pairs JOIN nm n1 ON n1.barcode=x JOIN nm n2 ON n2.barcode=y
-ORDER BY cnt DESC LIMIT 80"""
+SELECT n1.nm a, n2.nm b, n1.c c1, n2.c c2, p.cnt,
+  ROUND(p.cnt * (SELECT n FROM tot) / (s1.c * s2.c), 2) lift,
+  ROUND(p.cnt / s1.c * 100, 1) conf_ab,
+  ROUND(p.cnt / s2.c * 100, 1) conf_ba
+FROM pairs p
+JOIN nm n1 ON n1.barcode=p.x JOIN nm n2 ON n2.barcode=p.y
+JOIN solo s1 ON s1.barcode=p.x JOIN solo s2 ON s2.barcode=p.y
+WHERE p.cnt >= {CROSS_MIN}
+ORDER BY lift DESC LIMIT 80"""
 out["cross_items"] = rows(cross_items)
 # кросс по категориям (для верхнеуровневого взгляда)
 out["cross"] = rows(f"""
@@ -195,10 +210,12 @@ out["culinary_writeoffs"] = rows(f"""SELECT reason, ROUND(SUM(cost),0) cost, COU
   FROM {CW} GROUP BY reason ORDER BY cost DESC""")
 
 OUT = os.environ.get("OUT_PATH", "page3_data.json")
-json.dump(out, open(OUT, "w"), ensure_ascii=False, separators=(",", ":"))
+json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 import os as _o
 print("OK", round(_o.path.getsize(OUT) / 1024, 1), "KB")
 print("перемещения:", out["moves_summary"], "| строк:", len(out["moves"]))
 print("неликвиды: позиций", len(out["dead_items"]), "| всего", out["dead_total"],
       "| поставщиков", len(out["dead_by_supplier"]))
+print("oos rows:", len(out["oos"]), "| nonstock:", len(out["oos_nonstock"]),
+      "| unmatched:", len(out.get("unmatched_items", [])), out.get("unmatched_total"))
 print("кросс-пары товаров:", len(out["cross_items"]), "| списания магазинов:", len(out["writeoffs_by_store"]))
