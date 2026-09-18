@@ -2257,7 +2257,21 @@ async function load(){
   const r=await fetch('full_data.json?t='+Date.now()); D=await r.json();
   wpReset();
   const per=D.period?('период: <b>'+fmtD(D.period.start)+' — '+fmtD(D.period.end)+'</b> ('+D.period.days+' дн.)'):'';
-  $('upd').innerHTML='обновлено: <b>'+(D.updated_at||'—')+'</b><br>'+(D.year||'')+' год · '+D.kpi.stores+' магазинов · '+fmtF(D.kpi.skus)+' SKU<br>'+per+'<br><span title="Версия самого интерфейса. Если после деплоя тут старая дата — браузер или Cloudflare отдают кэш: откройте адрес с ?v=2 или в приватном окне.">интерфейс: <b>'+UI_BUILD+'</b></span>';
+  // ОТСТАВАНИЕ ПРОДАЖ. Дата последнего чека в данных лежала только внутри строки «период»,
+  // и чтобы понять «подтянулось ли всё», приходилось считать в уме. Теперь разрыв между
+  // сегодня и последней продажей подписан словами и подсвечен: день-два — норма
+  // (Торгсофт выгружает с задержкой), от трёх суток — повод идти смотреть загрузку.
+  const lag=(()=>{
+    if(!(D.period&&D.period.end))return '';
+    const e=new Date(D.period.end+'T00:00:00'), t=new Date();
+    const d=Math.floor((new Date(t.getFullYear(),t.getMonth(),t.getDate())-e)/86400000);
+    if(!isFinite(d))return '';
+    const word=d<=0?'сегодня':d===1?'вчера':(d+' '+(d%10===1&&d%100!==11?'день':(d%10>=2&&d%10<=4&&(d%100<10||d%100>=20)?'дня':'дней'))+' назад');
+    const col=d<=1?'#22c55e':(d<=2?'#eab308':'#ef4444');
+    return '<br><span title="Дата последнего чека в выгрузке. День-два отставания — норма, больше — проверьте, отработала ли ночная загрузка Торгсофта.">'
+      +'последняя продажа: <b style="color:'+col+'">'+fmtD(D.period.end)+'</b> <span class="muted">· '+word+'</span></span>';
+  })();
+  $('upd').innerHTML='обновлено: <b>'+(D.updated_at||'—')+'</b><br>'+(D.year||'')+' год · '+D.kpi.stores+' магазинов · '+fmtF(D.kpi.skus)+' SKU<br>'+per+lag+'<br><span title="Версия самого интерфейса. Если после деплоя тут старая дата — браузер или Cloudflare отдают кэш: откройте адрес с ?v=2 или в приватном окне.">интерфейс: <b>'+UI_BUILD+'</b></span>';
   $('foot').textContent='Family Market · период '+(D.period?fmtD(D.period.start)+'–'+fmtD(D.period.end):D.year)+' · обновлено '+D.updated_at+' · категории из матрицы · Полевая — опт/склад (помечена) · внематричные ≈'+fmt(D.kpi.offmatrix_rev)+' ₴';
   $('prodList').innerHTML=(D.products||[]).slice(0,2000).map(p=>`<option value="${(p.p||'').replace(/"/g,'&quot;')}"></option>`).join('');
   // фильтры
