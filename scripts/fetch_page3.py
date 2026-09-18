@@ -80,7 +80,7 @@ if not os.environ.get("SKIP_STAGING"):
     CREATE OR REPLACE TABLE {DEAD} AS
     WITH m AS (SELECT barcode, ANY_VALUE(category) cat, ANY_VALUE(supplier) sup FROM {MX} GROUP BY barcode),
     stock AS (SELECT barcode, store, nm, qty_pos qty, cost FROM {STK} WHERE n_pos>0)
-    SELECT s.nm p, COALESCE(m.cat,'Прочее (нет в матрице)') c, COALESCE(m.sup,'(нет в матрице)') s,
+    SELECT s.barcode, s.nm p, COALESCE(m.cat,'Прочее (нет в матрице)') c, COALESCE(m.sup,'(нет в матрице)') s,
       s.store, s.qty, s.qty*s.cost value
     FROM stock s LEFT JOIN {S90} sl USING(barcode,store) LEFT JOIN m ON m.barcode=s.barcode
     WHERE COALESCE(sl.qty90,0)=0""").result()
@@ -148,14 +148,6 @@ _oos_raw = rows(oos)
 out["oos"], _left = split_oos(_oos_raw)
 assert not _left, "SQL-filtr propustil neposhtuchnye: %d" % len(_left)
 out["oos_nonstock"] = rows(oos.replace(_EXCL, _ONLY).replace("LIMIT 3000", "LIMIT 400"))
-out["unmatched_items"] = rows(f"""SELECT barcode, ANY_VALUE(p) product,
-  COUNT(DISTINCT store) stores, ROUND(SUM(qty),0) qty, ROUND(SUM(value),0) value
-  FROM {DEAD} WHERE c='Прочее (нет в матрице)'
-  GROUP BY barcode HAVING SUM(value)>=300 ORDER BY value DESC LIMIT 600""")
-out["unmatched_total"] = rows(f"SELECT ROUND(SUM(value),0) v, COUNT(DISTINCT barcode) n FROM {DEAD} WHERE c='Прочее (нет в матрице)'")[0]
-print("unmatched:", out["unmatched_total"], "| v otchete:", len(out["unmatched_items"]))
-print("oos split: vsego", len(_oos_raw), "| realnyh", len(out["oos"]),
-      "| bez ucheta", len(out["oos_nonstock"]))
 
 # ---------- НЕЛИКВИДЫ: по позициям с поставщиком (остаток есть, продаж 90д нет) ----------
 out["dead_items"] = rows(f"SELECT p, c, s, store, ROUND(qty,0) qty, ROUND(value,0) value FROM {DEAD} ORDER BY value DESC LIMIT 1200")
