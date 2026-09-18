@@ -369,10 +369,17 @@ function buildShell(){
     const syncUpd = () => {
       const el = rd$('rd-upd-text');
       if (!el) return;
-      // берём первое коротенькое сообщение (updated_at строка)
+      // Из старой шапки берём три вещи, а не одну: дату данных, версию интерфейса и
+      // дату последней продажи. Раньше регулярка выхватывала только «обновлено» и молча
+      // выбрасывала остальное — версию интерфейса физически негде было увидеть, а именно
+      // по ней отличают свежую страницу от кэша Cloudflare (18.09.2026).
       const t = oldUpd.innerHTML || 'загрузка…';
-      const m = t.match(/обновлено:\s*<b>([^<]+)<\/b>/);
-      el.innerHTML = m ? `обновлено <b>${m[1]}</b>` : (t.length > 80 ? t.slice(0,60)+'…' : t);
+      const m  = t.match(/обновлено:\s*<b>([^<]+)<\/b>/);
+      const ui = t.match(/интерфейс:\s*<b>([^<]+)<\/b>/);
+      el.innerHTML = (m ? `обновлено <b>${m[1]}</b>` : (t.length > 80 ? t.slice(0,60)+'…' : t))
+        + (ui ? ` <span style="opacity:.6" title="Версия интерфейса. Если после деплоя тут старая дата — браузер или Cloudflare отдают кэш: откройте адрес с ?v=2 или в приватном окне.">· UI ${ui[1].replace(/^\d{4}-/,'').replace(' UTC','')}</span>` : '');
+      // полный текст (период, последняя продажа, отставание) — в подсказке по наведению
+      el.title = t.replace(/<br\s*\/?>/gi, ' · ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g,' ').replace(/\s+/g, ' ').trim();
     };
     syncUpd();
     new MutationObserver(syncUpd).observe(oldUpd, { childList: true, subtree: true, characterData: true });
