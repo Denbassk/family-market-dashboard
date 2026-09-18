@@ -1820,6 +1820,11 @@ mark{
 <script>
 const GH_OWNER="Denbassk", GH_REPO="family-market-dashboard";
 let D=null, charts={};
+// Версия ИНТЕРФЕЙСА (не данных). В шапке рядом с «обновлено» — чтобы на глаз отличать
+// свежую страницу от закэшированной: 18.09.2026 полдня ушло на выяснение, почему новый
+// режим отчёта «есть в файле, но нет на экране» (оказался кэш). Правило: меняешь
+// index.html — двигаешь эту строку.
+const UI_BUILD='2026-09-18 06:21 UTC';
 const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null,retScope:'rp',cmp:'prev',supDim:'mx',supMet:'sales'};
 function monthSel(){return S.month&&S.month!=='all';}
 function monthN(){return +S.month;}
@@ -2252,7 +2257,7 @@ async function load(){
   const r=await fetch('full_data.json?t='+Date.now()); D=await r.json();
   wpReset();
   const per=D.period?('период: <b>'+fmtD(D.period.start)+' — '+fmtD(D.period.end)+'</b> ('+D.period.days+' дн.)'):'';
-  $('upd').innerHTML='обновлено: <b>'+(D.updated_at||'—')+'</b><br>'+(D.year||'')+' год · '+D.kpi.stores+' магазинов · '+fmtF(D.kpi.skus)+' SKU<br>'+per;
+  $('upd').innerHTML='обновлено: <b>'+(D.updated_at||'—')+'</b><br>'+(D.year||'')+' год · '+D.kpi.stores+' магазинов · '+fmtF(D.kpi.skus)+' SKU<br>'+per+'<br><span title="Версия самого интерфейса. Если после деплоя тут старая дата — браузер или Cloudflare отдают кэш: откройте адрес с ?v=2 или в приватном окне.">интерфейс: <b>'+UI_BUILD+'</b></span>';
   $('foot').textContent='Family Market · период '+(D.period?fmtD(D.period.start)+'–'+fmtD(D.period.end):D.year)+' · обновлено '+D.updated_at+' · категории из матрицы · Полевая — опт/склад (помечена) · внематричные ≈'+fmt(D.kpi.offmatrix_rev)+' ₴';
   $('prodList').innerHTML=(D.products||[]).slice(0,2000).map(p=>`<option value="${(p.p||'').replace(/"/g,'&quot;')}"></option>`).join('');
   // фильтры
