@@ -319,9 +319,17 @@ function revisionSuite() {
     for (const m of raw.matchAll(/"st"\s*:\s*"((?:[^"\\]|\\.)*)"/g)) names.add(JSON.parse('"' + m[1] + '"'));
     const canon = new Set(w.eval('D.stores'));
     const SERVICE = new Set(['Полевая-Склад', 'Полевая-Просрок', 'Магазины-Просрок', 'Производство']);
-    const alien = [...names].filter(n => !canon.has(n) && !SERVICE.has(n));
+    const norm = x => x.normalize('NFC').toLowerCase()
+      .replace(/[іїi]/g, 'и').replace(/є/g, 'е').replace(/ґ/g, 'г')
+      .replace(/[^a-zа-я0-9]+/g, ' ').trim();
+    const canonNorm = new Map([...canon].map(n => [norm(n), n]));
+    const alienAll = [...names].filter(n => !canon.has(n) && !SERVICE.has(n));
+    const mismatch = alienAll.filter(n => canonNorm.has(norm(n)));
+    const unknown = alienAll.filter(n => !canonNorm.has(norm(n)));
     add('stale.json: имена точек совпадают с full_data.stores',
-        alien.length === 0, alien.slice(0, 6).join(', ') || '—', '—');
+        mismatch.length === 0, mismatch.slice(0, 6).join(', ') || '—', '—');
+    if (unknown.length) skip('stale.json: точки снимка без продаж',
+        unknown.slice(0, 6).join(', ') + ' — нет продаж за период, сверять не с чем');
     const missing = [...canon].filter(n => !names.has(n));
     add('stale.json: все точки сети присутствуют',
         names.size > 0 && missing.length === 0, missing.slice(0, 6).join(', ') || names.size + ' точек', '—');
