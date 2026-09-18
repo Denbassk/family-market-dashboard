@@ -807,7 +807,72 @@ function reportSuite() {
   }
 }
 
-  tabsSuite(); crossSuite(); returnsSuite(); revisionSuite(); trendSuite(); supplierSuite(); reportSuite();
+
+// Кросс-продажи (2026-09-19). Раньше пайплайн считал cross_variants и связки категорий,
+// а фронт их не рисовал — проверок не было вовсе, и мёртвые ключи никто не замечал.
+// Здесь сверяется ровно то, что заявлено подписями на экране.
+function basketSuite() {
+  const CI = w.eval('(D.cross_items||[])'), ST = w.eval('(D.cross_stats||null)');
+  if (!CI.length || !ST) { skip('Кросс-продажи: типы связи', 'нет cross_items/cross_stats — нужна пересборка данных'); return; }
+  const KINDS = ['cross', 'same', 'variant', 'nomatrix', 'subs'];
+  const bad = CI.filter(r => KINDS.indexOf(r.kind) < 0);
+  add('Кросс-продажи: у каждой пары известный тип связи', bad.length === 0,
+      bad.length ? bad.length + ' без типа' : KINDS.map(k => k + ':' + CI.filter(r => r.kind === k).length).join(' '), '0 без типа');
+
+  const NOCAT = 'Прочее (нет в матрице)';
+  const tok = s => (s || '').toLowerCase().replace(/[^0-9a-zа-яёіїєґ ]/g, ' ').split(/\s+/).filter(Boolean);
+  const pref = (a, b) => { const x = tok(a), y = tok(b); let n = 0; while (n < x.length && n < y.length && x[n] === y[n]) n++; return n; };
+  const wrongCross = CI.filter(r => r.kind === 'cross' && (r.c1 === r.c2 || r.c1 === NOCAT || r.c2 === NOCAT));
+  add('Кросс-продажи: «разные категории» — действительно разные и обе известны',
+      wrongCross.length === 0, wrongCross.length ? wrongCross[0].c1 + ' / ' + wrongCross[0].c2 : 'расхождений нет', '0');
+  const wrongSame = CI.filter(r => r.kind === 'same' && r.c1 !== r.c2);
+  add('Кросс-продажи: «внутри категории» — категория одна', wrongSame.length === 0,
+      wrongSame.length ? wrongSame[0].c1 + ' / ' + wrongSame[0].c2 : 'расхождений нет', '0');
+  const wrongVar = CI.filter(r => r.kind === 'variant' && pref(r.a, r.b) < 2);
+  add('Кросс-продажи: «одна линейка» — общий префикс не меньше двух слов', wrongVar.length === 0,
+      wrongVar.length ? '«' + wrongVar[0].a + '» + «' + wrongVar[0].b + '»' : 'расхождений нет', '0');
+
+  // Главное содержательное правило: всё, что показано как связка, встречается ЧАЩЕ
+  // случайного (lift>1), а «взаимозамена» — наоборот, реже. Иначе подписи врут.
+  const wrongLift = CI.filter(r => r.kind !== 'subs' && r.lift < ST.lift_min);
+  const wrongSubs = CI.filter(r => r.kind === 'subs' && (r.lift >= ST.subs_max || r.c1 !== r.c2));
+  add('Кросс-продажи: у связок сила связи не ниже порога', wrongLift.length === 0,
+      wrongLift.length ? wrongLift.length + ' пар ниже ' + ST.lift_min : 'порог ' + ST.lift_min + ' выдержан', '0 нарушений');
+  add('Кросс-продажи: «взаимозамена» — связь отрицательная (берут одно ИЛИ другое)',
+      wrongSubs.length === 0 && CI.some(r => r.kind === 'subs'),
+      wrongSubs.length ? wrongSubs.length + ' пар выше ' + ST.subs_max : CI.filter(r => r.kind === 'subs').length + ' пар с lift<=' + ST.subs_max, 'есть и все ниже порога');
+  const thin = CI.filter(r => r.cnt < ST.cnt_min);
+  add('Кросс-продажи: пара не тоньше порога по чекам', thin.length === 0,
+      thin.length ? thin.length + ' пар тоньше ' + ST.cnt_min : 'минимум ' + Math.min.apply(null, CI.map(r => r.cnt)) + ' чеков', '0');
+
+  // Таблица на «Аналитике» должна показывать РОВНО выбранный тип и переключаться.
+  const seen = {};
+  for (const k of KINDS) {
+    try {
+      w.eval(`${CLEAR}S.xKind='${k}';S.tab='analytics';render();`);
+      const tb = w.document.getElementById('fr_cross');
+      seen[k] = tb ? tb.querySelectorAll('tbody tr').length : 0;
+    } catch (e) { errors.push('кросс-таблица [' + k + ']: ' + (e.stack || e)); }
+  }
+  const expect = {}; KINDS.forEach(k => expect[k] = CI.filter(r => r.kind === k).length);
+  const mism = KINDS.filter(k => seen[k] !== expect[k]);
+  add('Кросс-продажи: переключатель типа меняет таблицу и отдаёт ровно свой тип',
+      mism.length === 0, mism.length ? mism.map(k => k + ': ' + seen[k] + ' вместо ' + expect[k]).join(', ')
+        : KINDS.map(k => k + ' ' + seen[k]).join(' · '), 'совпадает с данными');
+  w.eval(`${CLEAR}S.xKind='cross';S.tab='overview';render();`);
+
+  // Связки категорий: тара и одноразовая посуда должны быть вычищены тем же фильтром,
+  // что и везде, иначе топ — это «Пиво + Тара», а не поведение покупателя.
+  const CX = w.eval('(D.cross||[])');
+  const junk = CX.filter(r => /Тара|Одноразовая|на розлив|кофемашина/i.test(r.c1 + ' ' + r.c2));
+  add('Связки категорий: тара и одноразовая посуда исключены', CX.length > 0 && junk.length === 0,
+      junk.length ? junk[0].c1 + ' + ' + junk[0].c2 : CX.length + ' пар, мусора нет', '0');
+  const noLift = CX.filter(r => typeof r.lift !== 'number');
+  add('Связки категорий: сила связи посчитана для всех пар', noLift.length === 0,
+      noLift.length ? noLift.length + ' без lift' : 'lift от ' + Math.min.apply(null, CX.map(r => r.lift)) + ' до ' + Math.max.apply(null, CX.map(r => r.lift)), '0');
+}
+
+  tabsSuite(); crossSuite(); returnsSuite(); revisionSuite(); trendSuite(); supplierSuite(); reportSuite(); basketSuite();
   if (REDESIGN) redesignSuite(); else skip('Регрессии слоя редизайна', 'нет docs/redesign.js');
   featuresSuite();
 

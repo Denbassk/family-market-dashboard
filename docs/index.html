@@ -1565,7 +1565,13 @@ mark{
     <div class="card full"><h3>🔴 Убыточные и низкомаржинальные позиции <span>маржа ≤5% или продажа ниже закупки · клик = карточка</span><button class="csvbtn" data-t="an_loss">⬇ Excel</button></h3>
       <div class="kpis" id="an_loss_k" style="margin:4px 0"></div>
       <div class="scroll"><table id="an_loss"></table></div></div>
-    <div class="card full"><h3>🧺 Кросс-продажи: что покупают вместе <span>пары товаров в одном чеке</span><button class="csvbtn" data-t="fr_cross">⬇ Excel</button></h3><div class="scroll"><table id="fr_cross"></table></div></div>
+    <div class="card full"><h3>🧺 Кросс-продажи: что покупают вместе <span id="fr_cross_s"></span><button class="csvbtn" data-t="fr_cross">⬇ Excel</button></h3>
+      <div class="seg" id="xKind" style="margin-bottom:8px"><button data-v="cross" class="on">Разные категории</button><button data-v="same">Внутри категории</button><button data-v="variant">Одна линейка</button><button data-v="subs">Взаимозамена</button><button data-v="nomatrix">Без категории</button></div>
+      <div class="scroll"><table id="fr_cross"></table></div>
+      <div class="muted" id="fr_cross_note" style="font-size:11.5px;margin-top:7px"></div></div>
+    <div class="card full"><h3>Связки категорий <span id="fr_catx_s"></span><button class="csvbtn" data-t="fr_catx">⬇ Excel</button></h3>
+      <div class="scroll"><table id="fr_catx"></table></div>
+      <div class="muted" style="font-size:11.5px;margin-top:7px">Тара и одноразовая посуда исключены. Сортировка по умолчанию — по силе связи: частота обманывает, «Пиво + Табачные» лидируют по чекам при lift 0,85, то есть связи между ними нет.</div></div>
     <div class="card full"><h3>Покрытие: категории × магазины <span>доля магазина в выручке категории, %</span></h3><div class="scroll"><div id="an_cov"></div></div></div>
   </div>
 </div>
@@ -1825,7 +1831,15 @@ let D=null, charts={};
 // режим отчёта «есть в файле, но нет на экране» (оказался кэш). Правило: меняешь
 // index.html — двигаешь эту строку.
 const UI_BUILD='2026-09-18 08:40 UTC';
-const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null,retScope:'rp',cmp:'prev',supDim:'mx',supMet:'sales'};
+// Подписи к типам связи. Формулировки важны: пары одной категории с высоким lift — это
+// НЕ взаимозамена (Фанта+Спрайт берут вместе), настоящая взаимозамена сидит на lift<1.
+const XKIND_NOTE={
+  cross:'<b>Разные категории</b> — связка между товарными группами, то, ради чего меняют выкладку: товары стоят в разных местах зала, а в чеке оказываются вместе.',
+  same:'<b>Внутри категории</b> — берут вместе две позиции одной группы (Фанта и Спрайт, окрошка и оливье). Они и так рядом на полке, но это повод следить, чтобы не заканчивались одновременно.',
+  variant:'<b>Одна линейка</b> — разные вкусы одного товара в одном чеке. Для выкладки бесполезно, зато показывает, что линейку берут набором: сокращать её опасно.',
+  subs:'<b>Взаимозамена</b> — берут одно ИЛИ другое, вместе почти никогда (сила связи меньше 1). Единственный тип, где связь отрицательная: Пепсі и Кока, Оболонська и Моршинська. Полезно для ротации ассортимента, а не для соседства на полке.',
+  nomatrix:'<b>Без категории</b> — хотя бы одна позиция не заведена в матрицу, поэтому тип связи определить нельзя. Список таких позиций — на вкладке «Запасы», отчёт по внематричным.'};
+const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null,retScope:'rp',cmp:'prev',supDim:'mx',supMet:'sales',xKind:'cross'};
 function monthSel(){return S.month&&S.month!=='all';}
 function monthN(){return +S.month;}
 // Число месяцев в периоде. Нужно для оборачиваемости: `turnover_*.avg_stock` собирается
@@ -3227,8 +3241,22 @@ function renderAnalytics(){
   // кросс-продажи: пары товаров в одном чеке (переехали с «Дефицита» — там они были не по теме).
   // Таблица поставщиков отсюда убрана: то же самое, но с помесячной разбивкой, даёт
   // «Отчёты» с группировкой «Поставщики».
-  tableSort('fr_cross',[['Товар A','a','l'],['Товар B','b','l'],['Чеков вместе','cnt']],(D.cross_items||[]),'cnt',null,
-    x=>`<td class="l" title="${x.a}">${x.a}</td><td class="l" title="${x.b}">${x.b}</td><td>${fmtF(x.cnt)}</td>`);
+  // Один список с типом связи вместо трёх ключей. Раньше пайплайн считал cross_variants
+  // и cross (связки категорий), а фронт не рисовал ни то, ни другое — работа уходила в JSON
+  // и не доходила до экрана. Теперь всё в одной таблице с переключателем.
+  const XK=S.xKind||'cross', XS=D.cross_stats||{};
+  const seg=$('xKind'); if(seg)seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===XK));
+  const XROWS=(D.cross_items||[]).filter(r=>r.kind===XK);
+  // Категории сведены в одну колонку: с двумя отдельными таблица уезжала вправо и
+  // «Сила связи» — то, ради чего всё затевалось — оказывалась за краем экрана.
+  tableSort('fr_cross',[['Товар A','a','l'],['Товар B','b','l'],['Категории','c1','l'],['Чеков вместе','cnt'],['Сила связи','lift'],['Доля A %','conf_ab'],['Доля B %','conf_ba']],XROWS,'cnt',null,
+    x=>`<td class="l" title="${x.a}">${x.a}</td><td class="l" title="${x.b}">${x.b}</td><td class="l muted" style="font-size:11px">${x.c1||''} → ${x.c2||''}</td><td><b>${fmtF(x.cnt)}</b></td><td><b>${x.lift}</b></td><td class="muted">${x.conf_ab}</td><td class="muted">${x.conf_ba}</td>`);
+  const XN=(XS.found||{})[XK];
+  $('fr_cross_s').textContent=XROWS.length+' пар'+(XN&&XN>XROWS.length?' (из '+fmt(XN)+' найденных — показаны самые частые)':'');
+  $('fr_cross_note').innerHTML=XKIND_NOTE[XK]+' <b>Сила связи</b> — во сколько раз пара встречается чаще, чем если бы товары попадали в чек независимо: 1 — связи нет, 2 и выше — берут вместе осознанно. Пара учитывается от '+(XS.cnt_min||30)+' совместных чеков.';
+  tableSort('fr_catx',[['Категория A','c1','l'],['Категория B','c2','l'],['Чеков вместе','cnt'],['Сила связи','lift']],(D.cross||[]),'lift',null,
+    x=>`<td class="l">${x.c1}</td><td class="l">${x.c2}</td><td>${fmtF(x.cnt)}</td><td><b>${x.lift}</b></td>`);
+  $('fr_catx_s').textContent=(D.cross||[]).length+' пар категорий';
   // График «Чистая прибыль по категориям» (валовая − списания) убран: списаний за 8 месяцев
   // 10 288 ₴ на 287 млн выручки (0,004%), из них 5 649 ₴ — «Продавцам в счёт зп». Без вычета
   // это была бы копия колонки «Прибыль ₴» в сводке категорий на «Обзоре».
@@ -3687,6 +3715,7 @@ $('cStSup').classList.remove('hasval');renderStale();
 $('fMonth').onchange=e=>{S.month=e.target.value;S.prSel=null;render();};
 $('fCmp').onchange=e=>{S.cmp=e.target.value;render();};
 $('supDim').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.supDim=b.dataset.v;render();};
+$('xKind').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.xKind=b.dataset.v;render();};
 $('supMet').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.supMet=b.dataset.v;render();};
 // Магазин/Категория/Поставщик — через мультиселект (initMS), отдельные обработчики не нужны
 let qt;$('fQ').oninput=e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.value.trim();render();},250);};

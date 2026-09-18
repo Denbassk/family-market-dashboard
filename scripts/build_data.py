@@ -44,7 +44,7 @@ try:
 except Exception as e:
     print("returns merge skipped:", e)
 for k in ["moves","moves_summary","oos","oos_nonstock","unmatched_items","unmatched_total","dead_items","dead_by_store","dead_by_cat","dead_by_supplier","dead_total","stock_as_of",
-          "cross","cross_items","cross_variants","writeoffs_by_store","writeoffs_top","writeoffs_by_cat","writeoffs_by_supplier","culinary_writeoffs"]:
+          "cross","cross_items","cross_stats","writeoffs_by_store","writeoffs_top","writeoffs_by_cat","writeoffs_by_supplier","culinary_writeoffs"]:
     if k in p: full[k]=p[k]
 json.dump(full, open(DOCS,"w", encoding="utf-8"), ensure_ascii=False, separators=(",",":"))
 print("merged -> docs/full_data.json  (moves:", len(full.get("moves",[])), ")")
