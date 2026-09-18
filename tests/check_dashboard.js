@@ -742,6 +742,61 @@ function reportSuite() {
   });
   add('Отчёт перекрёстно: каждая колонка == by_category',
       bad.length === 0, bad.length ? bad.join(', ') : x.cols.map(n => n + ' ' + Math.round(x.byCol[n])).join(' · '), '0 расхождений');
+
+  // ТОВАРЫ x МАГАЗИНЫ (2026-09-18). Куб prod_store годовой — месяца в нём нет. Поэтому
+  // разрез обязан (а) на полном периоде совпасть с обычным отчётом по товарам и
+  // (б) на неполном честно отказаться, а не отдать годовые цифры под видом месячных.
+  const p = w.eval(`(function(){
+    var CL=function(){${CLEAR}S.rpFrom='all';S.rpTo='all';S.rpMetric='rev';S.rpSource='sales';S.rpMode='cross';S.rpDim='products';};
+    var cat=(D.by_category.find(function(c){return c.category==='Хот-дог';})||D.by_category[3]);
+    CL(); S.cat=[cat.category];
+    var c=rpCross('products',monthsInRange());
+    if(!c||c.need)return {blocked:c&&c.need};
+    var cs=c.rows.reduce(function(s,o){return s+o.total;},0);
+    var ds=reportPivot('products',monthsInRange()).reduce(function(s,o){return s+o.total;},0);
+    // сумма по колонкам одной строки == её итог: клетки не теряются и не двоятся
+    var r0=c.rows[0]||{name:'',total:0}, cells=0;
+    c.cols.forEach(function(n,i){cells+=(r0['c'+i]||0);});
+    // неполный период: последний месяц отдельно
+    var mos=(D.monthly||[]).map(function(m){return m.mo;});
+    var last=mos[mos.length-1];
+    CL(); S.cat=[cat.category]; S.rpFrom=last; S.rpTo=last;
+    var part=rpCross('products',monthsInRange());
+    ${CLEAR}
+    return {catName:cat.category, n:c.rows.length, ncol:c.cols.length, cs:cs, ds:ds,
+            r0:r0.name, r0t:r0.total, cells:cells,
+            partNeed:!!(part&&part.need), partRows:(part&&part.rows)?part.rows.length:0};
+  })()`);
+  if (!p || p.blocked) {
+    skip('Отчёт перекрёстно: товары x магазины', p && p.blocked ? p.blocked : 'нет куба prod_store');
+  } else {
+    add('Отчёт перекрёстно: товары x магазины == обычному разрезу по товарам',
+        off(p.cs, p.ds) < 0.05,
+        Math.round(p.cs) + ' против ' + Math.round(p.ds) + ' («' + p.catName + '», ' + p.n + ' позиций x ' + p.ncol + ' точек)', '<0,05%');
+    add('Отчёт перекрёстно: клетки строки складываются в её итог',
+        off(p.cells, p.r0t) < 0.05, '«' + p.r0 + '» ' + Math.round(p.cells) + ' против ' + Math.round(p.r0t), '<0,05%');
+    add('Отчёт перекрёстно: на неполном периоде товары x магазины отказывают, а не врут',
+        p.partNeed && p.partRows === 0, p.partNeed ? 'отказ с объяснением' : 'отдал ' + p.partRows + ' строк годовых цифр', 'отказ');
+
+    // График «Динамика по месяцам» рисуется из o.by. У куба месяцев нет, поэтому ряд
+    // достраивается из prod_month — и обязан сойтись с итогом строки, иначе под таблицей
+    // будет чужая кривая. С выбранным магазином такого ряда нет — график должен гаснуть.
+    const ch = w.eval(`(function(){
+      var CL=function(){${CLEAR}S.rpFrom='all';S.rpTo='all';S.rpMetric='rev';S.rpSource='sales';S.rpMode='cross';S.rpDim='products';};
+      var cat=(D.by_category.find(function(c){return c.category==='Хот-дог';})||D.by_category[3]);
+      CL(); S.cat=[cat.category];
+      var c=rpCross('products',monthsInRange()), mos=monthsInRange();
+      var r0=c.rows[0], ser=mos.reduce(function(s,m){return s+(r0.by[m]||0);},0);
+      CL(); S.cat=[cat.category]; S.store=[D.stores[3]];
+      var c2=rpCross('products',monthsInRange());
+      ${CLEAR}
+      return {ser:ser, tot:r0.total, name:r0.name, noChart:!!(c2&&c2.noChart), cols2:(c2&&c2.cols)?c2.cols.length:0};
+    })()`);
+    add('Отчёт перекрёстно: помесячный ряд графика сходится с итогом строки',
+        off(ch.ser, ch.tot) < 0.5, '«' + ch.name + '» ' + Math.round(ch.ser) + ' против ' + Math.round(ch.tot), '<0,5%');
+    add('Отчёт перекрёстно: при выбранном магазине график гасится, а не рисует нули',
+        ch.noChart && ch.cols2 === 1, ch.noChart ? 'график снят, колонок ' + ch.cols2 : 'рисует нулевую линию', 'снят');
+  }
 }
 
   tabsSuite(); crossSuite(); returnsSuite(); revisionSuite(); trendSuite(); supplierSuite(); reportSuite();

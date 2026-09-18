@@ -1824,7 +1824,7 @@ let D=null, charts={};
 // свежую страницу от закэшированной: 18.09.2026 полдня ушло на выяснение, почему новый
 // режим отчёта «есть в файле, но нет на экране» (оказался кэш). Правило: меняешь
 // index.html — двигаешь эту строку.
-const UI_BUILD='2026-09-18 06:21 UTC';
+const UI_BUILD='2026-09-18 08:40 UTC';
 const S={month:'all',store:[],cat:[],sup:[],q:'',abc:'all',noOff:false,mxStatus:'all',rpDim:'products',rpMetric:'rev',rpSource:'sales',rpMode:'detail',rpFrom:'all',rpTo:'all',tab:'overview',prSel:null,retScope:'rp',cmp:'prev',supDim:'mx',supMet:'sales'};
 function monthSel(){return S.month&&S.month!=='all';}
 function monthN(){return +S.month;}
@@ -2257,10 +2257,11 @@ async function load(){
   const r=await fetch('full_data.json?t='+Date.now()); D=await r.json();
   wpReset();
   const per=D.period?('период: <b>'+fmtD(D.period.start)+' — '+fmtD(D.period.end)+'</b> ('+D.period.days+' дн.)'):'';
-  // ОТСТАВАНИЕ ПРОДАЖ. Дата последнего чека в данных лежала только внутри строки «период»,
-  // и чтобы понять «подтянулось ли всё», приходилось считать в уме. Теперь разрыв между
-  // сегодня и последней продажей подписан словами и подсвечен: день-два — норма
-  // (Торгсофт выгружает с задержкой), от трёх суток — повод идти смотреть загрузку.
+  // ОТСТАВАНИЕ ПРОДАЖ. Дата последнего чека лежала только внутри строки «период», и чтобы
+  // понять «подтянулось ли всё», приходилось считать в уме. ВАЖНО: продажи владелец
+  // выгружает из Торгсофта РУКАМИ, автоматической заливки чеков нет. Поэтому разрыв —
+  // это «когда последний раз выгружали», а не признак сбоя; цвет лишь напоминает,
+  // что свежих дней в отчётах нет.
   const lag=(()=>{
     if(!(D.period&&D.period.end))return '';
     const e=new Date(D.period.end+'T00:00:00'), t=new Date();
@@ -2268,7 +2269,7 @@ async function load(){
     if(!isFinite(d))return '';
     const word=d<=0?'сегодня':d===1?'вчера':(d+' '+(d%10===1&&d%100!==11?'день':(d%10>=2&&d%10<=4&&(d%100<10||d%100>=20)?'дня':'дней'))+' назад');
     const col=d<=1?'#22c55e':(d<=2?'#eab308':'#ef4444');
-    return '<br><span title="Дата последнего чека в выгрузке. День-два отставания — норма, больше — проверьте, отработала ли ночная загрузка Торгсофта.">'
+    return '<br><span title="Дата последнего чека в данных. Продажи выгружаются из Торгсофта ВРУЧНУЮ, поэтому отставание показывает, насколько давно была выгрузка, а не поломку. Цвет — просто напоминание: красный значит, что свежих дней в отчётах нет.">'
       +'последняя продажа: <b style="color:'+col+'">'+fmtD(D.period.end)+'</b> <span class="muted">· '+word+'</span></span>';
   })();
   $('upd').innerHTML='обновлено: <b>'+(D.updated_at||'—')+'</b><br>'+(D.year||'')+' год · '+D.kpi.stores+' магазинов · '+fmtF(D.kpi.skus)+' SKU<br>'+per+lag+'<br><span title="Версия самого интерфейса. Если после деплоя тут старая дата — браузер или Cloudflare отдают кэш: откройте адрес с ?v=2 или в приватном окне.">интерфейс: <b>'+UI_BUILD+'</b></span>';
@@ -2541,6 +2542,45 @@ function rpCube(dim,months){
 // Источник — те же кубы пар, что и у обычного разреза, поэтому суммы сходятся со строками.
 function rpCross(dim,months){
   const hasSt=!allSel(S.store), hasCat=!allSel(S.cat), hasSup=!allSel(S.sup);
+  // ТОВАРЫ x МАГАЗИНЫ — из годового куба prod_store [товар, магазин, выручка, прибыль, кол-во].
+  // Месяца в кубе нет, поэтому разрез доступен только на полном периоде: при выборе
+  // «Сен–Сен» цифры были бы годовыми под видом месячных, а это хуже, чем отказ.
+  if(dim==='products'){
+    if(!(D.prod_store&&D.products&&D.stores))return null;
+    const full=(months.length===((D.monthly||[]).length||0));
+    if(!full)return {need:'период должен быть полным: помесячного куба «товар × магазин» нет, а годовой нельзя показывать под видом выбранных месяцев'};
+    const P=D.products, STS=D.stores;
+    // строки — товары текущего среза (та же выборка, что и в обычном отчёте)
+    const wp=workProducts(); const keep={}; wp.forEach(x=>keep[x.p]=1);
+    const pidx={}; P.forEach((x,i)=>{if(keep[x.p])pidx[i]=x.p;});
+    // колонки — выбранные магазины, иначе все (обрежутся до 14 по обороту)
+    const okS={}; STS.forEach((st,i)=>{if(inSel(st,S.store))okS[i]=1;});
+    const met=S.rpMetric, vi=met==='gp'?3:met==='qty'?4:2;
+    const map={}, colTot={};
+    for(const r of D.prod_store){
+      const nm=pidx[r[0]]; if(nm===undefined||!okS[r[1]])continue;
+      const st=STS[r[1]], v=r[vi]||0;
+      const o=map[nm]||(map[nm]={name:nm,by:{},q:{},cols:{},total:0,qtot:0,rev:0,gp:0});
+      o.cols[st]=(o.cols[st]||0)+v; o.total+=v; o.qtot+=(r[4]||0);
+      o.rev+=(r[2]||0); o.gp+=(r[3]||0); colTot[st]=(colTot[st]||0)+v;
+    }
+    const cols=Object.keys(colTot).sort((a,b)=>colTot[b]-colTot[a]);
+    const out=Object.values(map);
+    out.forEach(o=>{cols.forEach((c,i)=>{o['c'+i]=o.cols[c]||0;});o.mrg=o.rev?+(o.gp/o.rev*100).toFixed(1):0;});
+    // График «Динамика по месяцам» рисуется из o.by, а в кубе месяцев нет — без этого
+    // он был бы плоской нулевой линией под непустой таблицей. Помесячный ряд по позиции
+    // есть в prod_month по всей сети (0,1% выручки в него не попало — хвост), поэтому
+    // при выбранном магазине такого ряда не существует и график честно гасим.
+    const wholeNet=allSel(S.store);
+    if(wholeNet){
+      const mk=met==='gp'?'gp':met==='qty'?'qty':'rev';
+      for(const r of (D.prod_month||[])){
+        const o=map[r.p]; if(!o)continue;
+        o.by[r.mo]=(o.by[r.mo]||0)+(r[mk]||0); o.q[r.mo]=(o.q[r.mo]||0)+(r.qty||0);
+      }
+    }
+    return {rows:out.sort((a,b)=>b.total-a.total), cols:cols, colName:'магазин', yearly:true, noChart:!wholeNet};
+  }
   let rows=null,names=null,sel=null,rowIsStore=false,colName='';
   if(dim==='store'&&hasCat){ rows=D.store_cat_month; names=D.scm_cats; sel=S.cat; rowIsStore=true; colName='категория'; }
   else if(dim==='store'&&hasSup){ rows=D.store_sup_month; names=D.ssm_sups; sel=S.sup; rowIsStore=true; colName='поставщик'; }
@@ -2646,16 +2686,16 @@ function renderReport(){
   // на колонки второго измерения — иначе строка не помещается на экран.
   let CROSS=null;
   if(S.rpMode==='cross'){
-    CROSS=(S.rpSource==='incoming'||S.q||(S.abc&&S.abc!=='all')||S.noOff||dim==='products')?null:rpCross(dim,months);
+    CROSS=(S.rpSource==='incoming'||S.q||(S.abc&&S.abc!=='all')||S.noOff)?null:rpCross(dim,months);
+    if(CROSS&&CROSS.need){RP_NOTE=CROSS.need;CROSS=null;}
     if(CROSS&&CROSS.cols.length>14)CROSS.cols=CROSS.cols.slice(0,14);
     if(CROSS)rows=CROSS.rows;
     else{
       // Молчаливый откат к обычному разрезу — это то, из-за чего человек потом смотрит
       // на цифру и не понимает, что видит. Объясняем, почему перекрёстно не вышло.
-      RP_NOTE = (dim==='products') ? 'перекрёстно по товарам нельзя: помесячного куба «товар × магазин» в данных нет'
-        : (S.rpSource==='incoming') ? 'перекрёстно по закупкам нельзя: в приходах нет разреза «магазин × категория»'
+      RP_NOTE = RP_NOTE || ((S.rpSource==='incoming') ? 'перекрёстно по закупкам нельзя: в приходах нет разреза «магазин × категория»'
         : (S.q||(S.abc&&S.abc!=='all')||S.noOff) ? 'перекрёстно не работает вместе с ABC, поиском и «скрыть технические» — снимите их'
-        : 'выберите второе измерение: при группировке по магазинам — категории или поставщиков, при группировке по категориям — магазины';
+        : 'выберите второе измерение: при группировке по магазинам — категории или поставщиков, при группировке по категориям — магазины');
     }
   }
   if(S.rpMode==='total'&&rows.length){
@@ -2684,10 +2724,20 @@ function renderReport(){
   const rpM=(S.rpSource==='incoming')?'':(S.rpMetric==='rev'?'revenue':S.rpMetric==='gp'?'gp':'qty');
   kpiCards('rp_kpis',[['Итого',fmt(gtot),'',rpM],['Данные',srcN],['Метрика',rpMetricLabel()],['Строк',fmt(rows.length)],['Месяцев',fmt(months.length)]]);
   const top=rows.slice(0,8);
+  const rpCard=$('rp_chart').closest('.card');
+  if(CROSS&&CROSS.noChart){
+    // помесячного ряда для «позиция × выбранный магазин» в данных нет — пустая карточка
+    // с нулевой линией врала бы сильнее, чем её отсутствие, поэтому прячем весь блок.
+    // (notMerge без осей роняет echarts, но сюда мы уже не идём — график не перерисовываем)
+    if(rpCard)rpCard.style.display='none';
+    $('rp_cs').textContent='';
+  } else {
+  if(rpCard)rpCard.style.display='';
   chart('rp_chart').setOption({grid:{...baseGrid,bottom:30,right:20,top:34},tooltip:tt({trigger:'axis',valueFormatter:v=>fmt(v)}),
     legend:{type:'scroll',textStyle:{color:TXT,fontSize:10},top:0},xAxis:axCat(months.map(m=>MONTHS[m])),yAxis:axV(),
     series:top.map(o=>({name:(''+o.name).length>22?(''+o.name).slice(0,22)+'…':o.name,type:'line',smooth:true,data:months.map(m=>o.by[m]||0)}))},true);
   chart('rp_chart').resize();
+  }
   const monCols=months.map(m=>[MONTHS[m],'m'+m]);
   const showQty=S.rpMetric!=='qty';
   const qtyCols=showQty?months.map(m=>[MONTHS[m]+', шт','q'+m]):[];
@@ -2704,7 +2754,8 @@ function renderReport(){
     onRow=dim==='category'?(o=>setFilter('cat',o.name)):dim==='store'?(o=>setFilter('store',o.name)):(o=>setFilter('sup',o.name));
     tableSort('rp_tab',head,rows,'total',onRow,rowHtml);
     $('rp_s').textContent=rows.length+' строк × '+cn.length+' колонок ('+CROSS.colName+') · '+srcN+' · '+rpMetricLabel()
-      +(months.length?' · '+MONTHS[months[0]]+'–'+MONTHS[months[months.length-1]]:'');
+      +(CROSS.yearly?' · за весь год (куб позиция×магазин без месяцев)':(months.length?' · '+MONTHS[months[0]]+'–'+MONTHS[months[months.length-1]]:''))
+      +(CROSS.noChart?' · график по месяцам для выбранной точки недоступен':'');
     return;
   }
   if(dim==='products'){
